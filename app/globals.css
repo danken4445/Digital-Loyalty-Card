@@ -1,0 +1,199 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 10 10 10;
+    --foreground: 255 255 255;
+  }
+
+  html {
+    color-scheme: dark;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background-color: #0a0a0a;
+  }
+
+  body {
+    background-color: #0a0a0a;
+    color: #ffffff;
+    min-height: 100dvh;
+    touch-action: manipulation;
+  }
+
+  /* High-contrast focus-visible outline styles for accessibility */
+  *:focus-visible {
+    outline: 2px solid #ffffff;
+    outline-offset: 2px;
+  }
+}
+
+/* Subtle CSS monochrome topographic contour line pattern utility */
+.bg-topo-pattern {
+  background-color: #0a0a0a;
+  background-image:
+    radial-gradient(ellipse 90% 50% at 50% -20%, rgba(255, 255, 255, 0.05), transparent 70%),
+    repeating-radial-gradient(
+      circle at 50% -10%,
+      transparent 0,
+      transparent 32px,
+      rgba(39, 39, 42, 0.4) 33px,
+      transparent 34px
+    ),
+    repeating-radial-gradient(
+      circle at 100% 100%,
+      transparent 0,
+      transparent 40px,
+      rgba(39, 39, 42, 0.25) 41px,
+      transparent 42px
+    );
+}
+
+/*
+ * Stamp animation: one orchestrated moment after a successful tap.
+ * Sequence (all timings relative to page load):
+ *   0ms     newest slot is empty; the stamp hovers above, big and tilted
+ *   120ms   stamp slams down (fast ease-in), overshoots, settles at its hand-pressed angle
+ *   420ms   impact: ink ring ripples out, card nudges down 2px, counter rolls to the new number
+ *   600ms   status banner slides in
+ * Every animation is replaced by a short fade when the phone asks for reduced motion.
+ */
+@layer components {
+  .stamp-slam {
+    animation: stamp-slam 520ms cubic-bezier(0.55, 0, 0.75, 0.3) 120ms both;
+  }
+
+  .stamp-ink-ring {
+    animation: stamp-ink-ring 700ms cubic-bezier(0.2, 0.7, 0.3, 1) 420ms both;
+  }
+
+  .card-impact {
+    animation: card-impact 260ms ease-out 420ms both;
+  }
+
+  .count-roll {
+    animation: count-roll 360ms cubic-bezier(0.3, 1.4, 0.5, 1) 420ms both;
+  }
+
+  .banner-enter {
+    animation: banner-enter 320ms cubic-bezier(0.2, 0.8, 0.3, 1) both;
+  }
+
+  .banner-enter-late {
+    animation: banner-enter 320ms cubic-bezier(0.2, 0.8, 0.3, 1) 600ms both;
+  }
+
+  /* Coffee beans scatter from the 10th slot when the free coffee is earned */
+  .bean-burst > span {
+    animation: bean-burst 760ms cubic-bezier(0.15, 0.8, 0.3, 1) 440ms both;
+  }
+}
+
+@keyframes stamp-slam {
+  0% {
+    opacity: 0;
+    transform: translateY(-28px) scale(2.1) rotate(calc(var(--stamp-tilt, 0deg) - 16deg));
+  }
+  55% {
+    opacity: 1;
+  }
+  58% {
+    transform: translateY(0) scale(0.9) rotate(var(--stamp-tilt, 0deg));
+    animation-timing-function: cubic-bezier(0.3, 1.6, 0.5, 1);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotate(var(--stamp-tilt, 0deg));
+  }
+}
+
+@keyframes stamp-ink-ring {
+  0% {
+    opacity: 0.9;
+    transform: scale(0.85);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.9);
+  }
+}
+
+@keyframes card-impact {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  35% {
+    transform: translateY(2px);
+  }
+}
+
+@keyframes count-roll {
+  0% {
+    opacity: 0;
+    transform: translateY(60%);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes banner-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes bean-burst {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0deg) scale(0.6);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--bean-x), var(--bean-y)) rotate(var(--bean-spin)) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stamp-slam,
+  .count-roll,
+  .banner-enter,
+  .banner-enter-late {
+    animation: fade-in 200ms ease-out both;
+  }
+
+  .card-impact {
+    animation: none;
+  }
+
+  .stamp-ink-ring,
+  .bean-burst > span {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Subtle streetwear grid pattern utility */
+.bg-street-grid {
+  background-size: 24px 24px;
+  background-image:
+    linear-gradient(to right, rgba(39, 39, 42, 0.25) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(39, 39, 42, 0.25) 1px, transparent 1px);
+}
