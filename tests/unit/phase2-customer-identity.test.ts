@@ -195,6 +195,8 @@ describe('Phase 2 Customer Identity & Card Provisioning Test Suite', () => {
         stampsRedeemed: 0,
         availableStamps: 4,
         lastStampedAt: '2026-11-02T03:00:00.000Z',
+        createdAt: mockUser.created_at,
+        cardsCompleted: 0,
         instagramUpsizeClaimed: false,
       });
 
@@ -236,6 +238,8 @@ describe('Phase 2 Customer Identity & Card Provisioning Test Suite', () => {
         stampsRedeemed: 0,
         availableStamps: 0,
         lastStampedAt: null,
+        createdAt: mockUser.created_at,
+        cardsCompleted: 0,
         instagramUpsizeClaimed: false,
       });
     });

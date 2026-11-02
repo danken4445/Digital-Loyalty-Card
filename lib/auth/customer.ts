@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { STAMP_RULES } from '@/lib/config';
 import type { CustomerBalanceView, CustomerCardState } from '@/lib/contracts';
 import { logSecurityEvent } from '@/lib/security/logger';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
@@ -58,17 +59,25 @@ export async function getAuthenticatedCustomerCardState(): Promise<CustomerCardS
 
   // A perk lookup failure must not take down the stamp card; the perk is hidden instead
   if (perkError) {
-    logSecurityEvent('warn', 'perk_claims_lookup_failed', { customerId: user.id });
+    logSecurityEvent('warn', 'perk_claims_lookup_failed', {
+      customerId: user.id,
+      error: perkError.message,
+    });
   }
+
+  const totalStamps = data?.total_stamps ?? 0;
+  const cardsCompleted = Math.max(0, Math.floor(totalStamps / STAMP_RULES.rewardThreshold));
 
   return {
     customerId: user.id,
     isAnonymous: Boolean(user.is_anonymous),
     email: user.email ?? null,
-    totalStamps: data?.total_stamps ?? 0,
+    totalStamps,
     stampsRedeemed: data?.stamps_redeemed ?? 0,
     availableStamps: data?.available_stamps ?? 0,
     lastStampedAt: data?.last_stamped_at ?? null,
+    createdAt: user.created_at ?? null,
+    cardsCompleted,
     instagramUpsizeClaimed: perkError ? undefined : Boolean(upsizeClaim),
   };
 }

@@ -106,3 +106,43 @@ export function getRemainingCooldownMinutes(
 
   return Math.min(cooldownMinutes, Math.ceil(remainingMs / (60 * 1000)));
 }
+
+/**
+ * Pure display calculation of how many full loyalty cards the customer has completed.
+ * Based on lifetime total stamps earned divided by the reward threshold (10 stamps per card).
+ */
+export function calculateCardsCompleted(
+  totalStamps: number,
+  rewardThreshold: number = STAMP_RULES.rewardThreshold,
+): number {
+  const normalized = Number.isFinite(totalStamps) ? Math.max(0, Math.floor(totalStamps)) : 0;
+  return rewardThreshold > 0 ? Math.floor(normalized / rewardThreshold) : 0;
+}
+
+const manilaMemberDateFormatter = new Intl.DateTimeFormat('en-PH', {
+  timeZone: SHOP_CONFIG.timezone,
+  year: 'numeric',
+  month: 'short',
+  day: 'numeric',
+});
+
+/**
+ * Formats a join timestamp into a human-friendly date string for member display
+ * (e.g. 'Nov 2, 2026') in Asia/Manila timezone.
+ * Pure function: timestamp is passed explicitly.
+ */
+export function formatMemberSince(timestamp: Date | string | number | null | undefined): string {
+  if (timestamp === null || timestamp === undefined || timestamp === '') {
+    return 'Recently';
+  }
+  try {
+    const date = timestamp instanceof Date ? timestamp : new Date(timestamp);
+    if (Number.isNaN(date.getTime())) {
+      return 'Recently';
+    }
+    return manilaMemberDateFormatter.format(date);
+  } catch {
+    return 'Recently';
+  }
+}
+

@@ -88,15 +88,19 @@ export type ServerEnv = z.infer<typeof serverEnvSchema>;
 /**
  * Validates and returns public environment variables safe for client and server.
  */
-export function getPublicEnv(
-  envSource: Record<string, string | undefined> = process.env,
-): PublicEnv {
+export function getPublicEnv(envSource?: Record<string, string | undefined>): PublicEnv {
+  const source = envSource ?? {
+    NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
+    NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    NEXT_PUBLIC_TURNSTILE_SITE_KEY: process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY,
+  };
   return publicEnvSchema.parse({
-    NEXT_PUBLIC_SITE_URL: envSource.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000',
-    NEXT_PUBLIC_SUPABASE_URL: envSource.NEXT_PUBLIC_SUPABASE_URL,
-    NEXT_PUBLIC_SUPABASE_ANON_KEY: envSource.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    NEXT_PUBLIC_SITE_URL: source.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000',
+    NEXT_PUBLIC_SUPABASE_URL: source.NEXT_PUBLIC_SUPABASE_URL,
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: source.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     NEXT_PUBLIC_TURNSTILE_SITE_KEY:
-      envSource.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? '1x00000000000000000000AA',
+      source.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? '1x00000000000000000000AA',
   });
 }
 

@@ -64,6 +64,17 @@ export function buildSecurityHeaders(): SecurityHeaderItem[] {
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  env: {
+    NEXT_PUBLIC_SITE_URL:
+      process.env.NEXT_PUBLIC_SITE_URL ?? 'https://digital-loyalty-card.danken4445.workers.dev',
+    NEXT_PUBLIC_SUPABASE_URL:
+      process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'https://oauwcwzkokdnotwjkihp.supabase.co',
+    NEXT_PUBLIC_SUPABASE_ANON_KEY:
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
+      'sb_publishable_5qsNQrkjB3uXty70WXT4Tw_2RIbeBOU',
+    NEXT_PUBLIC_TURNSTILE_SITE_KEY:
+      process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? '0x4AAAAAAFwoWKM0rFNNkGUg',
+  },
   async headers() {
     return [
       {

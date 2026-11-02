@@ -266,6 +266,14 @@ export interface CustomerCardState {
   availableStamps: number;
   lastStampedAt: string | null;
   /**
+   * ISO string timestamp when the customer joined / card was created.
+   */
+  createdAt?: string | null;
+  /**
+   * Total number of 10-stamp loyalty cards completed by this customer.
+   */
+  cardsCompleted?: number;
+  /**
    * True once staff has granted the one-time Instagram follow upsize to this card.
    * Undefined when the claim status could not be loaded; the perk is then hidden.
    */

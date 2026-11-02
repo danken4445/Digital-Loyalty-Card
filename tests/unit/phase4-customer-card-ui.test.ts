@@ -823,10 +823,13 @@ describe('Phase 4 Customer Card UI & Signed Redemption Token Test Suite', () => 
         expect(html).toContain('Card #11111111');
         expect(html).toContain('Total Earned: 5');
         expect(html).toContain('Stamp 5 of 10, filled (50% off milestone)');
+        expect(html).toContain('Member Since');
+        expect(html).toContain('Card Completion Counter');
+        expect(html).toContain('0 CARDS COMPLETED');
         expect(html).not.toContain('REWARD UNLOCKED • FREE COFFEE');
       });
 
-      it('renders active customer card view with 10 stamps including reward redemption panel', async () => {
+      it('renders active customer card view with 10 stamps including reward redemption panel and completed cards counter', async () => {
         const cardState: CustomerCardState = {
           customerId: TEST_CUSTOMER_ID,
           isAnonymous: false,
@@ -834,6 +837,7 @@ describe('Phase 4 Customer Card UI & Signed Redemption Token Test Suite', () => 
           stampsRedeemed: 0,
           availableStamps: 10,
           lastStampedAt: '2026-11-01T12:00:00.000Z',
+          createdAt: '2026-10-15T08:00:00.000Z',
         };
         vi.mocked(getAuthenticatedCustomerCardState).mockResolvedValue(cardState);
 
@@ -847,6 +851,35 @@ describe('Phase 4 Customer Card UI & Signed Redemption Token Test Suite', () => 
         expect(html).toContain('REWARD UNLOCKED • FREE COFFEE');
         expect(html).toContain('REFRESH QR CODE');
         expect(html).toContain('Verification Code');
+        expect(html).toContain('Member Since Oct 15, 2026');
+        expect(html).toContain('1 CARD COMPLETED');
+        expect(html).toContain('1 Card');
+      });
+
+      it('displays joined date and lifetime card completion counter accurately for multi-card customer', async () => {
+        const cardState: CustomerCardState = {
+          customerId: TEST_CUSTOMER_ID,
+          isAnonymous: false,
+          totalStamps: 25,
+          stampsRedeemed: 20,
+          availableStamps: 5,
+          lastStampedAt: '2026-11-02T03:00:00.000Z',
+          createdAt: '2026-08-01T04:00:00.000Z',
+          cardsCompleted: 2,
+        };
+        vi.mocked(getAuthenticatedCustomerCardState).mockResolvedValue(cardState);
+
+        const pageElement = await CardPage({
+          searchParams: Promise.resolve({}),
+        });
+        const html = renderToStaticMarkup(pageElement);
+
+        expect(html).toContain('Member Since Aug 1, 2026');
+        expect(html).toContain('2 CARDS COMPLETED');
+        expect(html).toContain('2 Cards');
+        expect(html).toContain('Cards Completed');
+        expect(html).toContain('2 cards');
+        expect(html).toContain('Card Completion Counter');
       });
 
       it('renders StripResultParam banner when ?r=stamped is passed in searchParams', async () => {

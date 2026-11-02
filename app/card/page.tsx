@@ -3,7 +3,12 @@ import Link from 'next/link';
 import { BRAND_THEME, SHOP_CONFIG } from '@/lib/config';
 import { isStampResultCode, ROUTES, type IssuedRedeemToken } from '@/lib/contracts';
 import { getAuthenticatedCustomerCardState } from '@/lib/auth/customer';
-import { calculateStampProgress, formatManilaDateTime } from '@/lib/rules/display';
+import {
+  calculateCardsCompleted,
+  calculateStampProgress,
+  formatManilaDateTime,
+  formatMemberSince,
+} from '@/lib/rules/display';
 import { issueRedeemToken } from '@/lib/security/redeemToken';
 import { GetCardButton } from '@/components/card/GetCardButton';
 import { OnboardingCard } from '@/components/card/OnboardingCard';
@@ -64,6 +69,9 @@ export default async function CardPage({ searchParams }: CardPageProps) {
   const lastVisitedText = cardState.lastStampedAt
     ? formatManilaDateTime(cardState.lastStampedAt)
     : null;
+  const memberSinceText = formatMemberSince(cardState.createdAt);
+  const cardsCompleted =
+    cardState.cardsCompleted ?? calculateCardsCompleted(cardState.totalStamps);
 
   // The newest stamp sits in slot N when the customer holds N stamps. Past 10 (stacked rewards)
   // the new stamp isn't on the visible grid, so nothing animates.
@@ -120,6 +128,9 @@ export default async function CardPage({ searchParams }: CardPageProps) {
             <p className="text-sm text-neutral-300 mt-1.5 lowercase first-letter:uppercase">
               {SHOP_CONFIG.tagline}
             </p>
+            <p className="text-xs text-neutral-400 mt-1 font-medium">
+              Member Since {memberSinceText}
+            </p>
           </div>
         </header>
 
@@ -130,9 +141,47 @@ export default async function CardPage({ searchParams }: CardPageProps) {
           <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full border border-plug-border text-neutral-300">
             {cardState.isAnonymous ? 'ANONYMOUS PASS' : 'BACKED UP PASS'}
           </span>
+          <span
+            data-testid="card-completion-badge"
+            className="text-[11px] font-semibold px-2.5 py-1 rounded-full border border-plug-border bg-plug-elevated text-white flex items-center gap-1.5"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" aria-hidden="true" />
+            <span>
+              {cardsCompleted} {cardsCompleted === 1 ? 'CARD COMPLETED' : 'CARDS COMPLETED'}
+            </span>
+          </span>
         </div>
 
-        <div className="mt-6 pt-5 border-t border-plug-border">
+        {/* Card Completion Counter Strip */}
+        <div
+          data-testid="card-completion-counter"
+          aria-label={`Card Completion Counter: ${cardsCompleted} completed`}
+          className="mt-4 flex items-center justify-between rounded-2xl border border-plug-border bg-plug-elevated/70 px-4 py-2.5 text-xs text-neutral-300"
+        >
+          <div className="flex items-center gap-2">
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white/10 text-white">
+              <svg
+                className="h-3.5 w-3.5 text-white"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <path d="m9 12 2 2 4-4" />
+              </svg>
+            </span>
+            <span className="font-medium text-neutral-200">Card Completion Counter</span>
+          </div>
+          <span className="font-mono font-bold text-white text-sm tabular-nums">
+            {cardsCompleted} {cardsCompleted === 1 ? 'Card' : 'Cards'}
+          </span>
+        </div>
+
+        <div className="mt-5 pt-5 border-t border-plug-border">
           <StampGrid
             availableStamps={cardState.availableStamps}
             justStampedSlot={justStampedSlot}
@@ -167,6 +216,14 @@ export default async function CardPage({ searchParams }: CardPageProps) {
             <dt className="text-plug-muted">Card</dt>
             <dd className="text-right font-semibold text-white tabular-nums">
               Card #{cardState.customerId.slice(0, 8).toUpperCase()}
+            </dd>
+            <dt className="text-plug-muted">Member Since</dt>
+            <dd className="text-right text-neutral-300 tabular-nums">
+              {memberSinceText}
+            </dd>
+            <dt className="text-plug-muted">Cards Completed</dt>
+            <dd className="text-right font-semibold text-white tabular-nums">
+              {cardsCompleted} {cardsCompleted === 1 ? 'card' : 'cards'}
             </dd>
             <dt className="text-plug-muted">History</dt>
             <dd className="text-right text-neutral-300 tabular-nums">

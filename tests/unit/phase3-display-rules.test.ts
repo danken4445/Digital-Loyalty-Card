@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  calculateCardsCompleted,
   calculateStampProgress,
   formatManilaDate,
   formatManilaDateTime,
+  formatMemberSince,
   getRemainingCooldownMinutes,
 } from '@/lib/rules/display';
 import { STAMP_RULES } from '@/lib/config';
@@ -252,11 +254,66 @@ describe('lib/rules/display', () => {
     });
   });
 
+  describe('calculateCardsCompleted', () => {
+    it('returns 0 when total stamps is 0 or less than 10', () => {
+      expect(calculateCardsCompleted(0)).toBe(0);
+      expect(calculateCardsCompleted(5)).toBe(0);
+      expect(calculateCardsCompleted(9)).toBe(0);
+    });
+
+    it('returns 1 when total stamps reaches rewardThreshold (10)', () => {
+      expect(calculateCardsCompleted(10)).toBe(1);
+      expect(calculateCardsCompleted(15)).toBe(1);
+      expect(calculateCardsCompleted(19)).toBe(1);
+    });
+
+    it('returns multiple completed cards for multiples of 10', () => {
+      expect(calculateCardsCompleted(20)).toBe(2);
+      expect(calculateCardsCompleted(25)).toBe(2);
+      expect(calculateCardsCompleted(30)).toBe(3);
+      expect(calculateCardsCompleted(100)).toBe(10);
+    });
+
+    it('handles negative, non-finite, and zero thresholds gracefully', () => {
+      expect(calculateCardsCompleted(-5)).toBe(0);
+      expect(calculateCardsCompleted(Number.NaN)).toBe(0);
+      expect(calculateCardsCompleted(Number.POSITIVE_INFINITY)).toBe(0);
+      expect(calculateCardsCompleted(20, 0)).toBe(0);
+      expect(calculateCardsCompleted(20, -10)).toBe(0);
+    });
+  });
+
+  describe('formatMemberSince', () => {
+    it('formats UTC ISO timestamp into Asia/Manila date string', () => {
+      // 03:00 UTC = 11:00 AM PHT on Nov 2, 2026
+      expect(formatMemberSince('2026-11-02T03:00:00.000Z')).toBe('Nov 2, 2026');
+      // 23:30 UTC on Nov 1 = 07:30 AM PHT on Nov 2, 2026
+      expect(formatMemberSince('2026-11-01T23:30:00.000Z')).toBe('Nov 2, 2026');
+      // 15:00 UTC on Nov 1 = 11:00 PM PHT on Nov 1, 2026
+      expect(formatMemberSince('2026-11-01T15:00:00.000Z')).toBe('Nov 1, 2026');
+    });
+
+    it('handles Date objects and epoch milliseconds', () => {
+      const date = new Date('2026-05-15T04:00:00.000Z');
+      expect(formatMemberSince(date)).toBe('May 15, 2026');
+      expect(formatMemberSince(date.getTime())).toBe('May 15, 2026');
+    });
+
+    it('returns "Recently" fallback for null, undefined, empty, or invalid input', () => {
+      expect(formatMemberSince(null)).toBe('Recently');
+      expect(formatMemberSince(undefined)).toBe('Recently');
+      expect(formatMemberSince('')).toBe('Recently');
+      expect(formatMemberSince('invalid-date')).toBe('Recently');
+    });
+  });
+
   describe('purity and clock isolation', () => {
     it('never calls Date.now() during execution', () => {
       const dateNowSpy = vi.spyOn(Date, 'now');
 
       calculateStampProgress(5);
+      calculateCardsCompleted(15);
+      formatMemberSince('2026-11-01T10:00:00Z');
       formatManilaDate('2026-11-01T10:00:00Z');
       formatManilaDateTime('2026-11-01T10:00:00Z');
       getRemainingCooldownMinutes('2026-11-01T10:00:00Z', '2026-11-01T10:15:00Z');
