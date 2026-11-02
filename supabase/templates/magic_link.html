@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="supported-color-schemes" content="dark" />
+    <title>Recover Your Loyalty Card — The Caffeine Plug</title>
+  </head>
+  <body
+    style="
+      margin: 0;
+      padding: 0;
+      background-color: #0a0a0a;
+      color: #ffffff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    "
+  >
+    <table
+      role="presentation"
+      width="100%"
+      cellpadding="0"
+      cellspacing="0"
+      border="0"
+      style="background-color: #0a0a0a; padding: 32px 16px;"
+    >
+      <tr>
+        <td align="center">
+          <!-- Main Card Container -->
+          <table
+            role="presentation"
+            width="100%"
+            cellpadding="0"
+            cellspacing="0"
+            border="0"
+            style="
+              max-width: 440px;
+              background-color: #121214;
+              border: 1px solid #27272a;
+              border-radius: 24px;
+              padding: 32px 24px;
+            "
+          >
+            <!-- Brand Header (Hosted on Supabase Public Storage) -->
+            <tr>
+              <td align="center" style="padding-bottom: 20px;">
+                <img
+                  src="https://oauwcwzkokdnotwjkihp.supabase.co/storage/v1/object/public/brand/logo-circle-dark.png"
+                  alt="The Caffeine Plug"
+                  width="88"
+                  height="88"
+                  style="
+                    display: block;
+                    width: 88px;
+                    height: 88px;
+                    border-radius: 9999px;
+                    background-color: #ffffff;
+                    color: #0a0a0a;
+                    padding: 4px;
+                    border: 2px solid #27272a;
+                  "
+                />
+              </td>
+            </tr>
+
+            <!-- Status Pill -->
+            <tr>
+              <td align="center" style="padding-bottom: 16px;">
+                <span
+                  style="
+                    display: inline-block;
+                    background-color: #ffffff;
+                    color: #0a0a0a;
+                    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+                    font-size: 10px;
+                    font-weight: 900;
+                    letter-spacing: 0.14em;
+                    text-transform: uppercase;
+                    padding: 5px 12px;
+                    border-radius: 9999px;
+                  "
+                >
+                  CARD RECOVERY &bull; MAGIC LINK
+                </span>
+              </td>
+            </tr>
+
+            <!-- Headline -->
+            <tr>
+              <td
+                align="center"
+                style="
+                  font-family: Impact, 'Arial Black', -apple-system, BlinkMacSystemFont, sans-serif;
+                  font-size: 26px;
+                  font-weight: 900;
+                  letter-spacing: 0.06em;
+                  text-transform: uppercase;
+                  color: #ffffff;
+                  padding-bottom: 8px;
+                "
+              >
+                RECOVER YOUR LOYALTY CARD
+              </td>
+            </tr>
+
+            <!-- Tagline -->
+            <tr>
+              <td
+                align="center"
+                style="
+                  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+                  font-size: 11px;
+                  letter-spacing: 0.1em;
+                  text-transform: uppercase;
+                  color: #a1a1aa;
+                  padding-bottom: 24px;
+                "
+              >
+                YOUR DAILY DOSE, STRAIGHT FROM THE PLUG
+              </td>
+            </tr>
+
+            <!-- Divider -->
+            <tr>
+              <td style="border-top: 1px solid #27272a; padding-bottom: 24px;"></td>
+            </tr>
+
+            <!-- Body Copy -->
+            <tr>
+              <td
+                align="center"
+                style="
+                  font-size: 14px;
+                  line-height: 1.6;
+                  color: #d4d4d8;
+                  padding-bottom: 22px;
+                "
+              >
+                Tap the button below to sign in as
+                <strong style="color: #ffffff;">{{ .Email }}</strong>
+                and restore your digital stamp card. Any stamps collected on this device will automatically merge into your backed-up card.
+              </td>
+            </tr>
+
+            <!-- Primary CTA Button -->
+            <tr>
+              <td align="center" style="padding-bottom: 24px;">
+                <a
+                  href="{{ .ConfirmationURL }}"
+                  target="_blank"
+                  style="
+                    display: inline-block;
+                    width: 100%;
+                    box-sizing: border-box;
+                    background-color: #ffffff;
+                    color: #0a0a0a;
+                    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+                    font-size: 13px;
+                    font-weight: 900;
+                    letter-spacing: 0.14em;
+                    text-transform: uppercase;
+                    text-decoration: none;
+                    text-align: center;
+                    padding: 15px 24px;
+                    border-radius: 14px;
+                    border: 2px solid #ffffff;
+                  "
+                >
+                  SIGN IN &amp; RECOVER MY CARD
+                </a>
+              </td>
+            </tr>
+
+            <!-- Info Box -->
+            <tr>
+              <td
+                style="
+                  background-color: #1c1c1f;
+                  border: 1px solid #27272a;
+                  border-radius: 14px;
+                  padding: 14px 16px;
+                  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+                  font-size: 11px;
+                  line-height: 1.5;
+                  color: #a1a1aa;
+                  text-align: center;
+                "
+              >
+                10 STAMPS = FREE COFFEE &bull; 5 STAMPS = 50% OFF
+              </td>
+            </tr>
+
+            <!-- Fallback Link -->
+            <tr>
+              <td
+                align="center"
+                style="
+                  padding-top: 24px;
+                  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+                  font-size: 11px;
+                  line-height: 1.5;
+                  color: #71717a;
+                  word-break: break-all;
+                "
+              >
+                Button not working? Copy and paste this link into your browser:<br />
+                <a
+                  href="{{ .ConfirmationURL }}"
+                  style="color: #a1a1aa; text-decoration: underline;"
+                >{{ .ConfirmationURL }}</a>
+              </td>
+            </tr>
+
+            <!-- Security Note -->
+            <tr>
+              <td
+                align="center"
+                style="
+                  padding-top: 20px;
+                  font-size: 11px;
+                  line-height: 1.5;
+                  color: #71717a;
+                "
+              >
+                If you didn&rsquo;t request this recovery link, you can safely ignore this email.
+              </td>
+            </tr>
+          </table>
+
+          <!-- Footer -->
+          <table
+            role="presentation"
+            width="100%"
+            cellpadding="0"
+            cellspacing="0"
+            border="0"
+            style="max-width: 440px; padding-top: 16px;"
+          >
+            <tr>
+              <td
+                align="center"
+                style="
+                  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+                  font-size: 10px;
+                  letter-spacing: 0.14em;
+                  text-transform: uppercase;
+                  color: #71717a;
+                "
+              >
+                THE CAFFEINE PLUG &bull; @THECAFFEINEPLUG8400
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

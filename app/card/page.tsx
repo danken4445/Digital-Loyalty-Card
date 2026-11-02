@@ -77,8 +77,8 @@ export default async function CardPage({ searchParams }: CardPageProps) {
   // the new stamp isn't on the visible grid, so nothing animates.
   const justStampedSlot =
     validResult === 'stamped' &&
-    cardState.availableStamps >= 1 &&
-    cardState.availableStamps <= progress.rewardThreshold
+      cardState.availableStamps >= 1 &&
+      cardState.availableStamps <= progress.rewardThreshold
       ? cardState.availableStamps
       : null;
 
@@ -104,9 +104,8 @@ export default async function CardPage({ searchParams }: CardPageProps) {
       {/* The card itself. On a fresh stamp it nudges down as the stamp lands (card-impact). */}
       <section
         aria-label="Active Loyalty Card Container"
-        className={`w-full max-w-[390px] bg-plug-surface/95 border border-plug-border rounded-3xl p-5 sm:p-6 shadow-[0_24px_60px_rgba(0,0,0,0.8)] backdrop-blur-md relative ${
-          justStampedSlot !== null ? 'card-impact' : ''
-        }`}
+        className={`w-full max-w-[390px] bg-plug-surface/95 border border-plug-border rounded-3xl p-5 sm:p-6 shadow-[0_24px_60px_rgba(0,0,0,0.8)] backdrop-blur-md relative ${justStampedSlot !== null ? 'card-impact' : ''
+          }`}
       >
         {/* Header mirrors the printed card: mascot logo on the left, headline on the right */}
         <header className="flex items-center gap-4">
@@ -261,7 +260,7 @@ export default async function CardPage({ searchParams }: CardPageProps) {
 
       {/* Streetwear Footer Note */}
       <footer className="w-full max-w-[390px] text-center text-[10px] font-mono tracking-widest text-plug-muted uppercase pt-4">
-        <span>THE CAFFEINE PLUG &copy; 2026 // STREETWEAR LOYALTY</span>
+        <span>THE CAFFEINE PLUG &copy; 2026</span>
       </footer>
     </main>
   );

@@ -79,10 +79,36 @@ Follow these numbered steps to set up your hosted Supabase database:
    - In the **Redirect URLs** list, click **Add URL** and add:
      ```text
      https://card.thecaffeineplug.ph/auth/callback
+     http://localhost:3000/auth/callback
      ```
    - Click **Save**.
 
-5. **Copy Your Supabase Connection Keys:**
+5. **Configure Google OAuth ("Back Up With Google"):**
+   - In [Google Cloud Console -> Credentials](https://console.cloud.google.com/apis/credentials), create an **OAuth 2.0 Client ID** (Web application).
+   - Under **Authorized redirect URIs**, add your Supabase callback URL:
+     ```text
+     https://<your-project-ref>.supabase.co/auth/v1/callback
+     ```
+   - In the Supabase dashboard, go to **Authentication** -> **Sign In / Providers** -> **Google**:
+     - Switch **Enable Sign in with Google** to **ON**.
+     - Paste your **Client ID** and **Client Secret** from Google Cloud Console.
+     - Click **Save**.
+
+6. **Customize Supabase Email Templates ("Back Up with Email" & "Recover Card"):**
+   - When an anonymous customer chooses **"Back Up with Email"**, Supabase sends the **Change Email Address** template (`email_change`). When a customer chooses **"Recover Existing Card"**, Supabase sends the **Magic Link** template (`magic_link`).
+   - In the Supabase dashboard, go to **Authentication** -> **Emails** (or **Email Templates**):
+     - **Template 1 — Change Email Address (`Back Up with Email`):**
+       - **Subject:** `Back up your Loyalty Card — The Caffeine Plug`
+       - **Body (Source HTML):** Copy and paste the contents of `supabase/templates/email_change.html`.
+     - **Template 2 — Magic Link (`Recover Existing Card`):**
+       - **Subject:** `Recover your Loyalty Card — The Caffeine Plug`
+       - **Body (Source HTML):** Copy and paste the contents of `supabase/templates/magic_link.html`.
+     - **Template 3 — Confirm sign up:**
+       - **Subject:** `Confirm your Loyalty Card — The Caffeine Plug`
+       - **Body (Source HTML):** Copy and paste the contents of `supabase/templates/confirmation.html`.
+     - Click **Save** on each template.
+
+7. **Copy Your Supabase Connection Keys:**
    - In Supabase, click the gear icon (**Project Settings**) at the bottom of the left sidebar.
    - Click **API** (`TO VERIFY` exact menu location).
    - Copy and save these three values into a private notepad for Step 4:

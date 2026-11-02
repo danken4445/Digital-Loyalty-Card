@@ -64,7 +64,7 @@ export default function CardLoading() {
 
       {/* Streetwear Footer */}
       <footer className="w-full max-w-[390px] text-center text-[10px] font-mono tracking-widest text-plug-muted uppercase pt-4">
-        <span>THE CAFFEINE PLUG &copy; 2026 // STREETWEAR LOYALTY</span>
+        <span>THE CAFFEINE PLUG &copy; 2026</span>
       </footer>
     </main>
   );

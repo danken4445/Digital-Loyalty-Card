@@ -77,10 +77,10 @@ export function BackupCardPanel({
     );
   }
 
-  // Helper for origin callback URLs
+  // Helper for origin callback URLs (omits redundant ?next=/card so exact Redirect URL allowlists match)
   const getCallbackUrl = (): string => {
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    return `${origin}${ROUTES.authCallback}?next=${encodeURIComponent(ROUTES.card)}`;
+    return `${origin}${ROUTES.authCallback}`;
   };
 
   // Prepares the server-side signed merge intent cookie before session change
@@ -107,8 +107,12 @@ export function BackupCardPanel({
     setStatusMessage(null);
 
     try {
+      // Issue the signed merge-intent cookie first so that signing into Google (whether a new or
+      // existing Google account) atomically transfers all anonymous stamps/perks in /auth/callback
+      // without relying on GoTrue's optional /user/identities/authorize manual-linking endpoint.
+      await prepareMergeIntent();
       const supabase = createSupabaseBrowserClient();
-      const { error } = await supabase.auth.linkIdentity({
+      const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: getCallbackUrl(),
@@ -152,6 +156,7 @@ export function BackupCardPanel({
     setStatusMessage(null);
 
     try {
+      await prepareMergeIntent();
       const supabase = createSupabaseBrowserClient();
       const { error } = await supabase.auth.updateUser(
         { email: cleanEmail },
