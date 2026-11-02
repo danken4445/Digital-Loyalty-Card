@@ -270,7 +270,7 @@ describe('Phase 4 Customer Card UI & Signed Redemption Token Test Suite', () => 
         const payloadB64 = parts[1]!;
         const sig = parts[2]!;
 
-        const corruptedSig = sig.slice(0, -1) + (sig.slice(-1) === 'a' ? 'b' : 'a');
+        const corruptedSig = (sig[0] === 'a' ? 'b' : 'a') + sig.slice(1);
         const tamperedToken = `${prefix}.${payloadB64}.${corruptedSig}`;
 
         const result = verifyRedeemToken(tamperedToken);
@@ -796,8 +796,7 @@ describe('Phase 4 Customer Card UI & Signed Redemption Token Test Suite', () => 
         });
         const html = renderToStaticMarkup(pageElement);
 
-        expect(html).toContain('NFC LOYALTY CARD');
-        expect(html).toContain('GET STARTED');
+        expect(html).toContain('Get your loyalty card');
         expect(html).toContain('No app download. No form.');
         expect(html).toContain('GET MY CARD');
         expect(html).not.toContain('ACTIVE WALLET');

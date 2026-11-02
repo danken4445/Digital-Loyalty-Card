@@ -1,103 +1,101 @@
 import Link from 'next/link';
-import { StaffNav } from '@/components/staff/StaffNav';
+import { StaffPageShell } from '@/components/staff/StaffPageShell';
 import { enforceStaffPageAccess } from '@/lib/auth/staff';
 import { ROUTES } from '@/lib/contracts';
+
+const SECONDARY_TOOLS = [
+  {
+    title: 'Manual Stamp',
+    href: ROUTES.staff.manualStamp,
+    description: "Add a stamp by hand when a customer's phone can't tap. Needs a reason.",
+  },
+  {
+    title: 'NFC Tag Manager',
+    href: ROUTES.staff.tags,
+    description: 'Create, rotate or switch off the NFC cards you tap on phones.',
+  },
+  {
+    title: 'Activity & Audit Log',
+    href: ROUTES.staff.activity,
+    description: 'Recent stamps and rewards, plus anything that looks unusual.',
+  },
+] as const;
+
+function ChevronRight() {
+  return (
+    <svg
+      className="h-5 w-5 shrink-0 text-plug-muted transition-transform group-hover:translate-x-0.5 group-hover:text-white"
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="m8 4 6 6-6 6" />
+    </svg>
+  );
+}
 
 export default async function StaffOverviewPage() {
   const staff = await enforceStaffPageAccess(ROUTES.staff.root);
 
-  const actionCards = [
-    {
-      index: '01',
-      title: 'Redeem Reward',
-      href: ROUTES.staff.redeem,
-      description:
-        "Verify a customer's 5-minute signed QR token and deduct 10 stamps for a free coffee.",
-      badge: 'Redemption Engine',
-    },
-    {
-      index: '02',
-      title: 'Manual Stamp',
-      href: ROUTES.staff.manualStamp,
-      description:
-        "Award a manual stamp with a mandatory audit reason when a customer's phone cannot tap NFC.",
-      badge: 'Customer Support',
-    },
-    {
-      index: '03',
-      title: 'NFC Tag Manager',
-      href: ROUTES.staff.tags,
-      description:
-        'Provision new random NTAG215 tag IDs, copy URLs for NFC Tools, or rotate/deactivate compromised tags.',
-      badge: 'Hardware & Tags',
-    },
-    {
-      index: '04',
-      title: 'Activity & Audit Log',
-      href: ROUTES.staff.activity,
-      description:
-        'Inspect the last 50 stamps, redemptions, anomaly flags, and immutable audit trail.',
-      badge: 'Security & Audit',
-    },
-  ];
-
   return (
-    <div className="min-h-screen bg-[#0A0A0A] text-white">
-      <StaffNav staff={staff} currentPath={ROUTES.staff.root} />
-
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
-        {/* Header */}
-        <section
-          className="mb-8 border-b border-[#27272A] pb-6"
-          aria-label="Portal Overview Header"
+    <StaffPageShell
+      staff={staff}
+      currentPath={ROUTES.staff.root}
+      title="Operations Console"
+      headerLabel="Portal Overview Header"
+      description={`Signed in as ${staff.displayName}. Redeeming rewards is the everyday job; the other tools are for when something needs fixing.`}
+    >
+      <section aria-label="Staff Operations Modules" className="space-y-4">
+        {/* The one task baristas do many times a day gets the biggest target */}
+        <Link
+          href={ROUTES.staff.redeem}
+          className="group flex items-center justify-between gap-4 rounded-3xl bg-white p-6 text-plug-black transition-colors hover:bg-neutral-200 sm:p-8"
         >
-          <p className="font-mono text-xs font-bold tracking-widest text-[#A1A1AA] uppercase">
-            THE CAFFEINE PLUG // DISPATCH
-          </p>
-          <h1 className="mt-2 text-3xl font-black tracking-tight uppercase sm:text-4xl">
-            Operations Console
-          </h1>
-          <p className="mt-2 text-sm text-[#A1A1AA]">
-            Select an operational module below to verify customer rewards, award manual loyalty
-            stamps, manage counter NFC tags, or inspect security audit logs.
-          </p>
-        </section>
+          <div>
+            <h2 className="font-display text-3xl font-bold uppercase leading-none tracking-wide sm:text-4xl">
+              Redeem Reward
+            </h2>
+            <p className="mt-2 max-w-md text-base text-neutral-700">
+              Scan the customer&apos;s reward QR code and give them their free coffee.
+            </p>
+          </div>
+          <svg
+            className="h-8 w-8 shrink-0 transition-transform group-hover:translate-x-1"
+            viewBox="0 0 20 20"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="m8 4 6 6-6 6" />
+          </svg>
+        </Link>
 
-        {/* Action Grid */}
-        <section aria-label="Staff Operations Modules">
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {actionCards.map((card) => (
+        <ul className="overflow-hidden divide-y divide-plug-border rounded-3xl border border-plug-border bg-plug-surface">
+          {SECONDARY_TOOLS.map((tool) => (
+            <li key={tool.href}>
               <Link
-                key={card.index}
-                href={card.href}
-                className="group flex flex-col justify-between rounded-lg border border-[#27272A] bg-[#121214] p-6 transition-all duration-150 hover:border-white hover:bg-[#1C1C1F] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0A0A]"
+                href={tool.href}
+                className="group flex min-h-20 items-center justify-between gap-4 px-6 py-4 transition-colors hover:bg-plug-elevated/60"
               >
                 <div>
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-xs font-bold tracking-wider text-[#A1A1AA]">
-                      [ {card.index} ]
-                    </span>
-                    <span className="rounded bg-[#0A0A0A] px-2 py-0.5 font-mono text-[10px] font-semibold tracking-wider text-[#A1A1AA] uppercase border border-[#27272A]">
-                      {card.badge}
-                    </span>
-                  </div>
-                  <h2 className="mt-4 text-xl font-black tracking-tight text-white uppercase group-hover:text-white">
-                    {card.title}
+                  <h2 className="font-display text-xl font-bold uppercase tracking-wide text-white">
+                    {tool.title}
                   </h2>
-                  <p className="mt-2 text-xs leading-relaxed text-[#A1A1AA]">{card.description}</p>
+                  <p className="mt-0.5 text-sm text-plug-muted">{tool.description}</p>
                 </div>
-
-                <div className="mt-6 flex items-center gap-1 font-mono text-xs font-bold tracking-wider text-white uppercase">
-                  <span>Enter Module</span>
-                  <span className="transition-transform duration-150 group-hover:translate-x-1">
-                    →
-                  </span>
-                </div>
+                <ChevronRight />
               </Link>
-            ))}
-          </div>
-        </section>
-      </main>
-    </div>
+            </li>
+          ))}
+        </ul>
+      </section>
+    </StaffPageShell>
   );
 }

@@ -1008,8 +1008,7 @@ describe('Phase 7: Hardening, Compliance, and Security Test Suite', () => {
         expect(html).toContain('Your card and all associated data have been permanently erased.');
         expect(html).toContain('role="status"');
         expect(html).toContain('aria-live="polite"');
-        expect(html).toContain('NFC LOYALTY CARD');
-        expect(html).toContain('GET STARTED');
+        expect(html).toContain('Get your loyalty card');
       });
 
       it('does NOT render deleted confirmation banner when /card is loaded without deleted=1 param', async () => {
@@ -1023,8 +1022,7 @@ describe('Phase 7: Hardening, Compliance, and Security Test Suite', () => {
         expect(html).not.toContain(
           'Your card and all associated data have been permanently erased.',
         );
-        expect(html).toContain('NFC LOYALTY CARD');
-        expect(html).toContain('GET STARTED');
+        expect(html).toContain('Get your loyalty card');
       });
     });
   });

@@ -31,3 +31,6 @@ yarn-error.log*
 # Supabase local temp
 supabase/.branches
 supabase/.temp
+
+# Local editor/tool settings
+.claude/

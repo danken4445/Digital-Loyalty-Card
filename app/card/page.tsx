@@ -6,6 +6,7 @@ import { getAuthenticatedCustomerCardState } from '@/lib/auth/customer';
 import { calculateStampProgress, formatManilaDateTime } from '@/lib/rules/display';
 import { issueRedeemToken } from '@/lib/security/redeemToken';
 import { GetCardButton } from '@/components/card/GetCardButton';
+import { OnboardingCard } from '@/components/card/OnboardingCard';
 import { StripResultParam } from '@/components/card/StripResultParam';
 import { StampGrid } from '@/components/card/StampGrid';
 import { RedeemRewardPanel } from '@/components/card/RedeemRewardPanel';
@@ -33,105 +34,27 @@ export default async function CardPage({ searchParams }: CardPageProps) {
   // 1. NO-SESSION ONBOARDING VIEW
   if (cardState === null) {
     return (
-      <main
-        aria-label={`${SHOP_CONFIG.name} Digital Loyalty Card`}
-        className="min-h-dvh w-full bg-topo-pattern bg-street-grid flex flex-col items-center justify-between px-4 py-6 sm:py-10"
-      >
-        {/* Top Header Label */}
-        <div className="w-full max-w-[390px] flex items-center justify-between text-[10px] font-mono tracking-widest text-plug-muted uppercase px-1 pb-3">
-          <span>NFC LOYALTY CARD</span>
-          <span>GET STARTED</span>
-        </div>
-
-        {/* Deleted Confirmation Banner if redirected with ?deleted=1 */}
-        {isDeletedParam && (
-          <div
-            role="status"
-            aria-live="polite"
-            className="w-full max-w-[390px] mb-3 rounded-xl border border-neutral-700 bg-plug-surface/95 p-3 text-center text-xs font-mono uppercase tracking-wider text-neutral-200 shadow-lg"
-          >
-            Your card and all associated data have been permanently erased.
-          </div>
-        )}
-
-        {/* No-Session Card Container */}
-        <section
-          aria-label="Loyalty Card Onboarding"
-          className="w-full max-w-[390px] bg-plug-surface/95 border border-plug-border rounded-2xl p-5 sm:p-6 shadow-[0_20px_50px_rgba(0,0,0,0.85)] backdrop-blur-md relative overflow-hidden flex flex-col items-center text-center"
-        >
-          {/* Subtle decorative corner tick */}
-          <div
-            aria-hidden="true"
-            className="absolute top-0 right-0 w-12 h-12 overflow-hidden pointer-events-none"
-          >
-            <div className="bg-white text-black font-mono font-bold text-[8px] py-1 text-center transform rotate-45 translate-x-3 -translate-y-1 w-16">
-              TCP
-            </div>
-          </div>
-
-          {/* Logo & Shop Identity */}
-          <div className="relative w-20 h-20 rounded-full p-1 bg-plug-elevated border border-plug-border shadow-inner">
-            <Image
-              src={BRAND_THEME.assets.logoCircleDark}
-              alt={`${SHOP_CONFIG.name} circular logo`}
-              width={76}
-              height={76}
-              priority
-              className="rounded-full object-contain"
-            />
-          </div>
-
-          <h1 className="font-display text-2xl sm:text-3xl font-black uppercase tracking-wider text-white mt-3">
-            {SHOP_CONFIG.name}
-          </h1>
-
-          <p className="text-xs uppercase tracking-widest text-plug-muted font-medium mt-1">
-            {SHOP_CONFIG.tagline}
-          </p>
-
-          {/* Mascot Illustration */}
-          <div className="my-5 relative w-36 h-36 flex items-center justify-center p-2 rounded-2xl bg-plug-elevated/50 border border-plug-border/50">
-            <Image
-              src={BRAND_THEME.assets.mascotFull}
-              alt={`${SHOP_CONFIG.name} mascot illustration`}
-              width={130}
-              height={130}
-              priority
-              className="object-contain"
-            />
-          </div>
-
-          {/* Value Proposition Copy */}
-          <div className="space-y-1 mb-4">
-            <p className="font-sans text-sm font-semibold text-white">
-              No app download. No form. Instant digital stamp card.
-            </p>
-            <p className="text-xs font-mono text-plug-muted uppercase tracking-wider">
-              Collect 10 stamps for a free coffee • 50% off at slot 5
-            </p>
-          </div>
-
-          {/* Provisioning CTA Button with Cloudflare Turnstile */}
-          <div className="w-full mt-2">
-            <GetCardButton mode="card" />
-          </div>
-
-          {/* Privacy & Data Rights Link */}
-          <div className="w-full mt-4 pt-3 border-t border-plug-border/60">
-            <Link
-              href={ROUTES.privacy}
-              className="text-[11px] font-mono uppercase tracking-wider text-neutral-400 hover:text-white transition-colors underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white rounded py-0.5 px-1 inline-block"
+      <OnboardingCard
+        pageLabel={`${SHOP_CONFIG.name} Digital Loyalty Card`}
+        title="Get your loyalty card"
+        lines={[
+          'No app download. No form. Instant digital stamp card.',
+          'Collect 10 stamps for a free coffee, with 50% off at stamp 5.',
+        ]}
+        notice={
+          isDeletedParam ? (
+            <div
+              role="status"
+              aria-live="polite"
+              className="banner-enter w-full max-w-[390px] mb-4 rounded-2xl border border-plug-border bg-plug-elevated px-4 py-3 text-sm text-neutral-200"
             >
-              Privacy &amp; Data Rights (RA 10173)
-            </Link>
-          </div>
-        </section>
-
-        {/* Streetwear Footer */}
-        <footer className="w-full max-w-[390px] text-center text-[10px] font-mono tracking-widest text-plug-muted uppercase pt-4">
-          <span>THE CAFFEINE PLUG &copy; 2026 // STREETWEAR LOYALTY</span>
-        </footer>
-      </main>
+              Your card and all associated data have been permanently erased.
+            </div>
+          ) : undefined
+        }
+      >
+        <GetCardButton mode="card" />
+      </OnboardingCard>
     );
   }
 

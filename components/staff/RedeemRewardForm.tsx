@@ -119,20 +119,14 @@ export function RedeemRewardForm() {
   return (
     <div className="w-full max-w-2xl space-y-6">
       {/* Input Section */}
-      <div className="rounded-lg border border-[#27272A] bg-[#121214] p-6 text-white sm:p-8">
-        <h2 className="text-xl font-black tracking-tight uppercase sm:text-2xl">
-          Customer Reward Redemption
-        </h2>
-        <p className="mt-1 text-xs text-[#A1A1AA]">
-          Scan or paste the customer&apos;s 5-minute QR code token to preview balance and deduct 10
-          stamps for a free coffee.
-        </p>
+      <div className="rounded-2xl border border-plug-border bg-plug-surface p-6 text-white sm:p-8">
+        <h2 className="text-lg font-semibold text-white">Customer Reward Redemption</h2>
 
         <form onSubmit={handleVerify} className="mt-6 space-y-4">
           <div>
             <label
               htmlFor="redeem-token-input"
-              className="block text-xs font-bold tracking-wider text-[#A1A1AA] uppercase"
+              className="block text-sm font-medium text-neutral-200"
             >
               Customer Redemption Token (Scan or Paste)
             </label>
@@ -143,7 +137,7 @@ export function RedeemRewardForm() {
               onChange={(e) => setTokenInput(e.target.value)}
               placeholder="Paste raw signed QR token payload here or scan via 2D handheld scanner..."
               disabled={loadingPreview || loadingConfirm}
-              className="mt-2 w-full rounded border border-[#27272A] bg-[#0A0A0A] p-3 font-mono text-xs text-white placeholder-neutral-600 transition-colors focus-visible:border-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+              className="mt-2 w-full rounded-xl border border-plug-border bg-plug-black p-3 font-mono text-xs text-white placeholder-neutral-600 transition-colors focus-visible:border-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
             />
           </div>
 
@@ -152,7 +146,7 @@ export function RedeemRewardForm() {
               type="submit"
               disabled={loadingPreview || loadingConfirm || !tokenInput.trim()}
               aria-busy={loadingPreview}
-              className="rounded border border-white bg-white px-5 py-2.5 text-xs font-black tracking-widest text-black uppercase transition-transform active:scale-[0.99] hover:bg-neutral-200 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0A0A]"
+              className="inline-flex min-h-12 items-center justify-center rounded-xl border border-white bg-white px-5 py-2.5 text-sm font-bold text-plug-black transition-transform active:scale-[0.99] hover:bg-neutral-200 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-plug-black"
             >
               {loadingPreview ? 'Verifying Token...' : 'Verify Token & Check Balance'}
             </button>
@@ -162,7 +156,7 @@ export function RedeemRewardForm() {
                 type="button"
                 onClick={resetAll}
                 disabled={loadingPreview || loadingConfirm}
-                className="rounded border border-[#27272A] bg-[#1C1C1F] px-4 py-2.5 text-xs font-bold tracking-wider text-[#A1A1AA] uppercase transition-colors hover:border-white hover:text-white disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                className="inline-flex min-h-12 items-center rounded-xl border border-plug-border bg-plug-elevated px-4 text-sm font-semibold text-neutral-300 transition-colors hover:border-white hover:text-white disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
               >
                 Clear
               </button>
@@ -176,9 +170,9 @@ export function RedeemRewardForm() {
         <div
           role="alert"
           aria-live="polite"
-          className="rounded-lg border border-red-500/60 bg-red-950/40 p-5 text-sm text-red-200"
+          className="rounded-2xl border border-red-500/60 bg-red-950/40 p-5 text-sm text-red-200"
         >
-          <p className="font-bold text-red-100 uppercase tracking-wide">Verification Error</p>
+          <p className="font-semibold text-red-100">Verification Error</p>
           <p className="mt-1 text-xs text-red-200">{errorMessage}</p>
         </div>
       )}
@@ -187,25 +181,23 @@ export function RedeemRewardForm() {
       {preview && (
         <div
           aria-label="Token Verification Preview"
-          className="rounded-lg border border-white/40 bg-[#121214] p-6 text-white shadow-xl sm:p-8"
+          className="rounded-2xl border border-white/40 bg-plug-surface p-6 text-white shadow-xl sm:p-8"
         >
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#27272A] pb-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-plug-border pb-4">
             <div>
-              <p className="font-mono text-xs font-semibold text-[#A1A1AA] uppercase">
-                Customer Identity
-              </p>
+              <p className="text-sm text-plug-muted">Customer Identity</p>
               <p className="mt-0.5 font-mono text-sm font-bold text-white">
                 Card #{preview.customerId.slice(0, 8).toUpperCase()}
               </p>
-              <p className="font-mono text-[11px] text-[#A1A1AA]">{preview.customerId}</p>
+              <p className="font-mono text-[11px] text-plug-muted">{preview.customerId}</p>
             </div>
 
             {preview.canRedeem ? (
-              <span className="rounded bg-white px-3 py-1 font-mono text-xs font-black tracking-widest text-black uppercase">
+              <span className="rounded-full bg-white px-3 py-1 text-sm font-bold text-plug-black">
                 ELIGIBLE FOR FREE COFFEE
               </span>
             ) : (
-              <span className="rounded border border-red-500/50 bg-red-950/50 px-3 py-1 font-mono text-xs font-bold tracking-wider text-red-300 uppercase">
+              <span className="rounded-full border border-red-500/50 bg-red-950/50 px-3 py-1 text-xs font-semibold text-red-300">
                 INSUFFICIENT STAMPS
               </span>
             )}
@@ -213,47 +205,43 @@ export function RedeemRewardForm() {
 
           <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2">
             {/* Display Code */}
-            <div className="rounded border border-[#27272A] bg-[#0A0A0A] p-4 text-center">
-              <p className="text-xs font-bold tracking-wider text-[#A1A1AA] uppercase">
-                Verification Code
-              </p>
+            <div className="rounded-xl border border-plug-border bg-plug-black p-4 text-center">
+              <p className="text-sm text-plug-muted">Verification Code</p>
               <p className="mt-2 font-mono text-3xl font-black tracking-widest text-white">
                 {preview.displayCode}
               </p>
-              <p className="mt-1 text-[11px] text-[#A1A1AA]">
+              <p className="mt-1 text-[11px] text-plug-muted">
                 Match with digits on customer&apos;s phone screen
               </p>
             </div>
 
             {/* Current Balance */}
-            <div className="rounded border border-[#27272A] bg-[#0A0A0A] p-4 text-center">
-              <p className="text-xs font-bold tracking-wider text-[#A1A1AA] uppercase">
-                Current Balance
-              </p>
+            <div className="rounded-xl border border-plug-border bg-plug-black p-4 text-center">
+              <p className="text-sm text-plug-muted">Current Balance</p>
               <p className="mt-2 font-mono text-3xl font-black text-white">
                 {preview.availableStamps}{' '}
-                <span className="text-sm font-normal text-[#A1A1AA]">stamps available</span>
+                <span className="text-sm font-normal text-plug-muted">stamps available</span>
               </p>
-              <p className="mt-1 text-[11px] text-[#A1A1AA]">
+              <p className="mt-1 text-[11px] text-plug-muted">
                 Lifetime: {preview.totalStamps} earned / {preview.stampsRedeemed} redeemed
               </p>
             </div>
           </div>
 
           {/* Action */}
-          <div className="mt-6 border-t border-[#27272A] pt-6">
+          <div className="mt-6 border-t border-plug-border pt-6">
             {preview.canRedeem ? (
               <button
                 type="button"
                 onClick={handleConfirm}
                 disabled={loadingConfirm}
                 aria-busy={loadingConfirm}
-                className="w-full rounded border border-white bg-white px-6 py-3.5 text-xs font-black tracking-widest text-black uppercase transition-transform active:scale-[0.99] hover:bg-neutral-200 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0A0A]"
+                className="w-full inline-flex min-h-12 items-center justify-center rounded-xl border border-white bg-white px-6 py-3.5 text-sm font-bold text-plug-black transition-transform active:scale-[0.99] hover:bg-neutral-200 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-plug-black"
               >
                 {loadingConfirm ? 'Deducting 10 Stamps...' : 'Confirm & Redeem 10 Stamps'}
               </button>
             ) : (
-              <div className="rounded border border-[#27272A] bg-[#0A0A0A] p-4 text-center text-xs text-[#A1A1AA]">
+              <div className="rounded-xl border border-plug-border bg-plug-black p-4 text-center text-xs text-plug-muted">
                 Customer has {preview.availableStamps} stamps. 10 stamps are required to redeem a
                 free coffee reward.
               </div>
@@ -267,52 +255,48 @@ export function RedeemRewardForm() {
         <div
           role="status"
           aria-live="polite"
-          className="rounded-lg border-2 border-white bg-[#121214] p-6 text-white shadow-2xl sm:p-8"
+          className="rounded-2xl border-2 border-white bg-plug-surface p-6 text-white shadow-2xl sm:p-8"
         >
           <div className="flex items-center gap-3">
             <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-base font-black text-black">
               ✓
             </span>
             <div>
-              <p className="text-xs font-bold tracking-widest text-[#A1A1AA] uppercase">
-                Transaction Successful
-              </p>
-              <h3 className="text-xl font-black tracking-tight uppercase sm:text-2xl">
+              <p className="text-sm text-plug-muted">Transaction Successful</p>
+              <h3 className="font-display text-2xl font-bold uppercase tracking-wide">
                 REWARD REDEEMED — 10 STAMPS DEDUCTED
               </h3>
             </div>
           </div>
 
-          <div className="mt-6 grid grid-cols-1 gap-4 border-y border-[#27272A] py-4 text-xs sm:grid-cols-3">
+          <div className="mt-6 grid grid-cols-1 gap-4 border-y border-plug-border py-4 text-xs sm:grid-cols-3">
             <div>
-              <span className="text-[#A1A1AA] uppercase tracking-wider block">Customer ID</span>
+              <span className="text-plug-muted block">Customer ID</span>
               <span className="font-mono font-bold text-white text-sm">
                 Card #{confirmResult.customerId.slice(0, 8).toUpperCase()}
               </span>
             </div>
             <div>
-              <span className="text-[#A1A1AA] uppercase tracking-wider block">Code Matched</span>
+              <span className="text-plug-muted block">Code Matched</span>
               <span className="font-mono font-bold text-white text-sm">
                 {confirmResult.displayCode}
               </span>
             </div>
             <div>
-              <span className="text-[#A1A1AA] uppercase tracking-wider block">
-                Remaining Balance
-              </span>
+              <span className="text-plug-muted block">Remaining Balance</span>
               <span className="font-mono font-bold text-white text-sm">
                 {confirmResult.availableStampsAfter} stamps
               </span>
             </div>
           </div>
 
-          <p className="mt-4 text-xs text-[#A1A1AA]">{confirmResult.message}</p>
+          <p className="mt-4 text-xs text-plug-muted">{confirmResult.message}</p>
 
           <div className="mt-6">
             <button
               type="button"
               onClick={resetAll}
-              className="w-full rounded border border-white bg-white px-5 py-2.5 text-xs font-black tracking-widest text-black uppercase transition-transform active:scale-[0.99] hover:bg-neutral-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0A0A]"
+              className="w-full inline-flex min-h-12 items-center justify-center rounded-xl border border-white bg-white px-5 py-2.5 text-sm font-bold text-plug-black transition-transform active:scale-[0.99] hover:bg-neutral-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-plug-black"
             >
               Scan Next Customer
             </button>

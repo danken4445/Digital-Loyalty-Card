@@ -1153,8 +1153,7 @@ describe('Phase 6: Customer Backup, Recovery & Merge Test Suite', () => {
         const pageElement = await CardPage({ searchParams: Promise.resolve({}) });
         const html = renderToStaticMarkup(pageElement);
 
-        expect(html).toContain('NFC LOYALTY CARD');
-        expect(html).toContain('GET STARTED');
+        expect(html).toContain('Get your loyalty card');
         expect(html).toContain('No app download. No form. Instant digital stamp card.');
         expect(html).toContain('Collect 10 stamps for a free coffee');
 
