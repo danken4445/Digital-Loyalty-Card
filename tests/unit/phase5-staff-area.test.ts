@@ -1,0 +1,1995 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import type { User } from '@supabase/supabase-js';
+
+// Ensure React is globally available for components compiled with classic JSX transform
+(globalThis as any).React = React;
+
+// Provide default server environment variables for getServerEnv()
+const TEST_SECRET = 'a'.repeat(32); // 32 characters minimum
+process.env.NEXT_PUBLIC_SITE_URL = 'http://localhost:3000';
+process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://127.0.0.1:54321';
+process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'test-anon-key';
+process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
+process.env.TURNSTILE_SECRET_KEY = '1x0000000000000000000000000000000AA';
+process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY = '1x00000000000000000000AA';
+process.env.REDEEM_TOKEN_SECRET = TEST_SECRET;
+
+// Stub 'server-only' for Vitest Node test environment
+vi.mock('server-only', () => ({}));
+
+// Mock next/navigation for router and redirect context
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: vi.fn(),
+    refresh: vi.fn(),
+  }),
+  redirect: vi.fn((url: string) => {
+    const error = new Error(`NEXT_REDIRECT: ${url}`);
+    (error as any).digest = `NEXT_REDIRECT;replace;${url};307;`;
+    (error as any).url = url;
+    throw error;
+  }),
+}));
+
+// Mock rate limiting
+vi.mock('@/lib/security/ratelimit', () => ({
+  checkPublicEndpointRateLimit: vi.fn().mockResolvedValue({
+    allowed: true,
+    limit: 30,
+    remaining: 29,
+    resetMs: 60_000,
+  }),
+  resetMemoryRateLimitStore: vi.fn(),
+}));
+
+// Mock browser Supabase client
+vi.mock('@/lib/supabase/client', () => ({
+  createSupabaseBrowserClient: vi.fn(() => ({
+    auth: {
+      signOut: vi.fn().mockResolvedValue({ error: null }),
+      signInWithPassword: vi.fn().mockResolvedValue({ error: null }),
+      signInWithOtp: vi.fn().mockResolvedValue({ error: null }),
+    },
+  })),
+}));
+
+// Query builder mock factory
+function createMockSupabaseQuery(customData: any = null, customError: any = null) {
+  const query: any = {
+    select: vi.fn().mockImplementation(() => query),
+    insert: vi.fn().mockImplementation(() => query),
+    update: vi.fn().mockImplementation(() => query),
+    delete: vi.fn().mockImplementation(() => query),
+    eq: vi.fn().mockImplementation(() => query),
+    order: vi.fn().mockImplementation(() => query),
+    limit: vi.fn().mockImplementation(() => query),
+    maybeSingle: vi.fn().mockResolvedValue({ data: customData, error: customError }),
+    single: vi.fn().mockResolvedValue({ data: customData, error: customError }),
+    then: (onResolve: any, onReject: any) =>
+      Promise.resolve({ data: customData, error: customError }).then(onResolve, onReject),
+  };
+  return query;
+}
+
+let tableQueryHandlers: Record<string, (table: string) => any> = {};
+
+const mockAdminClient = {
+  rpc: vi.fn(),
+  from: vi.fn((table: string) => {
+    if (tableQueryHandlers[table]) {
+      return tableQueryHandlers[table](table);
+    }
+    return createMockSupabaseQuery(null, null);
+  }),
+};
+
+const mockServerClient = {
+  rpc: vi.fn(),
+  from: vi.fn((table: string) => {
+    if (tableQueryHandlers[table]) {
+      return tableQueryHandlers[table](table);
+    }
+    return createMockSupabaseQuery(null, null);
+  }),
+};
+
+// Mock server auth and database clients
+vi.mock('@/lib/supabase/server', () => ({
+  createSupabaseServerClient: vi.fn(() => Promise.resolve(mockServerClient)),
+  getVerifiedUser: vi.fn(),
+}));
+
+vi.mock('@/lib/supabase/admin', () => ({
+  createSupabaseAdminClient: vi.fn(() => mockAdminClient),
+}));
+
+// Import modules under test
+import {
+  decorateTagWithUrls,
+  detectActivityAnomalies,
+  enforceStaffPageAccess,
+  generateRandomTagId,
+  getStaffActivityDashboardData,
+  getStaffTagsList,
+  logStaffAuditEvent,
+  requireStaffSession,
+} from '@/lib/auth/staff';
+import { issueRedeemToken } from '@/lib/security/redeemToken';
+import { getVerifiedUser } from '@/lib/supabase/server';
+import { checkPublicEndpointRateLimit } from '@/lib/security/ratelimit';
+import {
+  ROUTES,
+  type AuditLogRow,
+  type RedemptionRow,
+  type StaffRow,
+  type StaffSession,
+  type StampRow,
+  type TagRow,
+  type TagWithUrls,
+} from '@/lib/contracts';
+import { POST as staffRedeemPost } from '@/app/api/staff/redeem/route';
+import { POST as staffStampPost } from '@/app/api/staff/stamp/route';
+import { GET as staffTagsGet, POST as staffTagsPost } from '@/app/api/staff/tags/route';
+
+// UI components & pages
+import { StaffNav } from '@/components/staff/StaffNav';
+import { StaffLoginForm } from '@/components/staff/StaffLoginForm';
+import { RedeemRewardForm } from '@/components/staff/RedeemRewardForm';
+import { ManualStampForm } from '@/components/staff/ManualStampForm';
+import { TagManagerClient } from '@/components/staff/TagManagerClient';
+import StaffOverviewPage from '@/app/staff/page';
+import StaffRedeemPage from '@/app/staff/redeem/page';
+import StaffManualStampPage from '@/app/staff/stamp/page';
+import StaffTagsPage from '@/app/staff/tags/page';
+import StaffActivityPage from '@/app/staff/activity/page';
+import StaffLoginPage from '@/app/staff/login/page';
+
+const TEST_STAFF_ID = '99999999-9999-9999-9999-999999999999';
+const TEST_CUSTOMER_ID = '11111111-1111-1111-1111-111111111111';
+const TEST_CUSTOMER_ID_2 = '22222222-2222-2222-2222-222222222222';
+
+function mockActiveStaff(role: 'staff' | 'owner' = 'staff') {
+  vi.mocked(getVerifiedUser).mockResolvedValue({
+    id: TEST_STAFF_ID,
+    email: 'barista@thecaffeineplug.ph',
+    is_anonymous: false,
+    aud: 'authenticated',
+    app_metadata: {},
+    user_metadata: {},
+    created_at: new Date().toISOString(),
+  } as User);
+
+  mockServerClient.rpc.mockResolvedValue({
+    data: true,
+    error: null,
+  });
+
+  const staffRow: StaffRow = {
+    user_id: TEST_STAFF_ID,
+    display_name: 'Maria Barista',
+    role,
+    active: true,
+  };
+
+  tableQueryHandlers['staff'] = () => createMockSupabaseQuery(staffRow, null);
+}
+
+function mockUnauthenticated() {
+  vi.mocked(getVerifiedUser).mockResolvedValue(null);
+}
+
+function mockAnonymousCustomer() {
+  vi.mocked(getVerifiedUser).mockResolvedValue({
+    id: TEST_CUSTOMER_ID,
+    is_anonymous: true,
+    aud: 'authenticated',
+    app_metadata: {},
+    user_metadata: {},
+    created_at: new Date().toISOString(),
+  } as User);
+}
+
+function mockNonStaffUser() {
+  vi.mocked(getVerifiedUser).mockResolvedValue({
+    id: TEST_CUSTOMER_ID,
+    email: 'customer@gmail.com',
+    is_anonymous: false,
+    aud: 'authenticated',
+    app_metadata: {},
+    user_metadata: {},
+    created_at: new Date().toISOString(),
+  } as User);
+
+  mockServerClient.rpc.mockResolvedValue({
+    data: false,
+    error: null,
+  });
+
+  tableQueryHandlers['staff'] = () => createMockSupabaseQuery(null, null);
+}
+
+describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.REDEEM_TOKEN_SECRET = TEST_SECRET;
+    tableQueryHandlers = {};
+
+    vi.mocked(checkPublicEndpointRateLimit).mockResolvedValue({
+      allowed: true,
+      limit: 30,
+      remaining: 29,
+      resetMs: 60_000,
+    });
+
+    mockAdminClient.rpc.mockImplementation(async (rpcName: string) => {
+      if (rpcName === 'log_audit_event') {
+        return { data: 'audit-event-uuid-1', error: null };
+      }
+      if (rpcName === 'redeem_reward') {
+        return { data: 'redeemed', error: null };
+      }
+      if (rpcName === 'record_stamp') {
+        return { data: 'stamped', error: null };
+      }
+      return { data: null, error: null };
+    });
+
+    // Default to active staff session
+    mockActiveStaff();
+  });
+
+  afterEach(() => {
+    process.env.REDEEM_TOKEN_SECRET = TEST_SECRET;
+  });
+
+  // ============================================================================
+  // 1. lib/auth/staff.ts
+  // ============================================================================
+  describe('1. lib/auth/staff.ts: Unit & Authorization Logic', () => {
+    describe('requireStaffSession()', () => {
+      it('returns unauthenticated when getVerifiedUser() returns null', async () => {
+        mockUnauthenticated();
+        const result = await requireStaffSession();
+        expect(result).toEqual({
+          authorized: false,
+          reason: 'unauthenticated',
+        });
+      });
+
+      it('returns unauthenticated when user.is_anonymous === true', async () => {
+        mockAnonymousCustomer();
+        const result = await requireStaffSession();
+        expect(result).toEqual({
+          authorized: false,
+          reason: 'unauthenticated',
+        });
+      });
+
+      it('returns forbidden when is_staff RPC returns false', async () => {
+        mockNonStaffUser();
+        const result = await requireStaffSession();
+        expect(result).toEqual({
+          authorized: false,
+          reason: 'forbidden',
+        });
+      });
+
+      it('returns forbidden when is_staff RPC encounters a database error', async () => {
+        vi.mocked(getVerifiedUser).mockResolvedValue({
+          id: TEST_STAFF_ID,
+          email: 'barista@thecaffeineplug.ph',
+          is_anonymous: false,
+        } as User);
+
+        mockServerClient.rpc.mockResolvedValue({
+          data: null,
+          error: { message: 'RPC execution failed' },
+        });
+
+        const result = await requireStaffSession();
+        expect(result).toEqual({
+          authorized: false,
+          reason: 'forbidden',
+        });
+      });
+
+      it('returns forbidden when is_staff is true but public.staff row does not exist', async () => {
+        vi.mocked(getVerifiedUser).mockResolvedValue({
+          id: TEST_STAFF_ID,
+          email: 'barista@thecaffeineplug.ph',
+          is_anonymous: false,
+        } as User);
+
+        mockServerClient.rpc.mockResolvedValue({
+          data: true,
+          error: null,
+        });
+
+        tableQueryHandlers['staff'] = () => createMockSupabaseQuery(null, null);
+
+        const result = await requireStaffSession();
+        expect(result).toEqual({
+          authorized: false,
+          reason: 'forbidden',
+        });
+      });
+
+      it('returns forbidden when public.staff row exists but active is false', async () => {
+        vi.mocked(getVerifiedUser).mockResolvedValue({
+          id: TEST_STAFF_ID,
+          email: 'barista@thecaffeineplug.ph',
+          is_anonymous: false,
+        } as User);
+
+        mockServerClient.rpc.mockResolvedValue({
+          data: true,
+          error: null,
+        });
+
+        const inactiveRow: StaffRow = {
+          user_id: TEST_STAFF_ID,
+          display_name: 'Maria Barista',
+          role: 'staff',
+          active: false,
+        };
+        tableQueryHandlers['staff'] = () => createMockSupabaseQuery(inactiveRow, null);
+
+        const result = await requireStaffSession();
+        expect(result).toEqual({
+          authorized: false,
+          reason: 'forbidden',
+        });
+      });
+
+      it('returns authorized true with staff session payload for active staff member', async () => {
+        mockActiveStaff('staff');
+        const result = await requireStaffSession();
+
+        expect(result.authorized).toBe(true);
+        if (result.authorized) {
+          expect(result.staff).toEqual({
+            userId: TEST_STAFF_ID,
+            email: 'barista@thecaffeineplug.ph',
+            displayName: 'Maria Barista',
+            role: 'staff',
+            active: true,
+          });
+        }
+      });
+
+      it('handles staff account with null email gracefully', async () => {
+        vi.mocked(getVerifiedUser).mockResolvedValue({
+          id: TEST_STAFF_ID,
+          email: undefined,
+          is_anonymous: false,
+        } as User);
+
+        mockServerClient.rpc.mockResolvedValue({
+          data: true,
+          error: null,
+        });
+
+        tableQueryHandlers['staff'] = () =>
+          createMockSupabaseQuery(
+            {
+              user_id: TEST_STAFF_ID,
+              display_name: 'Owner Bob',
+              role: 'owner',
+              active: true,
+            },
+            null,
+          );
+
+        const result = await requireStaffSession();
+        expect(result.authorized).toBe(true);
+        if (result.authorized) {
+          expect(result.staff.email).toBeNull();
+          expect(result.staff.role).toBe('owner');
+        }
+      });
+    });
+
+    describe('enforceStaffPageAccess()', () => {
+      it('redirects unauthenticated caller to /staff/login?next=...', async () => {
+        mockUnauthenticated();
+        await expect(enforceStaffPageAccess('/staff/redeem')).rejects.toThrow(
+          'NEXT_REDIRECT: /staff/login?next=%2Fstaff%2Fredeem',
+        );
+      });
+
+      it('redirects non-staff user to /staff/login?error=forbidden', async () => {
+        mockNonStaffUser();
+        await expect(enforceStaffPageAccess('/staff/activity')).rejects.toThrow(
+          'NEXT_REDIRECT: /staff/login?error=forbidden',
+        );
+      });
+
+      it('returns staff session without redirecting when caller is authorized', async () => {
+        mockActiveStaff('owner');
+        const session = await enforceStaffPageAccess('/staff');
+        expect(session.userId).toBe(TEST_STAFF_ID);
+        expect(session.role).toBe('owner');
+      });
+    });
+
+    describe('generateRandomTagId()', () => {
+      it('matches regex pattern /^tcp_tag_[0-9a-z]{16}$/', () => {
+        const tagPattern = /^tcp_tag_[0-9a-z]{16}$/;
+        for (let i = 0; i < 20; i++) {
+          const id = generateRandomTagId();
+          expect(id).toMatch(tagPattern);
+        }
+      });
+
+      it('generates 50 unique, non-colliding tag IDs in 50 calls', () => {
+        const set = new Set<string>();
+        for (let i = 0; i < 50; i++) {
+          set.add(generateRandomTagId());
+        }
+        expect(set.size).toBe(50);
+      });
+    });
+
+    describe('decorateTagWithUrls()', () => {
+      it('decorates TagRow with production and local dev tap URLs', () => {
+        const tag: TagRow = {
+          id: 'tcp_tag_test_counter_1',
+          label: 'Counter Barista Tag 1',
+          active: true,
+          created_at: '2026-11-01T10:00:00Z',
+          deactivated_at: null,
+        };
+
+        const decorated = decorateTagWithUrls(tag);
+        expect(decorated.productionTapUrl).toBe(
+          'https://card.thecaffeineplug.ph/t/tcp_tag_test_counter_1',
+        );
+        expect(decorated.localTapUrl).toBe('http://localhost:3000/t/tcp_tag_test_counter_1');
+        expect(decorated.id).toBe(tag.id);
+        expect(decorated.label).toBe(tag.label);
+      });
+
+      it('properly encodes special URI characters in tag identifier', () => {
+        const tag: TagRow = {
+          id: 'tcp_tag_hello/world?foo=bar#1',
+          label: 'Special Tag',
+          active: true,
+          created_at: '2026-11-01T10:00:00Z',
+          deactivated_at: null,
+        };
+
+        const decorated = decorateTagWithUrls(tag);
+        expect(decorated.productionTapUrl).toBe(
+          `https://card.thecaffeineplug.ph/t/${encodeURIComponent(tag.id)}`,
+        );
+      });
+    });
+
+    describe('logStaffAuditEvent()', () => {
+      it('records audit event via service_role RPC and returns generated audit id', async () => {
+        mockAdminClient.rpc.mockResolvedValueOnce({
+          data: 'audit-id-uuid-5555',
+          error: null,
+        });
+
+        const id = await logStaffAuditEvent({
+          actorId: TEST_STAFF_ID,
+          action: 'tag_created',
+          target: 'tcp_tag_123',
+          detail: { label: 'Front Register' },
+        });
+
+        expect(id).toBe('audit-id-uuid-5555');
+        expect(mockAdminClient.rpc).toHaveBeenCalledWith('log_audit_event', {
+          p_actor: TEST_STAFF_ID,
+          p_action: 'tag_created',
+          p_target: 'tcp_tag_123',
+          p_detail: { label: 'Front Register' },
+        });
+      });
+
+      it('throws descriptive error when log_audit_event RPC fails', async () => {
+        mockAdminClient.rpc.mockResolvedValueOnce({
+          data: null,
+          error: { message: 'Database connection dropped' },
+        });
+
+        await expect(
+          logStaffAuditEvent({
+            actorId: TEST_STAFF_ID,
+            action: 'tag_created',
+          }),
+        ).rejects.toThrow(
+          'Failed to record staff audit event "tag_created": Database connection dropped',
+        );
+      });
+    });
+
+    describe('detectActivityAnomalies()', () => {
+      it('returns empty array [] for normal activity below all thresholds', () => {
+        const stamps: StampRow[] = [
+          {
+            id: 's1',
+            customer_id: TEST_CUSTOMER_ID,
+            tag_id: 'tag_counter',
+            source: 'nfc',
+            staff_id: null,
+            reason: null,
+            created_at: '2026-11-01T08:00:00Z',
+          },
+        ];
+
+        const anomalies = detectActivityAnomalies({
+          stamps,
+          redemptions: [],
+          auditLogs: [],
+        });
+
+        expect(anomalies).toEqual([]);
+      });
+
+      it('detects repeated-daily-cap anomaly when customer hits 2 NFC stamps across 2 Manila days', () => {
+        const stamps: StampRow[] = [
+          // Day 1: 2 NFC stamps
+          {
+            id: 's1',
+            customer_id: TEST_CUSTOMER_ID,
+            tag_id: 'tag1',
+            source: 'nfc',
+            staff_id: null,
+            reason: null,
+            created_at: '2026-11-01T02:00:00Z',
+          },
+          {
+            id: 's2',
+            customer_id: TEST_CUSTOMER_ID,
+            tag_id: 'tag1',
+            source: 'nfc',
+            staff_id: null,
+            reason: null,
+            created_at: '2026-11-01T06:00:00Z',
+          },
+          // Day 2: 2 NFC stamps
+          {
+            id: 's3',
+            customer_id: TEST_CUSTOMER_ID,
+            tag_id: 'tag1',
+            source: 'nfc',
+            staff_id: null,
+            reason: null,
+            created_at: '2026-11-02T02:00:00Z',
+          },
+          {
+            id: 's4',
+            customer_id: TEST_CUSTOMER_ID,
+            tag_id: 'tag1',
+            source: 'nfc',
+            staff_id: null,
+            reason: null,
+            created_at: '2026-11-02T06:00:00Z',
+          },
+        ];
+
+        const anomalies = detectActivityAnomalies({
+          stamps,
+          redemptions: [],
+          auditLogs: [],
+        });
+
+        expect(anomalies).toHaveLength(1);
+        expect(anomalies[0]!.category).toBe('repeated-daily-cap');
+        expect(anomalies[0]!.severity).toBe('warning');
+        expect(anomalies[0]!.targetId).toBe(TEST_CUSTOMER_ID);
+        expect(anomalies[0]!.description).toContain(
+          'reached the 2-stamp daily cap on 2 recent day(s)',
+        );
+      });
+
+      it('detects repeated-daily-cap with high severity when customer has cap day + >= 3 rejections', () => {
+        const stamps: StampRow[] = [
+          {
+            id: 's1',
+            customer_id: TEST_CUSTOMER_ID,
+            tag_id: 'tag1',
+            source: 'nfc',
+            staff_id: null,
+            reason: null,
+            created_at: '2026-11-01T02:00:00Z',
+          },
+          {
+            id: 's2',
+            customer_id: TEST_CUSTOMER_ID,
+            tag_id: 'tag1',
+            source: 'nfc',
+            staff_id: null,
+            reason: null,
+            created_at: '2026-11-01T06:00:00Z',
+          },
+        ];
+
+        const auditLogs: AuditLogRow[] = [
+          {
+            id: 'a1',
+            actor: TEST_CUSTOMER_ID,
+            action: 'stamp_rejected_daily_limit',
+            target: TEST_CUSTOMER_ID,
+            detail: null,
+            created_at: '2026-11-01T07:00:00Z',
+          },
+          {
+            id: 'a2',
+            actor: TEST_CUSTOMER_ID,
+            action: 'stamp_rejected_cooldown',
+            target: TEST_CUSTOMER_ID,
+            detail: null,
+            created_at: '2026-11-01T07:05:00Z',
+          },
+          {
+            id: 'a3',
+            actor: TEST_CUSTOMER_ID,
+            action: 'stamp_rejected_daily_limit',
+            target: TEST_CUSTOMER_ID,
+            detail: null,
+            created_at: '2026-11-01T07:10:00Z',
+          },
+        ];
+
+        const anomalies = detectActivityAnomalies({
+          stamps,
+          redemptions: [],
+          auditLogs,
+        });
+
+        expect(anomalies).toHaveLength(1);
+        expect(anomalies[0]!.category).toBe('repeated-daily-cap');
+        expect(anomalies[0]!.severity).toBe('high');
+        expect(anomalies[0]!.description).toContain('3 blocked tap attempt(s)');
+      });
+
+      it('detects repeated-daily-cap from >= 3 rejection audit logs alone even without cap days', () => {
+        const auditLogs: AuditLogRow[] = [
+          {
+            id: 'a1',
+            actor: TEST_CUSTOMER_ID,
+            action: 'stamp_rejected_cooldown',
+            target: TEST_CUSTOMER_ID,
+            detail: null,
+            created_at: '2026-11-01T07:00:00Z',
+          },
+          {
+            id: 'a2',
+            actor: TEST_CUSTOMER_ID,
+            action: 'stamp_rejected_cooldown',
+            target: TEST_CUSTOMER_ID,
+            detail: null,
+            created_at: '2026-11-01T07:05:00Z',
+          },
+          {
+            id: 'a3',
+            actor: TEST_CUSTOMER_ID,
+            action: 'stamp_rejected_cooldown',
+            target: TEST_CUSTOMER_ID,
+            detail: null,
+            created_at: '2026-11-01T07:10:00Z',
+          },
+        ];
+
+        const anomalies = detectActivityAnomalies({
+          stamps: [],
+          redemptions: [],
+          auditLogs,
+        });
+
+        expect(anomalies).toHaveLength(1);
+        expect(anomalies[0]!.category).toBe('repeated-daily-cap');
+        expect(anomalies[0]!.severity).toBe('high');
+        expect(anomalies[0]!.title).toBe('Repeated Blocked Tap Attempts');
+      });
+
+      it('detects high-tag-volume anomaly when tag records >= 10 stamps', () => {
+        const stamps: StampRow[] = Array.from({ length: 12 }, (_, i) => ({
+          id: `s-${i}`,
+          customer_id: `cust-${i}`,
+          tag_id: 'tag_front_counter',
+          source: 'nfc',
+          staff_id: null,
+          reason: null,
+          created_at: '2026-11-01T08:00:00Z',
+        }));
+
+        const anomalies = detectActivityAnomalies({
+          stamps,
+          redemptions: [],
+          auditLogs: [],
+        });
+
+        expect(anomalies).toHaveLength(1);
+        expect(anomalies[0]!.category).toBe('high-tag-volume');
+        expect(anomalies[0]!.severity).toBe('warning');
+        expect(anomalies[0]!.targetId).toBe('tag_front_counter');
+        expect(anomalies[0]!.description).toContain('12 recent stamp(s)');
+      });
+
+      it('detects high-tag-volume with high severity when tag records >= 20 stamps', () => {
+        const stamps: StampRow[] = Array.from({ length: 22 }, (_, i) => ({
+          id: `s-${i}`,
+          customer_id: `cust-${i}`,
+          tag_id: 'tag_busy',
+          source: 'nfc',
+          staff_id: null,
+          reason: null,
+          created_at: '2026-11-01T08:00:00Z',
+        }));
+
+        const anomalies = detectActivityAnomalies({
+          stamps,
+          redemptions: [],
+          auditLogs: [],
+        });
+
+        expect(anomalies).toHaveLength(1);
+        expect(anomalies[0]!.category).toBe('high-tag-volume');
+        expect(anomalies[0]!.severity).toBe('high');
+      });
+
+      it('detects high-tag-volume with high severity when tag triggers >= 3 tag_throttled events', () => {
+        const auditLogs: AuditLogRow[] = [
+          {
+            id: 't1',
+            actor: null,
+            action: 'stamp_rejected_tag_throttled',
+            target: 'tag_spammed',
+            detail: null,
+            created_at: '2026-11-01T08:00:01Z',
+          },
+          {
+            id: 't2',
+            actor: null,
+            action: 'stamp_rejected_tag_throttled',
+            target: 'tag_spammed',
+            detail: null,
+            created_at: '2026-11-01T08:00:02Z',
+          },
+          {
+            id: 't3',
+            actor: null,
+            action: 'stamp_rejected_tag_throttled',
+            target: 'tag_spammed',
+            detail: null,
+            created_at: '2026-11-01T08:00:03Z',
+          },
+        ];
+
+        const anomalies = detectActivityAnomalies({
+          stamps: [],
+          redemptions: [],
+          auditLogs,
+        });
+
+        expect(anomalies).toHaveLength(1);
+        expect(anomalies[0]!.category).toBe('high-tag-volume');
+        expect(anomalies[0]!.severity).toBe('high');
+        expect(anomalies[0]!.targetId).toBe('tag_spammed');
+      });
+
+      it('detects frequent-manual-stamps when customer receives >= 3 manual stamps', () => {
+        const stamps: StampRow[] = [
+          {
+            id: 'm1',
+            customer_id: TEST_CUSTOMER_ID,
+            tag_id: null,
+            source: 'manual',
+            staff_id: TEST_STAFF_ID,
+            reason: 'NFC antenna damaged',
+            created_at: '2026-11-01T08:00:00Z',
+          },
+          {
+            id: 'm2',
+            customer_id: TEST_CUSTOMER_ID,
+            tag_id: null,
+            source: 'manual',
+            staff_id: TEST_STAFF_ID,
+            reason: 'iPhone 8 NFC issue',
+            created_at: '2026-11-01T09:00:00Z',
+          },
+          {
+            id: 'm3',
+            customer_id: TEST_CUSTOMER_ID,
+            tag_id: null,
+            source: 'manual',
+            staff_id: TEST_STAFF_ID,
+            reason: 'Customer receipt verified',
+            created_at: '2026-11-01T10:00:00Z',
+          },
+        ];
+
+        const anomalies = detectActivityAnomalies({
+          stamps,
+          redemptions: [],
+          auditLogs: [],
+        });
+
+        expect(anomalies).toHaveLength(1);
+        expect(anomalies[0]!.category).toBe('frequent-manual-stamps');
+        expect(anomalies[0]!.severity).toBe('warning');
+        expect(anomalies[0]!.targetId).toBe(TEST_CUSTOMER_ID);
+        expect(anomalies[0]!.description).toContain('received 3 manual staff stamps');
+      });
+
+      it('detects frequent-manual-stamps with high severity when customer receives >= 5 manual stamps', () => {
+        const stamps: StampRow[] = Array.from({ length: 5 }, (_, i) => ({
+          id: `m-${i}`,
+          customer_id: TEST_CUSTOMER_ID,
+          tag_id: null,
+          source: 'manual',
+          staff_id: TEST_STAFF_ID,
+          reason: 'Manual override',
+          created_at: '2026-11-01T08:00:00Z',
+        }));
+
+        const anomalies = detectActivityAnomalies({
+          stamps,
+          redemptions: [],
+          auditLogs: [],
+        });
+
+        expect(anomalies).toHaveLength(1);
+        expect(anomalies[0]!.category).toBe('frequent-manual-stamps');
+        expect(anomalies[0]!.severity).toBe('high');
+      });
+    });
+
+    describe('getStaffActivityDashboardData() & getStaffTagsList()', () => {
+      it('fetches last 50 stamps, redemptions, audit logs, and computes anomalies', async () => {
+        const sampleStamps = [
+          {
+            id: 's1',
+            customer_id: TEST_CUSTOMER_ID,
+            tag_id: 'tag1',
+            source: 'nfc',
+            staff_id: null,
+            reason: null,
+            created_at: '2026-11-01T10:00:00Z',
+          },
+        ];
+        const sampleRedemptions = [
+          {
+            id: 'r1',
+            customer_id: TEST_CUSTOMER_ID,
+            stamps_used: 10,
+            staff_id: TEST_STAFF_ID,
+            created_at: '2026-11-01T11:00:00Z',
+          },
+        ];
+        const sampleAudit = [
+          {
+            id: 'a1',
+            actor: TEST_STAFF_ID,
+            action: 'staff_redeem_token_used',
+            target: 'nonce-1',
+            detail: null,
+            created_at: '2026-11-01T11:00:01Z',
+          },
+        ];
+
+        tableQueryHandlers['stamps'] = () => createMockSupabaseQuery(sampleStamps, null);
+        tableQueryHandlers['redemptions'] = () => createMockSupabaseQuery(sampleRedemptions, null);
+        tableQueryHandlers['audit_log'] = () => createMockSupabaseQuery(sampleAudit, null);
+
+        const data = await getStaffActivityDashboardData();
+        expect(data.stamps).toEqual(sampleStamps);
+        expect(data.redemptions).toEqual(sampleRedemptions);
+        expect(data.auditLogs).toEqual(sampleAudit);
+        expect(Array.isArray(data.anomalies)).toBe(true);
+      });
+
+      it('fetches tags list and returns decorated tags with NTAG215 tap URLs', async () => {
+        const sampleTags: TagRow[] = [
+          {
+            id: 'tcp_tag_counter_1',
+            label: 'Counter Tag',
+            active: true,
+            created_at: '2026-11-01T10:00:00Z',
+            deactivated_at: null,
+          },
+        ];
+
+        tableQueryHandlers['tags'] = () => createMockSupabaseQuery(sampleTags, null);
+
+        const tagsWithUrls = await getStaffTagsList();
+        expect(tagsWithUrls).toHaveLength(1);
+        expect(tagsWithUrls[0]!.id).toBe('tcp_tag_counter_1');
+        expect(tagsWithUrls[0]!.productionTapUrl).toBe(
+          'https://card.thecaffeineplug.ph/t/tcp_tag_counter_1',
+        );
+        expect(tagsWithUrls[0]!.localTapUrl).toBe('http://localhost:3000/t/tcp_tag_counter_1');
+      });
+    });
+  });
+
+  // ============================================================================
+  // 2. POST /api/staff/redeem
+  // ============================================================================
+  describe('2. POST /api/staff/redeem: Staff Redemption Route Handler', () => {
+    function makeRedeemRequest(body: any, rawText?: string) {
+      if (rawText !== undefined) {
+        return new Request('http://localhost:3000/api/staff/redeem', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: rawText,
+        });
+      }
+      return new Request('http://localhost:3000/api/staff/redeem', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+    }
+
+    it('rejects unauthenticated caller with 401', async () => {
+      mockUnauthenticated();
+      const res = await staffRedeemPost(makeRedeemRequest({ action: 'preview', token: 'dummy' }));
+      expect(res.status).toBe(401);
+      const json = await res.json();
+      expect(json.ok).toBe(false);
+      expect(json.error).toBe('unauthenticated');
+    });
+
+    it('rejects non-staff user with 403', async () => {
+      mockNonStaffUser();
+      const res = await staffRedeemPost(makeRedeemRequest({ action: 'preview', token: 'dummy' }));
+      expect(res.status).toBe(403);
+      const json = await res.json();
+      expect(json.ok).toBe(false);
+      expect(json.error).toBe('forbidden');
+    });
+
+    it('enforces rate limiting with 429 when rate limit exceeded', async () => {
+      vi.mocked(checkPublicEndpointRateLimit).mockResolvedValueOnce({
+        allowed: false,
+        limit: 30,
+        remaining: 0,
+        resetMs: 60_000,
+      });
+
+      const res = await staffRedeemPost(makeRedeemRequest({ action: 'preview', token: 'dummy' }));
+      expect(res.status).toBe(429);
+      const json = await res.json();
+      expect(json.ok).toBe(false);
+      expect(json.error).toBe('rate_limited');
+    });
+
+    it('rejects malformed JSON body with 400', async () => {
+      const res = await staffRedeemPost(makeRedeemRequest(null, '{ malformed json'));
+      expect(res.status).toBe(400);
+      const json = await res.json();
+      expect(json.ok).toBe(false);
+      expect(json.error).toBe('invalid_input');
+    });
+
+    it('rejects invalid action or missing token with 400', async () => {
+      const resInvalidAction = await staffRedeemPost(
+        makeRedeemRequest({ action: 'destroy', token: 'dummy' }),
+      );
+      expect(resInvalidAction.status).toBe(400);
+
+      const resMissingToken = await staffRedeemPost(makeRedeemRequest({ action: 'preview' }));
+      expect(resMissingToken.status).toBe(400);
+    });
+
+    it('rejects tampered or malformed HMAC token (400 on preview, 200 invalid-token on confirm)', async () => {
+      const issued = await issueRedeemToken(TEST_CUSTOMER_ID);
+      const tamperedToken = `${issued.token.slice(0, -6)}XXXXXX`;
+
+      // Preview: 400
+      const previewRes = await staffRedeemPost(
+        makeRedeemRequest({ action: 'preview', token: tamperedToken }),
+      );
+      expect(previewRes.status).toBe(400);
+      const previewJson = await previewRes.json();
+      expect(previewJson.ok).toBe(false);
+      expect(previewJson.message).toBe('Invalid redemption QR token.');
+
+      // Confirm: 200 with result: 'invalid-token'
+      const confirmRes = await staffRedeemPost(
+        makeRedeemRequest({ action: 'confirm', token: tamperedToken }),
+      );
+      expect(confirmRes.status).toBe(200);
+      const confirmJson = await confirmRes.json();
+      expect(confirmJson.ok).toBe(true);
+      expect(confirmJson.data.result).toBe('invalid-token');
+      expect(confirmJson.data.message).toBe('Invalid redemption QR token.');
+    });
+
+    it('rejects expired HMAC token (400 on preview, 200 expired-token on confirm)', async () => {
+      // Issue token with valid structure (exp > iat) but in the past (iat = now - 400s, exp = now - 100s)
+      const expiredIssued = await issueRedeemToken(TEST_CUSTOMER_ID, {
+        nowMs: Date.now() - 400_000,
+        ttlSeconds: 300,
+      });
+
+      // Preview: 400
+      const previewRes = await staffRedeemPost(
+        makeRedeemRequest({ action: 'preview', token: expiredIssued.token }),
+      );
+      expect(previewRes.status).toBe(400);
+      const previewJson = await previewRes.json();
+      expect(previewJson.ok).toBe(false);
+      expect(previewJson.message).toBe('Redemption QR token has expired.');
+
+      // Confirm: 200 with result: 'expired-token'
+      const confirmRes = await staffRedeemPost(
+        makeRedeemRequest({ action: 'confirm', token: expiredIssued.token }),
+      );
+      expect(confirmRes.status).toBe(200);
+      const confirmJson = await confirmRes.json();
+      expect(confirmJson.ok).toBe(true);
+      expect(confirmJson.data.result).toBe('expired-token');
+      expect(confirmJson.data.message).toBe('Redemption QR token has expired.');
+    });
+
+    it('enforces single-use token: rejects replayed token when audit_log contains staff_redeem_token_used for target=nonce', async () => {
+      const issued = await issueRedeemToken(TEST_CUSTOMER_ID);
+
+      // Mock audit_log containing existing row for nonce
+      tableQueryHandlers['audit_log'] = () =>
+        createMockSupabaseQuery({ id: 'used-audit-log-uuid' }, null);
+
+      // Preview: 400
+      const previewRes = await staffRedeemPost(
+        makeRedeemRequest({ action: 'preview', token: issued.token }),
+      );
+      expect(previewRes.status).toBe(400);
+      const previewJson = await previewRes.json();
+      expect(previewJson.ok).toBe(false);
+      expect(previewJson.message).toBe('This redemption QR token has already been used.');
+
+      // Confirm: 200 with result: 'invalid-token'
+      const confirmRes = await staffRedeemPost(
+        makeRedeemRequest({ action: 'confirm', token: issued.token }),
+      );
+      expect(confirmRes.status).toBe(200);
+      const confirmJson = await confirmRes.json();
+      expect(confirmJson.ok).toBe(true);
+      expect(confirmJson.data.result).toBe('invalid-token');
+      expect(confirmJson.data.message).toBe('This redemption QR token has already been used.');
+    });
+
+    it('succeeds on preview: returns canRedeem true when customer has 10 stamps', async () => {
+      const issued = await issueRedeemToken(TEST_CUSTOMER_ID);
+
+      // audit_log: not used
+      tableQueryHandlers['audit_log'] = () => createMockSupabaseQuery(null, null);
+
+      // customer_balances: 10 stamps
+      tableQueryHandlers['customer_balances'] = () =>
+        createMockSupabaseQuery(
+          {
+            customer_id: TEST_CUSTOMER_ID,
+            available_stamps: 10,
+            total_stamps: 15,
+            stamps_redeemed: 5,
+            last_stamped_at: '2026-11-01T10:00:00Z',
+          },
+          null,
+        );
+
+      const res = await staffRedeemPost(
+        makeRedeemRequest({ action: 'preview', token: issued.token }),
+      );
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.ok).toBe(true);
+      expect(json.data.mode).toBe('preview');
+      expect(json.data.canRedeem).toBe(true);
+      expect(json.data.availableStamps).toBe(10);
+      expect(json.data.totalStamps).toBe(15);
+      expect(json.data.stampsRedeemed).toBe(5);
+      expect(json.data.displayCode).toBe(issued.displayCode);
+    });
+
+    it('succeeds on preview: returns canRedeem false when customer has 9 stamps', async () => {
+      const issued = await issueRedeemToken(TEST_CUSTOMER_ID);
+
+      tableQueryHandlers['audit_log'] = () => createMockSupabaseQuery(null, null);
+      tableQueryHandlers['customer_balances'] = () =>
+        createMockSupabaseQuery(
+          {
+            customer_id: TEST_CUSTOMER_ID,
+            available_stamps: 9,
+            total_stamps: 9,
+            stamps_redeemed: 0,
+            last_stamped_at: '2026-11-01T10:00:00Z',
+          },
+          null,
+        );
+
+      const res = await staffRedeemPost(
+        makeRedeemRequest({ action: 'preview', token: issued.token }),
+      );
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.ok).toBe(true);
+      expect(json.data.mode).toBe('preview');
+      expect(json.data.canRedeem).toBe(false);
+      expect(json.data.availableStamps).toBe(9);
+    });
+
+    it('succeeds on confirm: calls redeem_reward RPC with customer and staff, records audit log, and returns result: redeemed', async () => {
+      const issued = await issueRedeemToken(TEST_CUSTOMER_ID);
+
+      tableQueryHandlers['audit_log'] = () => createMockSupabaseQuery(null, null);
+
+      // Customer balance after deduction: 0 stamps
+      tableQueryHandlers['customer_balances'] = () =>
+        createMockSupabaseQuery(
+          {
+            available_stamps: 0,
+          },
+          null,
+        );
+
+      mockAdminClient.rpc.mockImplementation(async (rpcName: string, args: any) => {
+        if (rpcName === 'redeem_reward') {
+          expect(args.p_customer).toBe(TEST_CUSTOMER_ID);
+          expect(args.p_staff).toBe(TEST_STAFF_ID);
+          return { data: 'redeemed', error: null };
+        }
+        if (rpcName === 'log_audit_event') {
+          expect(args.p_action).toBe('staff_redeem_token_used');
+          expect(args.p_target).toBe(issued.payload.nonce);
+          return { data: 'audit-log-uuid-1', error: null };
+        }
+        return { data: null, error: null };
+      });
+
+      const res = await staffRedeemPost(
+        makeRedeemRequest({ action: 'confirm', token: issued.token }),
+      );
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.ok).toBe(true);
+      expect(json.data.mode).toBe('confirm');
+      expect(json.data.result).toBe('redeemed');
+      expect(json.data.availableStampsAfter).toBe(0);
+      expect(json.data.message).toBe('Reward redeemed successfully! 10 stamps deducted.');
+    });
+
+    it('handles confirm when redeem_reward returns insufficient-stamps', async () => {
+      const issued = await issueRedeemToken(TEST_CUSTOMER_ID);
+
+      tableQueryHandlers['audit_log'] = () => createMockSupabaseQuery(null, null);
+      tableQueryHandlers['customer_balances'] = () =>
+        createMockSupabaseQuery({ available_stamps: 8 }, null);
+
+      mockAdminClient.rpc.mockImplementation(async (rpcName: string) => {
+        if (rpcName === 'redeem_reward') {
+          return { data: 'insufficient-stamps', error: null };
+        }
+        return { data: null, error: null };
+      });
+
+      const res = await staffRedeemPost(
+        makeRedeemRequest({ action: 'confirm', token: issued.token }),
+      );
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.ok).toBe(true);
+      expect(json.data.result).toBe('insufficient-stamps');
+      expect(json.data.message).toBe('Customer does not have enough stamps (10 required).');
+    });
+
+    it('returns 500 when redeem_reward RPC fails', async () => {
+      const issued = await issueRedeemToken(TEST_CUSTOMER_ID);
+
+      tableQueryHandlers['audit_log'] = () => createMockSupabaseQuery(null, null);
+
+      mockAdminClient.rpc.mockImplementation(async (rpcName: string) => {
+        if (rpcName === 'redeem_reward') {
+          return { data: null, error: { message: 'Database transaction lock failed' } };
+        }
+        return { data: null, error: null };
+      });
+
+      const res = await staffRedeemPost(
+        makeRedeemRequest({ action: 'confirm', token: issued.token }),
+      );
+      expect(res.status).toBe(500);
+      const json = await res.json();
+      expect(json.ok).toBe(false);
+      expect(json.error).toBe('internal_error');
+    });
+  });
+
+  // ============================================================================
+  // 3. POST /api/staff/stamp
+  // ============================================================================
+  describe('3. POST /api/staff/stamp: Staff Manual Stamp Route Handler', () => {
+    function makeStampRequest(body: any, rawText?: string) {
+      if (rawText !== undefined) {
+        return new Request('http://localhost:3000/api/staff/stamp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: rawText,
+        });
+      }
+      return new Request('http://localhost:3000/api/staff/stamp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+    }
+
+    it('rejects unauthenticated caller with 401', async () => {
+      mockUnauthenticated();
+      const res = await staffStampPost(
+        makeStampRequest({ customerId: TEST_CUSTOMER_ID, reason: 'NFC broken' }),
+      );
+      expect(res.status).toBe(401);
+      const json = await res.json();
+      expect(json.ok).toBe(false);
+      expect(json.error).toBe('unauthenticated');
+    });
+
+    it('rejects non-staff user with 403', async () => {
+      mockNonStaffUser();
+      const res = await staffStampPost(
+        makeStampRequest({ customerId: TEST_CUSTOMER_ID, reason: 'NFC broken' }),
+      );
+      expect(res.status).toBe(403);
+      const json = await res.json();
+      expect(json.ok).toBe(false);
+      expect(json.error).toBe('forbidden');
+    });
+
+    it('enforces rate limiting with 429 when rate limit exceeded', async () => {
+      vi.mocked(checkPublicEndpointRateLimit).mockResolvedValueOnce({
+        allowed: false,
+        limit: 30,
+        remaining: 0,
+        resetMs: 60_000,
+      });
+
+      const res = await staffStampPost(
+        makeStampRequest({ customerId: TEST_CUSTOMER_ID, reason: 'NFC broken' }),
+      );
+      expect(res.status).toBe(429);
+      const json = await res.json();
+      expect(json.ok).toBe(false);
+      expect(json.error).toBe('rate_limited');
+    });
+
+    it('rejects malformed JSON body with 400', async () => {
+      const res = await staffStampPost(makeStampRequest(null, '{ not-json'));
+      expect(res.status).toBe(400);
+      const json = await res.json();
+      expect(json.ok).toBe(false);
+      expect(json.error).toBe('invalid_input');
+    });
+
+    it('rejects invalid customerId UUID with 400', async () => {
+      const res = await staffStampPost(
+        makeStampRequest({ customerId: 'not-a-uuid', reason: 'Verified espresso purchase' }),
+      );
+      expect(res.status).toBe(400);
+      const json = await res.json();
+      expect(json.ok).toBe(false);
+      expect(json.error).toBe('invalid_input');
+    });
+
+    it('rejects missing or too short reason (< 3 chars) with 400', async () => {
+      const resShort = await staffStampPost(
+        makeStampRequest({ customerId: TEST_CUSTOMER_ID, reason: 'ok' }),
+      );
+      expect(resShort.status).toBe(400);
+
+      const resEmpty = await staffStampPost(
+        makeStampRequest({ customerId: TEST_CUSTOMER_ID, reason: '   ' }),
+      );
+      expect(resEmpty.status).toBe(400);
+    });
+
+    it('returns 404 when customerId is not found in public.customers', async () => {
+      tableQueryHandlers['customers'] = () => createMockSupabaseQuery(null, null);
+
+      const res = await staffStampPost(
+        makeStampRequest({
+          customerId: TEST_CUSTOMER_ID,
+          reason: 'Verified customer phone antenna failed',
+        }),
+      );
+      expect(res.status).toBe(404);
+      const json = await res.json();
+      expect(json.ok).toBe(false);
+      expect(json.message).toBe('Customer ID not found.');
+    });
+
+    it('succeeds for valid customer and reason: calls record_stamp with manual source, logs audit event, and returns balance', async () => {
+      tableQueryHandlers['customers'] = () =>
+        createMockSupabaseQuery({ id: TEST_CUSTOMER_ID }, null);
+      tableQueryHandlers['customer_balances'] = () =>
+        createMockSupabaseQuery({ available_stamps: 7 }, null);
+
+      mockAdminClient.rpc.mockImplementation(async (rpcName: string, args: any) => {
+        if (rpcName === 'record_stamp') {
+          expect(args.p_customer).toBe(TEST_CUSTOMER_ID);
+          expect(args.p_source).toBe('manual');
+          expect(args.p_staff).toBe(TEST_STAFF_ID);
+          expect(args.p_reason).toBe('iPhone 8 NFC broken; receipt verified');
+          return { data: 'stamped', error: null };
+        }
+        if (rpcName === 'log_audit_event') {
+          expect(args.p_action).toBe('staff_manual_stamp_issued');
+          expect(args.p_target).toBe(TEST_CUSTOMER_ID);
+          return { data: 'audit-log-uuid-2', error: null };
+        }
+        return { data: null, error: null };
+      });
+
+      const res = await staffStampPost(
+        makeStampRequest({
+          customerId: TEST_CUSTOMER_ID,
+          reason: 'iPhone 8 NFC broken; receipt verified',
+        }),
+      );
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.ok).toBe(true);
+      expect(json.data.result).toBe('stamped');
+      expect(json.data.customerId).toBe(TEST_CUSTOMER_ID);
+      expect(json.data.availableStampsAfter).toBe(7);
+      expect(json.data.reason).toBe('iPhone 8 NFC broken; receipt verified');
+    });
+
+    it('returns 500 when record_stamp RPC encounters an error', async () => {
+      tableQueryHandlers['customers'] = () =>
+        createMockSupabaseQuery({ id: TEST_CUSTOMER_ID }, null);
+
+      mockAdminClient.rpc.mockImplementation(async (rpcName: string) => {
+        if (rpcName === 'record_stamp') {
+          return { data: null, error: { message: 'RPC execution failed' } };
+        }
+        return { data: null, error: null };
+      });
+
+      const res = await staffStampPost(
+        makeStampRequest({
+          customerId: TEST_CUSTOMER_ID,
+          reason: 'Test reason for failure',
+        }),
+      );
+      expect(res.status).toBe(500);
+      const json = await res.json();
+      expect(json.ok).toBe(false);
+      expect(json.error).toBe('internal_error');
+    });
+  });
+
+  // ============================================================================
+  // 4. GET & POST /api/staff/tags
+  // ============================================================================
+  describe('4. GET & POST /api/staff/tags: NFC Tag Management Route Handlers', () => {
+    function makeTagRequest(body: any, rawText?: string) {
+      if (rawText !== undefined) {
+        return new Request('http://localhost:3000/api/staff/tags', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: rawText,
+        });
+      }
+      return new Request('http://localhost:3000/api/staff/tags', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+    }
+
+    describe('GET /api/staff/tags', () => {
+      it('rejects unauthenticated caller with 401', async () => {
+        mockUnauthenticated();
+        const res = await staffTagsGet();
+        expect(res.status).toBe(401);
+      });
+
+      it('rejects non-staff user with 403', async () => {
+        mockNonStaffUser();
+        const res = await staffTagsGet();
+        expect(res.status).toBe(403);
+      });
+
+      it('returns decorated tags list with productionTapUrl and localTapUrl', async () => {
+        const sampleTags: TagRow[] = [
+          {
+            id: 'tcp_tag_counter_1',
+            label: 'Counter Barista 1',
+            active: true,
+            created_at: '2026-11-01T10:00:00Z',
+            deactivated_at: null,
+          },
+          {
+            id: 'tcp_tag_drive_thru',
+            label: 'Drive Thru',
+            active: false,
+            created_at: '2026-10-15T08:00:00Z',
+            deactivated_at: '2026-10-20T12:00:00Z',
+          },
+        ];
+
+        tableQueryHandlers['tags'] = () => createMockSupabaseQuery(sampleTags, null);
+
+        const res = await staffTagsGet();
+        expect(res.status).toBe(200);
+        const json = await res.json();
+        expect(json.ok).toBe(true);
+        expect(json.data).toHaveLength(2);
+        expect(json.data[0].productionTapUrl).toBe(
+          'https://card.thecaffeineplug.ph/t/tcp_tag_counter_1',
+        );
+        expect(json.data[0].localTapUrl).toBe('http://localhost:3000/t/tcp_tag_counter_1');
+        expect(json.data[1].productionTapUrl).toBe(
+          'https://card.thecaffeineplug.ph/t/tcp_tag_drive_thru',
+        );
+      });
+
+      it('returns 500 when database query errors', async () => {
+        tableQueryHandlers['tags'] = () =>
+          createMockSupabaseQuery(null, { message: 'Database offline' });
+
+        const res = await staffTagsGet();
+        expect(res.status).toBe(500);
+        const json = await res.json();
+        expect(json.ok).toBe(false);
+        expect(json.error).toBe('internal_error');
+      });
+    });
+
+    describe('POST /api/staff/tags', () => {
+      it('rejects unauthenticated caller with 401', async () => {
+        mockUnauthenticated();
+        const res = await staffTagsPost(makeTagRequest({ action: 'create' }));
+        expect(res.status).toBe(401);
+      });
+
+      it('rejects non-staff user with 403', async () => {
+        mockNonStaffUser();
+        const res = await staffTagsPost(makeTagRequest({ action: 'create' }));
+        expect(res.status).toBe(403);
+      });
+
+      it('enforces rate limiting with 429', async () => {
+        vi.mocked(checkPublicEndpointRateLimit).mockResolvedValueOnce({
+          allowed: false,
+          limit: 30,
+          remaining: 0,
+          resetMs: 60_000,
+        });
+
+        const res = await staffTagsPost(makeTagRequest({ action: 'create' }));
+        expect(res.status).toBe(429);
+      });
+
+      it('rejects malformed JSON or invalid action with 400', async () => {
+        const resMalformed = await staffTagsPost(makeTagRequest(null, '{ not-json'));
+        expect(resMalformed.status).toBe(400);
+
+        const resInvalidAction = await staffTagsPost(makeTagRequest({ action: 'burn-tag' }));
+        expect(resInvalidAction.status).toBe(400);
+      });
+
+      describe('action: create', () => {
+        it('creates a new random tag matching pattern, logs tag_created, and returns decorated tag', async () => {
+          let insertedData: any = null;
+
+          tableQueryHandlers['tags'] = () => {
+            const query: any = createMockSupabaseQuery();
+            query.insert = vi.fn((data: any) => {
+              insertedData = {
+                id: data.id,
+                label: data.label,
+                active: true,
+                created_at: '2026-11-01T12:00:00Z',
+                deactivated_at: null,
+              };
+              query.single = vi.fn().mockResolvedValue({ data: insertedData, error: null });
+              return query;
+            });
+            return query;
+          };
+
+          const res = await staffTagsPost(
+            makeTagRequest({ action: 'create', label: 'Front Counter Card #2' }),
+          );
+          expect(res.status).toBe(200);
+          const json = await res.json();
+          expect(json.ok).toBe(true);
+          expect(json.data.action).toBe('create');
+          expect(json.data.tag.id).toMatch(/^tcp_tag_[0-9a-z]{16}$/);
+          expect(json.data.tag.label).toBe('Front Counter Card #2');
+          expect(json.data.tag.productionTapUrl).toBe(
+            `https://card.thecaffeineplug.ph/t/${encodeURIComponent(json.data.tag.id)}`,
+          );
+
+          expect(mockAdminClient.rpc).toHaveBeenCalledWith(
+            'log_audit_event',
+            expect.objectContaining({
+              p_actor: TEST_STAFF_ID,
+              p_action: 'tag_created',
+              p_target: json.data.tag.id,
+            }),
+          );
+        });
+
+        it('returns 500 when inserting tag fails', async () => {
+          tableQueryHandlers['tags'] = () => {
+            const query: any = createMockSupabaseQuery();
+            query.insert = vi.fn(() => {
+              query.single = vi.fn().mockResolvedValue({
+                data: null,
+                error: { message: 'Unique violation on tag id' },
+              });
+              return query;
+            });
+            return query;
+          };
+
+          const res = await staffTagsPost(makeTagRequest({ action: 'create' }));
+          expect(res.status).toBe(500);
+        });
+      });
+
+      describe('action: deactivate', () => {
+        it('returns 404 when tag does not exist', async () => {
+          tableQueryHandlers['tags'] = () => createMockSupabaseQuery(null, null);
+
+          const res = await staffTagsPost(
+            makeTagRequest({ action: 'deactivate', tagId: 'tcp_tag_nonexistent' }),
+          );
+          expect(res.status).toBe(404);
+          const json = await res.json();
+          expect(json.ok).toBe(false);
+          expect(json.message).toBe('NFC tag not found.');
+        });
+
+        it('deactivates tag, logs tag_deactivated, and returns updated tag', async () => {
+          const existingTag: TagRow = {
+            id: 'tcp_tag_to_deactivate',
+            label: 'Counter Tag',
+            active: true,
+            created_at: '2026-11-01T10:00:00Z',
+            deactivated_at: null,
+          };
+
+          const updatedTag: TagRow = {
+            ...existingTag,
+            active: false,
+            deactivated_at: new Date().toISOString(),
+          };
+
+          tableQueryHandlers['tags'] = () => {
+            const query: any = createMockSupabaseQuery();
+            query.maybeSingle = vi.fn().mockResolvedValue({ data: existingTag, error: null });
+            query.update = vi.fn(() => {
+              query.single = vi.fn().mockResolvedValue({ data: updatedTag, error: null });
+              return query;
+            });
+            return query;
+          };
+
+          const res = await staffTagsPost(
+            makeTagRequest({ action: 'deactivate', tagId: 'tcp_tag_to_deactivate' }),
+          );
+          expect(res.status).toBe(200);
+          const json = await res.json();
+          expect(json.ok).toBe(true);
+          expect(json.data.action).toBe('deactivate');
+          expect(json.data.deactivatedTagId).toBe('tcp_tag_to_deactivate');
+          expect(json.data.tag.active).toBe(false);
+
+          expect(mockAdminClient.rpc).toHaveBeenCalledWith(
+            'log_audit_event',
+            expect.objectContaining({
+              p_actor: TEST_STAFF_ID,
+              p_action: 'tag_deactivated',
+              p_target: 'tcp_tag_to_deactivate',
+            }),
+          );
+        });
+      });
+
+      describe('action: rotate', () => {
+        it('returns 404 when target tag does not exist', async () => {
+          tableQueryHandlers['tags'] = () => createMockSupabaseQuery(null, null);
+
+          const res = await staffTagsPost(
+            makeTagRequest({ action: 'rotate', tagId: 'tcp_tag_nonexistent' }),
+          );
+          expect(res.status).toBe(404);
+        });
+
+        it('deactivates old tag, creates new tag, logs tag_rotated with deactivated_tag_id, and returns new tag', async () => {
+          const oldTag = {
+            id: 'tcp_tag_old_counter',
+            label: 'Register 1 Old',
+          };
+
+          let newTagInserted: TagRow | null = null;
+
+          tableQueryHandlers['tags'] = () => {
+            const query: any = createMockSupabaseQuery();
+            query.maybeSingle = vi.fn().mockResolvedValue({ data: oldTag, error: null });
+            query.update = vi.fn(() => query);
+            query.insert = vi.fn((data: any) => {
+              newTagInserted = {
+                id: data.id,
+                label: data.label,
+                active: true,
+                created_at: '2026-11-01T14:00:00Z',
+                deactivated_at: null,
+              };
+              query.single = vi.fn().mockResolvedValue({ data: newTagInserted, error: null });
+              return query;
+            });
+            return query;
+          };
+
+          const res = await staffTagsPost(
+            makeTagRequest({
+              action: 'rotate',
+              tagId: 'tcp_tag_old_counter',
+              newLabel: 'Register 1 New Card',
+            }),
+          );
+          expect(res.status).toBe(200);
+          const json = await res.json();
+          expect(json.ok).toBe(true);
+          expect(json.data.action).toBe('rotate');
+          expect(json.data.deactivatedTagId).toBe('tcp_tag_old_counter');
+          expect(json.data.tag.id).toMatch(/^tcp_tag_[0-9a-z]{16}$/);
+          expect(json.data.tag.label).toBe('Register 1 New Card');
+
+          expect(mockAdminClient.rpc).toHaveBeenCalledWith(
+            'log_audit_event',
+            expect.objectContaining({
+              p_actor: TEST_STAFF_ID,
+              p_action: 'tag_rotated',
+              p_target: json.data.tag.id,
+              p_detail: expect.objectContaining({
+                deactivated_tag_id: 'tcp_tag_old_counter',
+              }),
+            }),
+          );
+        });
+
+        it('preserves existing tag label when newLabel is not provided during rotation', async () => {
+          const oldTag = {
+            id: 'tcp_tag_preserve_lbl',
+            label: 'Barista Card Back Station',
+          };
+
+          let insertedLabel: string | null = null;
+
+          tableQueryHandlers['tags'] = () => {
+            const query: any = createMockSupabaseQuery();
+            query.maybeSingle = vi.fn().mockResolvedValue({ data: oldTag, error: null });
+            query.update = vi.fn(() => query);
+            query.insert = vi.fn((data: any) => {
+              insertedLabel = data.label;
+              const inserted = {
+                id: data.id,
+                label: data.label,
+                active: true,
+                created_at: '2026-11-01T14:00:00Z',
+                deactivated_at: null,
+              };
+              query.single = vi.fn().mockResolvedValue({ data: inserted, error: null });
+              return query;
+            });
+            return query;
+          };
+
+          const res = await staffTagsPost(
+            makeTagRequest({ action: 'rotate', tagId: 'tcp_tag_preserve_lbl' }),
+          );
+          expect(res.status).toBe(200);
+          expect(insertedLabel).toBe('Barista Card Back Station');
+        });
+      });
+    });
+  });
+
+  // ============================================================================
+  // 5. Staff UI Components & Accessibility
+  // ============================================================================
+  describe('5. Staff UI Components & Accessibility', () => {
+    const testStaffSession: StaffSession = {
+      userId: TEST_STAFF_ID,
+      email: 'barista@thecaffeineplug.ph',
+      displayName: 'Maria Santos',
+      role: 'staff',
+      active: true,
+    };
+
+    describe('StaffNav (components/staff/StaffNav.tsx)', () => {
+      it('renders brand identity, staff name, role badge, and navigation landmarks', () => {
+        const html = renderToStaticMarkup(
+          React.createElement(StaffNav, {
+            staff: testStaffSession,
+            currentPath: ROUTES.staff.root,
+          }),
+        );
+
+        expect(html).toContain('THE CAFFEINE PLUG');
+        expect(html).toContain('STAFF OPS');
+        expect(html).toContain('Maria Santos');
+        expect(html).toContain('STAFF');
+        expect(html).toContain('aria-label="Logged in as Maria Santos, staff"');
+        expect(html).toContain('aria-label="Staff Portal Navigation"');
+        expect(html).toContain('Sign Out');
+      });
+
+      it('highlights active navigation link with aria-current="page"', () => {
+        const html = renderToStaticMarkup(
+          React.createElement(StaffNav, {
+            staff: testStaffSession,
+            currentPath: ROUTES.staff.redeem,
+          }),
+        );
+
+        expect(html).toContain('aria-current="page"');
+        expect(html).toMatch(/<a[^>]*aria-current="page"[^>]*href="\/staff\/redeem"/);
+        expect(html).not.toMatch(/<a[^>]*aria-current="page"[^>]*href="\/staff\/stamp"/);
+      });
+    });
+
+    describe('StaffLoginForm (components/staff/StaffLoginForm.tsx)', () => {
+      it('renders accessible form with labels and mode toggles', () => {
+        const html = renderToStaticMarkup(React.createElement(StaffLoginForm, {}));
+
+        expect(html).toContain('Staff Access');
+        expect(html).toContain('for="staff-login-email"');
+        expect(html).toContain('Staff Email Address');
+        expect(html).toContain('for="staff-login-password"');
+        expect(html).toContain('Password');
+        expect(html).toContain('Sign In with Password');
+        expect(html).toContain('Magic Link');
+      });
+
+      it('renders role="alert" with exact error message and Switch Account button when initialError="forbidden"', () => {
+        const html = renderToStaticMarkup(
+          React.createElement(StaffLoginForm, { initialError: 'forbidden' }),
+        );
+
+        expect(html).toContain('role="alert"');
+        expect(html).toContain('aria-live="polite"');
+        expect(html).toContain(
+          'Access denied: This account does not have active staff permissions.',
+        );
+        expect(html).toContain('Sign Out &amp; Switch Account');
+      });
+
+      it('renders generic authentication error when initialError is provided', () => {
+        const html = renderToStaticMarkup(
+          React.createElement(StaffLoginForm, { initialError: 'invalid_credentials' }),
+        );
+
+        expect(html).toContain('role="alert"');
+        expect(html).toContain('Authentication error: invalid_credentials');
+      });
+    });
+
+    describe('RedeemRewardForm (components/staff/RedeemRewardForm.tsx)', () => {
+      it('renders accessible textarea with label and verify button', () => {
+        const html = renderToStaticMarkup(React.createElement(RedeemRewardForm));
+
+        expect(html).toContain('Customer Reward Redemption');
+        expect(html).toContain('for="redeem-token-input"');
+        expect(html).toContain('Customer Redemption Token (Scan or Paste)');
+        expect(html).toContain('Verify Token &amp; Check Balance');
+      });
+    });
+
+    describe('ManualStampForm (components/staff/ManualStampForm.tsx)', () => {
+      it('renders accessible inputs with labels and audit requirement', () => {
+        const html = renderToStaticMarkup(React.createElement(ManualStampForm));
+
+        expect(html).toContain('Issue Manual Stamp');
+        expect(html).toContain('for="manual-customer-id"');
+        expect(html).toContain('Customer UUID');
+        expect(html).toContain('for="manual-stamp-reason"');
+        expect(html).toContain('Reason for Manual Stamp (Required for Audit Log)');
+        expect(html).toContain('Award Manual Stamp');
+      });
+    });
+
+    describe('TagManagerClient (components/staff/TagManagerClient.tsx)', () => {
+      const sampleTagsWithUrls: TagWithUrls[] = [
+        {
+          id: 'tcp_tag_counter_1',
+          label: 'Front Counter Station 1',
+          active: true,
+          created_at: '2026-11-01T10:00:00Z',
+          deactivated_at: null,
+          productionTapUrl: 'https://card.thecaffeineplug.ph/t/tcp_tag_counter_1',
+          localTapUrl: 'http://localhost:3000/t/tcp_tag_counter_1',
+        },
+        {
+          id: 'tcp_tag_drive_thru',
+          label: 'Drive Thru Window',
+          active: false,
+          created_at: '2026-10-15T08:00:00Z',
+          deactivated_at: '2026-10-20T12:00:00Z',
+          productionTapUrl: 'https://card.thecaffeineplug.ph/t/tcp_tag_drive_thru',
+          localTapUrl: 'http://localhost:3000/t/tcp_tag_drive_thru',
+        },
+      ];
+
+      it('renders provisioned tags with active status, production URL, and local dev URL', () => {
+        const html = renderToStaticMarkup(
+          React.createElement(TagManagerClient, { initialTags: sampleTagsWithUrls }),
+        );
+
+        expect(html).toContain('Provision NTAG215 Hardware Tag');
+        expect(html).toContain('for="new-tag-label"');
+        expect(html).toContain('aria-label="NFC Tag Inventory"');
+        expect(html).toContain('tcp_tag_counter_1');
+        expect(html).toContain('ACTIVE');
+        expect(html).toContain('Front Counter Station 1');
+        expect(html).toContain('https://card.thecaffeineplug.ph/t/tcp_tag_counter_1');
+        expect(html).toContain('http://localhost:3000/t/tcp_tag_counter_1');
+
+        expect(html).toContain('tcp_tag_drive_thru');
+        expect(html).toContain('DEACTIVATED');
+        expect(html).toContain('Rotate Tag');
+        expect(html).toContain('Deactivate Tag');
+        expect(html).toContain('Copy Production URL');
+        expect(html).toContain('Copy Local URL');
+      });
+
+      it('renders empty inventory note when initialTags is empty array', () => {
+        const html = renderToStaticMarkup(
+          React.createElement(TagManagerClient, { initialTags: [] }),
+        );
+        expect(html).toContain('No NFC tags provisioned yet.');
+      });
+    });
+
+    describe('Server Component Pages Rendering', () => {
+      it('StaffOverviewPage renders Operations Console with all 4 module action cards', async () => {
+        mockActiveStaff('owner');
+        const pageElement = await StaffOverviewPage();
+        const html = renderToStaticMarkup(pageElement);
+
+        expect(html).toContain('Operations Console');
+        expect(html).toContain('Redeem Reward');
+        expect(html).toContain('Manual Stamp');
+        expect(html).toContain('NFC Tag Manager');
+        expect(html).toContain('Activity &amp; Audit Log');
+      });
+
+      it('StaffRedeemPage renders Redeem Reward module and form', async () => {
+        mockActiveStaff('staff');
+        const pageElement = await StaffRedeemPage();
+        const html = renderToStaticMarkup(pageElement);
+
+        expect(html).toContain('OPERATIONS // MODULE 01');
+        expect(html).toContain('Redeem Reward');
+        expect(html).toContain('Customer Reward Redemption');
+      });
+
+      it('StaffManualStampPage renders Manual Stamp module and form', async () => {
+        mockActiveStaff('staff');
+        const pageElement = await StaffManualStampPage();
+        const html = renderToStaticMarkup(pageElement);
+
+        expect(html).toContain('OPERATIONS // MODULE 02');
+        expect(html).toContain('Manual Stamp');
+        expect(html).toContain('Issue Manual Stamp');
+      });
+
+      it('StaffTagsPage renders NFC Tag Manager module and TagManagerClient', async () => {
+        mockActiveStaff('owner');
+        tableQueryHandlers['tags'] = () =>
+          createMockSupabaseQuery(
+            [
+              {
+                id: 'tcp_tag_station_1',
+                label: 'Station 1',
+                active: true,
+                created_at: '2026-11-01T10:00:00Z',
+                deactivated_at: null,
+              },
+            ],
+            null,
+          );
+
+        const pageElement = await StaffTagsPage();
+        const html = renderToStaticMarkup(pageElement);
+
+        expect(html).toContain('OPERATIONS // MODULE 03');
+        expect(html).toContain('NFC Tag Manager');
+        expect(html).toContain('tcp_tag_station_1');
+      });
+
+      it('StaffActivityPage renders anomaly flags, recent stamps, redemptions, and audit logs', async () => {
+        mockActiveStaff('owner');
+        tableQueryHandlers['stamps'] = () =>
+          createMockSupabaseQuery(
+            [
+              {
+                id: 's1',
+                customer_id: TEST_CUSTOMER_ID,
+                tag_id: 'tag_1',
+                source: 'nfc',
+                staff_id: null,
+                reason: null,
+                created_at: '2026-11-01T10:00:00Z',
+              },
+            ],
+            null,
+          );
+        tableQueryHandlers['redemptions'] = () =>
+          createMockSupabaseQuery(
+            [
+              {
+                id: 'r1',
+                customer_id: TEST_CUSTOMER_ID,
+                stamps_used: 10,
+                staff_id: TEST_STAFF_ID,
+                created_at: '2026-11-01T11:00:00Z',
+              },
+            ],
+            null,
+          );
+        tableQueryHandlers['audit_log'] = () =>
+          createMockSupabaseQuery(
+            [
+              {
+                id: 'a1',
+                actor: TEST_STAFF_ID,
+                action: 'tag_created',
+                target: 'tag_1',
+                detail: { label: 'New Tag' },
+                created_at: '2026-11-01T09:00:00Z',
+              },
+            ],
+            null,
+          );
+
+        const pageElement = await StaffActivityPage();
+        const html = renderToStaticMarkup(pageElement);
+
+        expect(html).toContain('Activity &amp; Audit Log');
+        expect(html).toContain('Anomaly Flags');
+        expect(html).toContain('Recent Stamps');
+        expect(html).toContain('Recent Redemptions');
+        expect(html).toContain('Audit Log Viewer');
+        expect(html).toContain('tag_created');
+      });
+
+      it('StaffLoginPage redirects to nextPath if already authenticated as active staff', async () => {
+        mockActiveStaff('staff');
+        await expect(
+          StaffLoginPage({
+            searchParams: Promise.resolve({ next: '/staff/redeem' }),
+          }),
+        ).rejects.toThrow('NEXT_REDIRECT: /staff/redeem');
+      });
+
+      it('StaffLoginPage renders StaffLoginForm when caller is not authenticated', async () => {
+        mockUnauthenticated();
+        const pageElement = await StaffLoginPage({
+          searchParams: Promise.resolve({ error: 'forbidden' }),
+        });
+        const html = renderToStaticMarkup(pageElement);
+
+        expect(html).toContain('Staff Access');
+        expect(html).toContain('role="alert"');
+        expect(html).toContain(
+          'Access denied: This account does not have active staff permissions.',
+        );
+      });
+    });
+  });
+});

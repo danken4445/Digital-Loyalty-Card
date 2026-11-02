@@ -1,0 +1,578 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import fs from 'node:fs';
+import path from 'node:path';
+import type { User } from '@supabase/supabase-js';
+
+// Stub 'server-only' for Node/Vitest test environment
+vi.mock('server-only', () => ({}));
+
+import { verifyTurnstileToken } from '@/lib/security/turnstile';
+import { ensureCustomerRecord, getAuthenticatedCustomerCardState } from '@/lib/auth/customer';
+import { POST } from '@/app/api/customers/route';
+import { createSupabaseServerClient, getVerifiedUser } from '@/lib/supabase/server';
+import { createSupabaseAdminClient } from '@/lib/supabase/admin';
+
+// Mock dependencies
+vi.mock('@/lib/supabase/server', () => ({
+  createSupabaseServerClient: vi.fn(),
+  getVerifiedUser: vi.fn(),
+}));
+
+vi.mock('@/lib/supabase/admin', () => ({
+  createSupabaseAdminClient: vi.fn(),
+}));
+
+describe('Phase 2 Customer Identity & Card Provisioning Test Suite', () => {
+  const mockAdminRpc = vi.fn();
+  const mockMaybeSingle = vi.fn();
+  const mockEq = vi.fn();
+  const mockSelect = vi.fn();
+  const mockFrom = vi.fn();
+
+  const mockAdminClient = {
+    rpc: mockAdminRpc,
+  };
+
+  const mockServerClient = {
+    from: mockFrom,
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    // Default admin mock setup
+    mockAdminRpc.mockResolvedValue({
+      data: '11111111-1111-1111-1111-111111111111',
+      error: null,
+    });
+    vi.mocked(createSupabaseAdminClient).mockReturnValue(mockAdminClient as any);
+
+    // Default server mock setup
+    mockMaybeSingle.mockResolvedValue({
+      data: null,
+      error: null,
+    });
+    mockEq.mockReturnValue({
+      maybeSingle: mockMaybeSingle,
+    });
+    mockSelect.mockReturnValue({
+      eq: mockEq,
+    });
+    mockFrom.mockReturnValue({
+      select: mockSelect,
+    });
+    vi.mocked(createSupabaseServerClient).mockResolvedValue(mockServerClient as any);
+  });
+
+  describe('Turnstile Verification (verifyTurnstileToken)', () => {
+    const originalSecret = process.env.TURNSTILE_SECRET_KEY;
+
+    beforeEach(() => {
+      // Ensure dummy secret mode
+      delete process.env.TURNSTILE_SECRET_KEY;
+    });
+
+    afterEach(() => {
+      if (originalSecret !== undefined) {
+        process.env.TURNSTILE_SECRET_KEY = originalSecret;
+      } else {
+        delete process.env.TURNSTILE_SECRET_KEY;
+      }
+    });
+
+    it('rejects empty and whitespace-only tokens', async () => {
+      const emptyResult = await verifyTurnstileToken('');
+      expect(emptyResult.success).toBe(false);
+      expect(emptyResult.errorCodes).toContain('missing-or-invalid-input-response');
+
+      const whitespaceResult = await verifyTurnstileToken('    ');
+      expect(whitespaceResult.success).toBe(false);
+      expect(whitespaceResult.errorCodes).toContain('missing-or-invalid-input-response');
+    });
+
+    it('rejects tokens exceeding maximum allowed length of 2048 characters', async () => {
+      const longToken = 'a'.repeat(2049);
+      const result = await verifyTurnstileToken(longToken);
+      expect(result.success).toBe(false);
+      expect(result.errorCodes).toContain('missing-or-invalid-input-response');
+    });
+
+    it('rejects FAIL_TOKEN in dummy-secret test mode', async () => {
+      const result = await verifyTurnstileToken('FAIL_TOKEN');
+      expect(result.success).toBe(false);
+      expect(result.errorCodes).toContain('invalid-input-response');
+    });
+
+    it('accepts valid tokens deterministically in dummy-secret mode', async () => {
+      const result = await verifyTurnstileToken('dummy-valid-token-xyz');
+      expect(result.success).toBe(true);
+      expect(result.errorCodes).toEqual([]);
+    });
+
+    it('trims leading and trailing whitespace from input tokens', async () => {
+      const result = await verifyTurnstileToken('   dummy-valid-token-xyz   ');
+      expect(result.success).toBe(true);
+      expect(result.errorCodes).toEqual([]);
+
+      const failTrimmed = await verifyTurnstileToken('   FAIL_TOKEN   ');
+      expect(failTrimmed.success).toBe(false);
+      expect(failTrimmed.errorCodes).toContain('invalid-input-response');
+    });
+  });
+
+  describe('Customer Identity Helpers (lib/auth/customer.ts)', () => {
+    it('ensureCustomerRecord invokes ensure_customer RPC with verified userId', async () => {
+      const userId = '11111111-1111-1111-1111-111111111111';
+      mockAdminRpc.mockResolvedValueOnce({
+        data: userId,
+        error: null,
+      });
+
+      const customerId = await ensureCustomerRecord(userId);
+
+      expect(customerId).toBe(userId);
+      expect(mockAdminRpc).toHaveBeenCalledWith('ensure_customer', {
+        p_customer: userId,
+      });
+    });
+
+    it('ensureCustomerRecord throws descriptive error if RPC fails', async () => {
+      mockAdminRpc.mockResolvedValueOnce({
+        data: null,
+        error: { message: 'Database connection failed' },
+      });
+
+      await expect(ensureCustomerRecord('user_failed')).rejects.toThrow(
+        'Failed to ensure customer record for user "user_failed": Database connection failed',
+      );
+    });
+
+    it('getAuthenticatedCustomerCardState returns null when unauthenticated', async () => {
+      vi.mocked(getVerifiedUser).mockResolvedValueOnce(null);
+
+      const state = await getAuthenticatedCustomerCardState();
+
+      expect(state).toBeNull();
+      expect(mockAdminRpc).not.toHaveBeenCalled();
+      expect(mockFrom).not.toHaveBeenCalled();
+    });
+
+    it('getAuthenticatedCustomerCardState returns hydrated card state for existing customer', async () => {
+      const mockUser: User = {
+        id: '11111111-1111-1111-1111-111111111111',
+        app_metadata: {},
+        user_metadata: {},
+        aud: 'authenticated',
+        created_at: new Date().toISOString(),
+        is_anonymous: true,
+      };
+
+      vi.mocked(getVerifiedUser).mockResolvedValueOnce(mockUser);
+      mockAdminRpc.mockResolvedValueOnce({
+        data: mockUser.id,
+        error: null,
+      });
+
+      mockMaybeSingle.mockResolvedValueOnce({
+        data: {
+          customer_id: mockUser.id,
+          total_stamps: 4,
+          stamps_redeemed: 0,
+          available_stamps: 4,
+          last_stamped_at: '2026-11-02T03:00:00.000Z',
+        },
+        error: null,
+      });
+
+      const state = await getAuthenticatedCustomerCardState();
+
+      expect(state).toEqual({
+        customerId: mockUser.id,
+        isAnonymous: true,
+        email: null,
+        totalStamps: 4,
+        stampsRedeemed: 0,
+        availableStamps: 4,
+        lastStampedAt: '2026-11-02T03:00:00.000Z',
+      });
+
+      expect(mockAdminRpc).toHaveBeenCalledWith('ensure_customer', {
+        p_customer: mockUser.id,
+      });
+      expect(mockFrom).toHaveBeenCalledWith('customer_balances');
+      expect(mockEq).toHaveBeenCalledWith('customer_id', mockUser.id);
+    });
+
+    it('getAuthenticatedCustomerCardState returns 0 defaults when customer_balances row is not yet found', async () => {
+      const mockUser: User = {
+        id: '22222222-2222-2222-2222-222222222222',
+        app_metadata: {},
+        user_metadata: {},
+        aud: 'authenticated',
+        created_at: new Date().toISOString(),
+        is_anonymous: false,
+      };
+
+      vi.mocked(getVerifiedUser).mockResolvedValueOnce(mockUser);
+      mockAdminRpc.mockResolvedValueOnce({
+        data: mockUser.id,
+        error: null,
+      });
+
+      mockMaybeSingle.mockResolvedValueOnce({
+        data: null,
+        error: null,
+      });
+
+      const state = await getAuthenticatedCustomerCardState();
+
+      expect(state).toEqual({
+        customerId: mockUser.id,
+        isAnonymous: false,
+        email: null,
+        totalStamps: 0,
+        stampsRedeemed: 0,
+        availableStamps: 0,
+        lastStampedAt: null,
+      });
+    });
+
+    it('getAuthenticatedCustomerCardState throws when query encounters database error', async () => {
+      const mockUser: User = {
+        id: '33333333-3333-3333-3333-333333333333',
+        app_metadata: {},
+        user_metadata: {},
+        aud: 'authenticated',
+        created_at: new Date().toISOString(),
+        is_anonymous: true,
+      };
+
+      vi.mocked(getVerifiedUser).mockResolvedValueOnce(mockUser);
+      mockAdminRpc.mockResolvedValueOnce({
+        data: mockUser.id,
+        error: null,
+      });
+
+      mockMaybeSingle.mockResolvedValueOnce({
+        data: null,
+        error: { message: 'relation customer_balances does not exist' },
+      });
+
+      await expect(getAuthenticatedCustomerCardState()).rejects.toThrow(
+        'Failed to query customer balance for user "33333333-3333-3333-3333-333333333333": relation customer_balances does not exist',
+      );
+    });
+  });
+
+  describe('POST /api/customers Route Handler', () => {
+    const anonymousUser: User = {
+      id: '11111111-1111-1111-1111-111111111111',
+      app_metadata: {},
+      user_metadata: {},
+      aud: 'authenticated',
+      created_at: new Date().toISOString(),
+      is_anonymous: true,
+    };
+
+    it('Test 1: Unauthenticated request returns HTTP 401 and rejects without calling ensure_customer', async () => {
+      vi.mocked(getVerifiedUser).mockResolvedValueOnce(null);
+
+      const request = new Request('http://localhost:3000/api/customers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+
+      const response = await POST(request);
+      const json = await response.json();
+
+      expect(response.status).toBe(401);
+      expect(json).toEqual({
+        ok: false,
+        error: 'unauthenticated',
+        message: 'Active session required to create or access a loyalty card.',
+      });
+      expect(mockAdminRpc).not.toHaveBeenCalled();
+    });
+
+    it('Test 2: Authenticated anonymous user returns HTTP 200 and provisions customer record', async () => {
+      vi.mocked(getVerifiedUser).mockResolvedValueOnce(anonymousUser);
+      mockAdminRpc.mockResolvedValueOnce({
+        data: anonymousUser.id,
+        error: null,
+      });
+
+      const request = new Request('http://localhost:3000/api/customers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+
+      const response = await POST(request);
+      const json = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(json).toEqual({
+        ok: true,
+        data: {
+          customerId: anonymousUser.id,
+          isAnonymous: true,
+        },
+      });
+
+      expect(mockAdminRpc).toHaveBeenCalledWith('ensure_customer', {
+        p_customer: anonymousUser.id,
+      });
+    });
+
+    it('Test 3: Repeat POST /api/customers calls with same session reuse same customerId idempotently', async () => {
+      for (let i = 0; i < 3; i++) {
+        vi.mocked(getVerifiedUser).mockResolvedValueOnce(anonymousUser);
+        mockAdminRpc.mockResolvedValueOnce({
+          data: anonymousUser.id,
+          error: null,
+        });
+
+        const request = new Request('http://localhost:3000/api/customers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        });
+
+        const response = await POST(request);
+        const json = await response.json();
+
+        expect(response.status).toBe(200);
+        expect(json).toEqual({
+          ok: true,
+          data: {
+            customerId: anonymousUser.id,
+            isAnonymous: true,
+          },
+        });
+      }
+
+      expect(mockAdminRpc).toHaveBeenCalledTimes(3);
+      for (let i = 1; i <= 3; i++) {
+        expect(mockAdminRpc).toHaveBeenNthCalledWith(i, 'ensure_customer', {
+          p_customer: anonymousUser.id,
+        });
+      }
+    });
+
+    it('Test 4: Attempted IDOR — request body specifying arbitrary userId/customerId is ignored; verified user.id is strictly enforced', async () => {
+      const attackerAttemptBody = {
+        userId: '99999999-9999-9999-9999-999999999999',
+        customerId: '99999999-9999-9999-9999-999999999999',
+        p_customer: '99999999-9999-9999-9999-999999999999',
+      };
+
+      vi.mocked(getVerifiedUser).mockResolvedValueOnce(anonymousUser);
+      mockAdminRpc.mockResolvedValueOnce({
+        data: anonymousUser.id,
+        error: null,
+      });
+
+      const request = new Request('http://localhost:3000/api/customers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(attackerAttemptBody),
+      });
+
+      const response = await POST(request);
+      const json = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(json.data.customerId).toBe(anonymousUser.id);
+      expect(json.data.customerId).not.toBe('99999999-9999-9999-9999-999999999999');
+
+      // Crucial security invariant: ensure_customer is NEVER called with attacker's supplied ID
+      expect(mockAdminRpc).toHaveBeenCalledWith('ensure_customer', {
+        p_customer: anonymousUser.id,
+      });
+      expect(mockAdminRpc).not.toHaveBeenCalledWith('ensure_customer', {
+        p_customer: '99999999-9999-9999-9999-999999999999',
+      });
+    });
+
+    it('Test 5: Invalid Turnstile token returns HTTP 403 with captcha_failed', async () => {
+      vi.mocked(getVerifiedUser).mockResolvedValueOnce(anonymousUser);
+
+      const request = new Request('http://localhost:3000/api/customers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ captchaToken: 'FAIL_TOKEN' }),
+      });
+
+      const response = await POST(request);
+      const json = await response.json();
+
+      expect(response.status).toBe(403);
+      expect(json).toEqual({
+        ok: false,
+        error: 'captcha_failed',
+        message: 'Security check failed. Please try again.',
+      });
+      expect(mockAdminRpc).not.toHaveBeenCalled();
+    });
+
+    it('Accepts valid Turnstile token and provisions successfully', async () => {
+      vi.mocked(getVerifiedUser).mockResolvedValueOnce(anonymousUser);
+      mockAdminRpc.mockResolvedValueOnce({
+        data: anonymousUser.id,
+        error: null,
+      });
+
+      const request = new Request('http://localhost:3000/api/customers', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-forwarded-for': '203.0.113.195',
+        },
+        body: JSON.stringify({ captchaToken: 'VALID_TURNSTILE_TOKEN' }),
+      });
+
+      const response = await POST(request);
+      const json = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(json.ok).toBe(true);
+      expect(json.data.customerId).toBe(anonymousUser.id);
+      expect(mockAdminRpc).toHaveBeenCalledWith('ensure_customer', {
+        p_customer: anonymousUser.id,
+      });
+    });
+
+    it('Test 6: Malformed JSON body returns HTTP 400 with invalid_input', async () => {
+      const request = new Request('http://localhost:3000/api/customers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{ malformed_json: true, ',
+      });
+
+      const response = await POST(request);
+      const json = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(json).toEqual({
+        ok: false,
+        error: 'invalid_input',
+        message: 'Invalid request payload.',
+      });
+      expect(mockAdminRpc).not.toHaveBeenCalled();
+    });
+
+    it('Non-string captchaToken returns HTTP 400 with invalid_input', async () => {
+      const request = new Request('http://localhost:3000/api/customers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ captchaToken: 12345 }),
+      });
+
+      const response = await POST(request);
+      const json = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(json).toEqual({
+        ok: false,
+        error: 'invalid_input',
+        message: 'Invalid request payload.',
+      });
+      expect(mockAdminRpc).not.toHaveBeenCalled();
+    });
+
+    it('Empty body with Content-Length: 0 succeeds for authenticated user', async () => {
+      vi.mocked(getVerifiedUser).mockResolvedValueOnce(anonymousUser);
+      mockAdminRpc.mockResolvedValueOnce({
+        data: anonymousUser.id,
+        error: null,
+      });
+
+      const request = new Request('http://localhost:3000/api/customers', {
+        method: 'POST',
+        headers: { 'Content-Length': '0' },
+      });
+
+      const response = await POST(request);
+      const json = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(json.ok).toBe(true);
+      expect(json.data.customerId).toBe(anonymousUser.id);
+    });
+
+    it('Returns HTTP 500 internal_error when ensureCustomerRecord fails', async () => {
+      vi.mocked(getVerifiedUser).mockResolvedValueOnce(anonymousUser);
+      mockAdminRpc.mockResolvedValueOnce({
+        data: null,
+        error: { message: 'Database failure during ensure_customer RPC' },
+      });
+
+      const request = new Request('http://localhost:3000/api/customers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+
+      const response = await POST(request);
+      const json = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(json).toEqual({
+        ok: false,
+        error: 'internal_error',
+        message: 'Unable to provision loyalty card right now.',
+      });
+    });
+  });
+
+  describe('Source Code Static Invariant Check', () => {
+    const sensitiveFiles = [
+      'lib/supabase/server.ts',
+      'lib/supabase/middleware.ts',
+      'lib/auth/customer.ts',
+      'app/api/customers/route.ts',
+    ];
+
+    it('ensures none of the sensitive files invoke .getSession(', () => {
+      for (const relativePath of sensitiveFiles) {
+        const fullPath = path.resolve(process.cwd(), relativePath);
+        expect(fs.existsSync(fullPath), `Expected file ${relativePath} to exist`).toBe(true);
+
+        const content = fs.readFileSync(fullPath, 'utf8');
+
+        // Must NEVER call .getSession(
+        expect(
+          content.includes('.getSession('),
+          `Security Invariant Violation: "${relativePath}" calls .getSession(. Always use .getUser() or getVerifiedUser() for server-side authorization.`,
+        ).toBe(false);
+      }
+    });
+
+    it('verifies server.ts, middleware.ts, customer.ts, and route.ts strictly rely on getUser() or getVerifiedUser()', () => {
+      const serverContent = fs.readFileSync(
+        path.resolve(process.cwd(), 'lib/supabase/server.ts'),
+        'utf8',
+      );
+      expect(serverContent).toContain('.getUser()');
+
+      const middlewareContent = fs.readFileSync(
+        path.resolve(process.cwd(), 'lib/supabase/middleware.ts'),
+        'utf8',
+      );
+      expect(middlewareContent).toContain('.getUser()');
+
+      const customerContent = fs.readFileSync(
+        path.resolve(process.cwd(), 'lib/auth/customer.ts'),
+        'utf8',
+      );
+      expect(customerContent).toContain('getVerifiedUser()');
+
+      const routeContent = fs.readFileSync(
+        path.resolve(process.cwd(), 'app/api/customers/route.ts'),
+        'utf8',
+      );
+      expect(routeContent).toContain('getVerifiedUser()');
+    });
+  });
+});
