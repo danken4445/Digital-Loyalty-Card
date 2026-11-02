@@ -28,7 +28,7 @@ export default async function StaffLoginPage({ searchParams }: StaffLoginPagePro
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-[#0A0A0A] px-4 py-12 text-white">
+    <main className="flex min-h-dvh flex-col items-center justify-center bg-topo-pattern px-4 py-12 text-white">
       <StaffLoginForm nextPath={nextPath} initialError={initialError} />
     </main>
   );

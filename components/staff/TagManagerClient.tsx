@@ -151,11 +151,9 @@ export function TagManagerClient({ initialTags }: TagManagerClientProps) {
   return (
     <div className="space-y-8">
       {/* Create Tag Form */}
-      <div className="rounded-lg border border-[#27272A] bg-[#121214] p-6 text-white sm:p-8">
-        <h2 className="text-xl font-black tracking-tight uppercase sm:text-2xl">
-          Provision NTAG215 Hardware Tag
-        </h2>
-        <p className="mt-1 text-xs text-[#A1A1AA]">
+      <div className="rounded-2xl border border-plug-border bg-plug-surface p-6 text-white sm:p-8">
+        <h2 className="text-lg font-semibold text-white">Provision NTAG215 Hardware Tag</h2>
+        <p className="mt-1 text-sm text-plug-muted">
           Generates a new unguessable tag ID (e.g. <code>tcp_tag_...</code>). Write the resulting
           URL into blank NTAG215 stickers using NFC Tools or NXP TagWriter.
         </p>
@@ -163,10 +161,7 @@ export function TagManagerClient({ initialTags }: TagManagerClientProps) {
         <form onSubmit={handleCreateTag} className="mt-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <div className="flex-1">
-              <label
-                htmlFor="new-tag-label"
-                className="block text-xs font-bold tracking-wider text-[#A1A1AA] uppercase"
-              >
+              <label htmlFor="new-tag-label" className="block text-sm font-medium text-neutral-200">
                 Tag Label (Optional)
               </label>
               <input
@@ -176,7 +171,7 @@ export function TagManagerClient({ initialTags }: TagManagerClientProps) {
                 onChange={(e) => setNewLabel(e.target.value)}
                 placeholder="e.g. Front Counter Barista Card #2"
                 disabled={isCreating}
-                className="mt-1.5 w-full rounded border border-[#27272A] bg-[#0A0A0A] px-3 py-2 text-sm text-white placeholder-neutral-600 transition-colors focus-visible:border-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                className="mt-1.5 w-full min-h-12 rounded-xl border border-plug-border bg-plug-black px-3 py-2 text-sm text-white placeholder-neutral-600 transition-colors focus-visible:border-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
               />
             </div>
 
@@ -184,7 +179,7 @@ export function TagManagerClient({ initialTags }: TagManagerClientProps) {
               type="submit"
               disabled={isCreating}
               aria-busy={isCreating}
-              className="rounded border border-white bg-white px-5 py-2 text-xs font-black tracking-widest text-black uppercase transition-transform active:scale-[0.99] hover:bg-neutral-200 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0A0A]"
+              className="inline-flex min-h-12 items-center justify-center rounded-xl border border-white bg-white px-5 py-2 text-sm font-bold text-plug-black transition-transform active:scale-[0.99] hover:bg-neutral-200 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-plug-black"
             >
               {isCreating ? 'Generating Tag...' : 'Generate New Random Tag'}
             </button>
@@ -197,9 +192,9 @@ export function TagManagerClient({ initialTags }: TagManagerClientProps) {
         <div
           role="alert"
           aria-live="polite"
-          className="rounded-lg border border-red-500/60 bg-red-950/40 p-4 text-xs text-red-200"
+          className="rounded-2xl border border-red-500/60 bg-red-950/40 p-4 text-xs text-red-200"
         >
-          <span className="font-bold text-red-100 uppercase">Error: </span>
+          <span className="font-semibold text-red-100">Error: </span>
           {errorMessage}
         </div>
       )}
@@ -208,7 +203,7 @@ export function TagManagerClient({ initialTags }: TagManagerClientProps) {
         <div
           role="status"
           aria-live="polite"
-          className="rounded-lg border border-white/40 bg-[#1C1C1F] p-4 text-xs font-semibold text-white"
+          className="rounded-2xl border border-white/40 bg-plug-elevated p-4 text-xs font-semibold text-white"
         >
           ✓ {successMessage}
         </div>
@@ -216,18 +211,18 @@ export function TagManagerClient({ initialTags }: TagManagerClientProps) {
 
       {/* Tags List */}
       <section aria-label="NFC Tag Inventory" className="space-y-4">
-        <div className="flex items-center justify-between border-b border-[#27272A] pb-3">
-          <h3 className="text-lg font-black tracking-tight text-white uppercase">
+        <div className="flex items-center justify-between border-b border-plug-border pb-3">
+          <h3 className="font-display text-xl font-bold uppercase tracking-wide text-white">
             Provisioned Tags ({tags.length})
           </h3>
-          <span className="font-mono text-xs text-[#A1A1AA]">
+          <span className="font-mono text-xs text-plug-muted">
             {tags.filter((t) => t.active).length} Active / {tags.filter((t) => !t.active).length}{' '}
             Deactivated
           </span>
         </div>
 
         {tags.length === 0 ? (
-          <div className="rounded-lg border border-[#27272A] bg-[#121214] p-8 text-center text-xs text-[#A1A1AA]">
+          <div className="rounded-2xl border border-plug-border bg-plug-surface p-8 text-center text-xs text-plug-muted">
             No NFC tags provisioned yet. Use the form above to generate your first counter tag.
           </div>
         ) : (
@@ -240,10 +235,10 @@ export function TagManagerClient({ initialTags }: TagManagerClientProps) {
               return (
                 <article
                   key={tag.id}
-                  className={`rounded-lg border p-5 text-white transition-colors ${
+                  className={`rounded-2xl border p-5 text-white transition-colors ${
                     tag.active
-                      ? 'border-[#27272A] bg-[#121214]'
-                      : 'border-[#27272A]/40 bg-[#0A0A0A] opacity-75'
+                      ? 'border-plug-border bg-plug-surface'
+                      : 'border-plug-border/40 bg-plug-black opacity-75'
                   }`}
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3">
@@ -251,11 +246,11 @@ export function TagManagerClient({ initialTags }: TagManagerClientProps) {
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-mono text-sm font-black text-white">{tag.id}</span>
                         {tag.active ? (
-                          <span className="rounded bg-white px-2 py-0.5 font-mono text-[10px] font-black tracking-wider text-black uppercase">
+                          <span className="rounded-full bg-white px-2.5 py-0.5 text-xs font-semibold text-plug-black">
                             ACTIVE
                           </span>
                         ) : (
-                          <span className="rounded border border-[#27272A] bg-[#1C1C1F] px-2 py-0.5 font-mono text-[10px] font-bold tracking-wider text-[#A1A1AA] uppercase">
+                          <span className="rounded-full border border-plug-border px-2.5 py-0.5 text-xs font-semibold text-plug-muted">
                             DEACTIVATED
                           </span>
                         )}
@@ -263,7 +258,7 @@ export function TagManagerClient({ initialTags }: TagManagerClientProps) {
                       <p className="mt-1 text-sm font-semibold text-white">
                         {tag.label || 'Unlabeled Tag'}
                       </p>
-                      <p className="mt-0.5 font-mono text-xs text-[#A1A1AA]">
+                      <p className="mt-0.5 font-mono text-xs text-plug-muted">
                         Created: {formatManilaDateTime(tag.created_at)} PHT
                         {tag.deactivated_at && (
                           <span className="ml-2 text-neutral-500">
@@ -280,7 +275,7 @@ export function TagManagerClient({ initialTags }: TagManagerClientProps) {
                           type="button"
                           onClick={() => handleRotateTag(tag.id)}
                           disabled={isTagLoading}
-                          className="rounded border border-white/60 bg-[#1C1C1F] px-3 py-1.5 text-xs font-bold tracking-wider text-white uppercase transition-colors hover:bg-white hover:text-black disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                          className="inline-flex min-h-11 items-center rounded-xl border border-white/60 bg-plug-elevated px-4 text-sm font-semibold text-white transition-colors hover:bg-white hover:text-black disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
                         >
                           {isTagLoading ? 'Rotating...' : 'Rotate Tag'}
                         </button>
@@ -288,7 +283,7 @@ export function TagManagerClient({ initialTags }: TagManagerClientProps) {
                           type="button"
                           onClick={() => handleDeactivateTag(tag.id)}
                           disabled={isTagLoading}
-                          className="rounded border border-red-500/40 bg-red-950/40 px-3 py-1.5 text-xs font-bold tracking-wider text-red-200 uppercase transition-colors hover:bg-red-900/60 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                          className="inline-flex min-h-11 items-center rounded-xl border border-red-500/40 bg-red-950/40 px-4 text-sm font-semibold text-red-200 transition-colors hover:bg-red-900/60 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
                         >
                           {isTagLoading ? 'Deactivating...' : 'Deactivate Tag'}
                         </button>
@@ -297,15 +292,15 @@ export function TagManagerClient({ initialTags }: TagManagerClientProps) {
                   </div>
 
                   {/* URLs to write to NTAG215 */}
-                  <div className="mt-4 space-y-2 border-t border-[#27272A] pt-4">
-                    <p className="font-mono text-[11px] font-bold tracking-wider text-[#A1A1AA] uppercase">
+                  <div className="mt-4 space-y-2 border-t border-plug-border pt-4">
+                    <p className="text-sm font-medium text-plug-muted">
                       Exact URL to write to NTAG215 in NFC Tools:
                     </p>
 
                     {/* Production Tap URL */}
-                    <div className="flex flex-col gap-2 rounded border border-[#27272A] bg-[#0A0A0A] p-2.5 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex flex-col gap-2 rounded-xl border border-plug-border bg-plug-black p-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="overflow-hidden">
-                        <span className="font-mono text-[10px] text-[#A1A1AA] uppercase block">
+                        <span className="text-xs text-plug-muted block">
                           Production URL (card.thecaffeineplug.ph):
                         </span>
                         <code className="block truncate font-mono text-xs text-white">
@@ -315,18 +310,16 @@ export function TagManagerClient({ initialTags }: TagManagerClientProps) {
                       <button
                         type="button"
                         onClick={() => handleCopy(tag.productionTapUrl, prodKey)}
-                        className="shrink-0 rounded border border-[#27272A] bg-[#1C1C1F] px-3 py-1 font-mono text-xs font-semibold text-white transition-colors hover:border-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                        className="shrink-0 inline-flex min-h-11 items-center justify-center rounded-xl border border-plug-border bg-plug-elevated px-4 text-sm font-semibold text-white transition-colors hover:border-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
                       >
                         {copiedKey === prodKey ? '✓ Copied' : 'Copy Production URL'}
                       </button>
                     </div>
 
                     {/* Local Tap URL */}
-                    <div className="flex flex-col gap-2 rounded border border-[#27272A] bg-[#0A0A0A] p-2.5 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex flex-col gap-2 rounded-xl border border-plug-border bg-plug-black p-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="overflow-hidden">
-                        <span className="font-mono text-[10px] text-[#A1A1AA] uppercase block">
-                          Local Dev URL:
-                        </span>
+                        <span className="text-xs text-plug-muted block">Local Dev URL:</span>
                         <code className="block truncate font-mono text-xs text-neutral-300">
                           {tag.localTapUrl}
                         </code>
@@ -334,7 +327,7 @@ export function TagManagerClient({ initialTags }: TagManagerClientProps) {
                       <button
                         type="button"
                         onClick={() => handleCopy(tag.localTapUrl, localKey)}
-                        className="shrink-0 rounded border border-[#27272A] bg-[#1C1C1F] px-3 py-1 font-mono text-xs font-semibold text-[#A1A1AA] transition-colors hover:border-white hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                        className="shrink-0 inline-flex min-h-11 items-center justify-center rounded-xl border border-plug-border bg-plug-elevated px-4 text-sm font-semibold text-plug-muted transition-colors hover:border-white hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
                       >
                         {copiedKey === localKey ? '✓ Copied' : 'Copy Local URL'}
                       </button>

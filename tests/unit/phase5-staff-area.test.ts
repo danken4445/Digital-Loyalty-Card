@@ -1873,7 +1873,7 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
         const pageElement = await StaffRedeemPage();
         const html = renderToStaticMarkup(pageElement);
 
-        expect(html).toContain('OPERATIONS // MODULE 01');
+        expect(html).toContain('aria-label="Redeem Module Header"');
         expect(html).toContain('Redeem Reward');
         expect(html).toContain('Customer Reward Redemption');
       });
@@ -1883,7 +1883,7 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
         const pageElement = await StaffManualStampPage();
         const html = renderToStaticMarkup(pageElement);
 
-        expect(html).toContain('OPERATIONS // MODULE 02');
+        expect(html).toContain('aria-label="Manual Stamp Header"');
         expect(html).toContain('Manual Stamp');
         expect(html).toContain('Issue Manual Stamp');
       });
@@ -1907,7 +1907,7 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
         const pageElement = await StaffTagsPage();
         const html = renderToStaticMarkup(pageElement);
 
-        expect(html).toContain('OPERATIONS // MODULE 03');
+        expect(html).toContain('aria-label="NFC Tag Manager Header"');
         expect(html).toContain('NFC Tag Manager');
         expect(html).toContain('tcp_tag_station_1');
       });

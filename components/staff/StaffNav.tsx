@@ -1,8 +1,10 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { BRAND_THEME } from '@/lib/config';
 import { ROUTES, type StaffSession } from '@/lib/contracts';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 
@@ -43,69 +45,70 @@ export function StaffNav({ staff, currentPath }: StaffNavProps) {
   }
 
   return (
-    <header className="w-full border-b border-[#27272A] bg-[#0A0A0A] text-white">
-      <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-        {/* Brand & Identity */}
-        <div className="flex flex-wrap items-center gap-3">
-          <Link
-            href={ROUTES.staff.root}
-            className="text-sm font-black tracking-widest uppercase transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0A0A]"
-          >
-            THE CAFFEINE PLUG <span className="text-[#A1A1AA]">{'//'}</span> STAFF OPS
-          </Link>
+    // Sticky so the module tabs stay in reach while scrolling long tables at the counter
+    <header className="sticky top-0 z-20 w-full border-b border-plug-border bg-plug-black/90 text-white backdrop-blur-md">
+      <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 pt-3 sm:px-6">
+        <Link
+          href={ROUTES.staff.root}
+          className="flex min-h-11 min-w-0 items-center gap-2.5 rounded-lg"
+        >
+          <Image
+            src={BRAND_THEME.assets.logoCircleDark}
+            alt=""
+            width={32}
+            height={32}
+            className="h-8 w-8 shrink-0 rounded-full border border-plug-border"
+          />
+          <span className="truncate font-display text-lg font-bold uppercase leading-none tracking-wide">
+            THE CAFFEINE PLUG <span className="hidden text-plug-muted sm:inline">STAFF OPS</span>
+          </span>
+        </Link>
+
+        <div className="flex shrink-0 items-center gap-2">
           <div
-            className="flex items-center gap-2 rounded border border-[#27272A] bg-[#121214] px-2.5 py-1 text-xs"
+            className="hidden items-center gap-2 text-sm sm:flex"
             aria-label={`Logged in as ${staff.displayName}, ${staff.role}`}
           >
-            <span className="font-semibold text-white">{staff.displayName}</span>
-            <span className="rounded bg-white px-1.5 py-0.5 font-mono text-[10px] font-black tracking-wide text-black uppercase">
+            <span className="font-medium text-white">{staff.displayName}</span>
+            <span className="rounded-full border border-plug-border px-2 py-0.5 text-xs font-semibold text-plug-muted">
               {staff.role.toUpperCase()}
             </span>
           </div>
-        </div>
-
-        {/* Sign Out Button */}
-        <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={handleSignOut}
             disabled={isSigningOut}
             aria-busy={isSigningOut}
-            className="rounded border border-[#27272A] bg-[#121214] px-3 py-1.5 text-xs font-semibold tracking-wider text-[#A1A1AA] uppercase transition-colors hover:border-white hover:text-white disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0A0A]"
+            className="inline-flex min-h-11 items-center rounded-xl border border-plug-border px-3 text-sm font-medium text-neutral-300 transition-colors hover:border-white hover:text-white disabled:opacity-50"
           >
             {isSigningOut ? 'Signing out...' : 'Sign Out'}
           </button>
         </div>
       </div>
 
-      {/* Navigation Links */}
-      <div className="border-t border-[#27272A]/60 bg-[#0A0A0A]">
-        <nav
-          aria-label="Staff Portal Navigation"
-          className="mx-auto flex max-w-7xl overflow-x-auto px-4 sm:px-6"
-        >
-          <ul className="flex items-center gap-1 py-1.5">
-            {NAV_ITEMS.map((item) => {
-              const isActive = currentPath === item.href;
-              return (
-                <li key={item.href} className="shrink-0">
-                  <Link
-                    href={item.href}
-                    aria-current={isActive ? 'page' : undefined}
-                    className={`inline-block rounded px-3 py-1.5 text-xs font-bold tracking-wider uppercase transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0A0A] ${
-                      isActive
-                        ? 'bg-white text-black'
-                        : 'text-[#A1A1AA] hover:bg-[#121214] hover:text-white'
-                    }`}
-                  >
-                    {item.name}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </nav>
-      </div>
+      <nav aria-label="Staff Portal Navigation" className="mx-auto max-w-5xl px-2 sm:px-4">
+        {/* Scrolls sideways on narrow phones instead of wrapping to a second row */}
+        <ul className="flex items-center gap-1 overflow-x-auto py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {NAV_ITEMS.map((item) => {
+            const isActive = currentPath === item.href;
+            return (
+              <li key={item.href} className="shrink-0">
+                <Link
+                  href={item.href}
+                  aria-current={isActive ? 'page' : undefined}
+                  className={`inline-flex min-h-11 items-center rounded-full px-4 text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-white text-plug-black'
+                      : 'text-plug-muted hover:bg-plug-elevated hover:text-white'
+                  }`}
+                >
+                  {item.name}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
     </header>
   );
 }

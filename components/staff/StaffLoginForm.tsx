@@ -1,7 +1,9 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { useState } from 'react';
+import { BRAND_THEME, SHOP_CONFIG } from '@/lib/config';
 import { ROUTES } from '@/lib/contracts';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 
@@ -100,18 +102,25 @@ export function StaffLoginForm({ nextPath, initialError }: StaffLoginFormProps) 
   }
 
   return (
-    <div className="w-full max-w-md rounded-lg border border-[#27272A] bg-[#121214] p-6 text-white shadow-2xl sm:p-8">
+    <div className="w-full max-w-md rounded-2xl border border-plug-border bg-plug-surface p-6 text-white shadow-2xl sm:p-8">
       {/* Brand Header */}
-      <div className="mb-6 border-b border-[#27272A] pb-4">
-        <p className="font-mono text-xs font-semibold tracking-widest text-[#A1A1AA] uppercase">
-          Portal Authentication
-        </p>
-        <h1 className="mt-1 text-2xl font-black tracking-tight text-white uppercase">
-          Staff Access
-        </h1>
-        <p className="mt-1 text-xs text-[#A1A1AA]">
-          Sign in with an active barista or owner account to access operations.
-        </p>
+      <div className="mb-6 flex items-center gap-4">
+        <Image
+          src={BRAND_THEME.assets.logoCircleDark}
+          alt={`${SHOP_CONFIG.name} logo`}
+          width={56}
+          height={56}
+          priority
+          className="h-14 w-14 shrink-0 rounded-full border border-plug-border"
+        />
+        <div>
+          <h1 className="font-display text-3xl font-bold uppercase leading-none tracking-wide text-white">
+            Staff Access
+          </h1>
+          <p className="mt-1.5 text-sm text-neutral-300">
+            Sign in with your barista or owner account.
+          </p>
+        </div>
       </div>
 
       {/* Initial Error or Alert */}
@@ -119,7 +128,7 @@ export function StaffLoginForm({ nextPath, initialError }: StaffLoginFormProps) 
         <div
           role="alert"
           aria-live="polite"
-          className="mb-6 rounded border border-red-500/50 bg-red-950/40 p-4 text-xs text-red-200"
+          className="mb-6 rounded-xl border border-red-500/50 bg-red-950/40 p-4 text-xs text-red-200"
         >
           <div className="flex flex-col gap-2">
             <span className="font-bold text-red-100">{errorMessage}</span>
@@ -128,7 +137,7 @@ export function StaffLoginForm({ nextPath, initialError }: StaffLoginFormProps) 
                 type="button"
                 onClick={handleSwitchAccount}
                 disabled={loading}
-                className="mt-1 self-start rounded border border-red-400/40 bg-red-900/60 px-3 py-1 text-xs font-semibold text-white uppercase transition-colors hover:bg-red-800 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                className="mt-1 self-start inline-flex min-h-11 items-center rounded-xl border border-red-400/40 bg-red-900/60 px-4 text-sm font-semibold text-white transition-colors hover:bg-red-800 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
               >
                 Sign Out & Switch Account
               </button>
@@ -142,14 +151,14 @@ export function StaffLoginForm({ nextPath, initialError }: StaffLoginFormProps) 
         <div
           role="status"
           aria-live="polite"
-          className="mb-6 rounded border border-white/30 bg-[#1C1C1F] p-4 text-xs font-medium text-white"
+          className="mb-6 rounded-xl border border-white/30 bg-plug-elevated p-4 text-xs font-medium text-white"
         >
           {statusMessage}
         </div>
       )}
 
       {/* Mode Toggle */}
-      <div className="mb-6 flex rounded border border-[#27272A] bg-[#0A0A0A] p-1">
+      <div className="mb-6 flex rounded-xl border border-plug-border bg-plug-black p-1">
         <button
           type="button"
           onClick={() => {
@@ -157,8 +166,8 @@ export function StaffLoginForm({ nextPath, initialError }: StaffLoginFormProps) 
             setErrorMessage(null);
             setStatusMessage(null);
           }}
-          className={`flex-1 rounded py-1.5 text-xs font-bold tracking-wider uppercase transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white ${
-            mode === 'password' ? 'bg-white text-black' : 'text-[#A1A1AA] hover:text-white'
+          className={`flex-1 min-h-11 rounded-lg text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white ${
+            mode === 'password' ? 'bg-white text-black' : 'text-plug-muted hover:text-white'
           }`}
         >
           Password
@@ -170,8 +179,8 @@ export function StaffLoginForm({ nextPath, initialError }: StaffLoginFormProps) 
             setErrorMessage(null);
             setStatusMessage(null);
           }}
-          className={`flex-1 rounded py-1.5 text-xs font-bold tracking-wider uppercase transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white ${
-            mode === 'magic-link' ? 'bg-white text-black' : 'text-[#A1A1AA] hover:text-white'
+          className={`flex-1 min-h-11 rounded-lg text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white ${
+            mode === 'magic-link' ? 'bg-white text-black' : 'text-plug-muted hover:text-white'
           }`}
         >
           Magic Link
@@ -181,10 +190,7 @@ export function StaffLoginForm({ nextPath, initialError }: StaffLoginFormProps) 
       {/* Form */}
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label
-            htmlFor="staff-login-email"
-            className="block text-xs font-bold tracking-wider text-[#A1A1AA] uppercase"
-          >
+          <label htmlFor="staff-login-email" className="block text-sm font-medium text-neutral-200">
             Staff Email Address
           </label>
           <input
@@ -195,7 +201,7 @@ export function StaffLoginForm({ nextPath, initialError }: StaffLoginFormProps) 
             required
             autoComplete="email"
             placeholder="barista@thecaffeineplug.ph"
-            className="mt-1.5 w-full rounded border border-[#27272A] bg-[#0A0A0A] px-3 py-2 text-sm text-white placeholder-neutral-600 transition-colors focus-visible:border-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+            className="mt-1.5 w-full min-h-12 rounded-xl border border-plug-border bg-plug-black px-3 py-2 text-sm text-white placeholder-neutral-600 transition-colors focus-visible:border-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
           />
         </div>
 
@@ -203,7 +209,7 @@ export function StaffLoginForm({ nextPath, initialError }: StaffLoginFormProps) 
           <div>
             <label
               htmlFor="staff-login-password"
-              className="block text-xs font-bold tracking-wider text-[#A1A1AA] uppercase"
+              className="block text-sm font-medium text-neutral-200"
             >
               Password
             </label>
@@ -215,7 +221,7 @@ export function StaffLoginForm({ nextPath, initialError }: StaffLoginFormProps) 
               required
               autoComplete="current-password"
               placeholder="••••••••••••"
-              className="mt-1.5 w-full rounded border border-[#27272A] bg-[#0A0A0A] px-3 py-2 text-sm text-white placeholder-neutral-600 transition-colors focus-visible:border-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+              className="mt-1.5 w-full min-h-12 rounded-xl border border-plug-border bg-plug-black px-3 py-2 text-sm text-white placeholder-neutral-600 transition-colors focus-visible:border-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
             />
           </div>
         )}
@@ -224,7 +230,7 @@ export function StaffLoginForm({ nextPath, initialError }: StaffLoginFormProps) 
           type="submit"
           disabled={loading}
           aria-busy={loading}
-          className="mt-2 w-full rounded border border-white bg-white px-4 py-2.5 text-xs font-black tracking-widest text-black uppercase transition-transform active:scale-[0.99] hover:bg-neutral-200 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0A0A]"
+          className="mt-2 w-full inline-flex min-h-12 items-center justify-center rounded-xl border border-white bg-white px-4 py-2.5 text-sm font-bold text-plug-black transition-transform active:scale-[0.99] hover:bg-neutral-200 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-plug-black"
         >
           {loading
             ? 'Authenticating...'
