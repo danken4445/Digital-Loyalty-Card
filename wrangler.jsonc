@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   // Must match the Worker name in the Cloudflare dashboard.
-  "name": "caffeine-plug-loyalty",
+  "name": "digital-loyalty-card",
   "main": ".open-next/worker.js",
   "compatibility_date": "2026-10-15",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
@@ -13,7 +13,7 @@
     {
       // Self-reference binding; service name must match "name" above.
       "binding": "WORKER_SELF_REFERENCE",
-      "service": "caffeine-plug-loyalty"
+      "service": "digital-loyalty-card"
     }
   ]
 }
