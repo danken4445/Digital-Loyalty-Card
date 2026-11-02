@@ -111,3 +111,16 @@ This document records key technical, security, and branding decisions for The Ca
   4. **PII-Free Structured Logging (`lib/security/logger.ts`):** Redact emails, IPs, tokens, cookies, and secrets before emitting structured JSON logs.
   5. **Dependency Supply-Chain & Audit Triage (`package-lock.json`):** Removed extraneous `pnpm-lock.yaml` / `pnpm-workspace.yaml` so `package-lock.json` is the single authoritative lockfile matching CI (`npm ci`). Triaged `npm audit` advisories on `next@15.2.x` (`GHSA-f82v-jwr5-mffw` et al.) and `zod@3.x`: middleware bypass is mitigated in-depth because every page and route handler independently verifies identity and staff role via `getVerifiedUser()` / `requireStaffSession()`; Server Actions and remote image optimization (`remotePatterns`) are unused; upgrading across major/minor boundaries (`next@15.5.28`, `zod@4.x`) is deferred to a dedicated dependency upgrade PR (Review Date: `2026-12-01`) rather than running `npm audit fix --force`.
 - **Why:** Satisfies the Philippines RA 10173 principles of transparency, legitimate purpose, proportionality, and data subject right to erasure while hardening all state-changing boundaries against CSRF, clickjacking, XSS, and log-based PII leakage.
+
+---
+
+## D-011: Staff-Verified Instagram Follow Upsize Perk
+
+- **Date:** 2026-11-02
+- **Status:** Accepted
+- **What:**
+  1. Every card shows a one-time perk: follow `@thecaffeineplug8400` on Instagram for a free upsize on any drink. The customer opens the profile from the card, then taps claim to get a 5-minute signed QR token (`POST /api/perks/instagram-upsize`).
+  2. Upsize tokens reuse the D-007 HMAC scheme with their own prefix (`tcpig1`). The prefix is part of the signed message, so an upsize token can never be passed off as a free-coffee (`tcp1`) token.
+  3. Baristas scan it on the existing `/staff/redeem` screen, check the follow on the customer's phone, and confirm. `public.claim_instagram_upsize(p_customer, p_staff)` records it in `public.perk_claims`, with `unique (customer_id, perk)` and the customer advisory lock (namespace `1001`) allowing one claim per card. No stamps are spent.
+  4. `merge_anonymous_customer` moves perk claims to the target and drops duplicates. Erasure cascades from `public.customers`.
+- **Why:** Instagram's APIs don't let a third-party app check whether a given person follows an account, so the app can't verify the follow itself. An honor-system button would let anyone claim, so the barista does the check. Limit: a customer who clears their browser gets a new anonymous card and could claim again, but only by showing the follow at the counter again.

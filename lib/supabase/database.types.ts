@@ -67,6 +67,46 @@ export type Database = {
         };
         Relationships: [];
       };
+      perk_claims: {
+        Row: {
+          created_at: string;
+          customer_id: string;
+          id: string;
+          perk: string;
+          staff_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          customer_id: string;
+          id?: string;
+          perk: string;
+          staff_id: string;
+        };
+        Update: {
+          created_at?: string;
+          customer_id?: string;
+          id?: string;
+          perk?: string;
+          staff_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'perk_claims_customer_id_fkey';
+            columns: ['customer_id'];
+            isOneToOne: false;
+            referencedRelation: 'customer_balances';
+            referencedColumns: ['customer_id'];
+          },
+          {
+            foreignKeyName: 'perk_claims_customer_id_fkey';
+            columns: ['customer_id'];
+            isOneToOne: false;
+            referencedRelation: 'customers';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       redemptions: {
         Row: {
           created_at: string;
@@ -225,6 +265,10 @@ export type Database = {
       };
     };
     Functions: {
+      claim_instagram_upsize: {
+        Args: { p_customer: string; p_staff: string };
+        Returns: string;
+      };
       cleanup_stale_anonymous_customers: {
         Args: { p_older_than?: string };
         Returns: number;

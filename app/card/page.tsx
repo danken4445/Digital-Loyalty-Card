@@ -11,6 +11,7 @@ import { StripResultParam } from '@/components/card/StripResultParam';
 import { StampGrid } from '@/components/card/StampGrid';
 import { RedeemRewardPanel } from '@/components/card/RedeemRewardPanel';
 import { BackupCardPanel } from '@/components/card/BackupCardPanel';
+import { InstagramUpsizePanel } from '@/components/card/InstagramUpsizePanel';
 import { DeleteCardButton } from '@/components/card/DeleteCardButton';
 
 interface CardPageProps {
@@ -144,6 +145,11 @@ export default async function CardPage({ searchParams }: CardPageProps) {
             initialToken={initialRedeemToken}
             availableStamps={cardState.availableStamps}
           />
+        )}
+
+        {/* One-time Instagram follow perk (free upsize) */}
+        {cardState.instagramUpsizeClaimed !== undefined && (
+          <InstagramUpsizePanel claimed={cardState.instagramUpsizeClaimed} />
         )}
 
         {/* Customer Backup, Consent & Recovery Section */}

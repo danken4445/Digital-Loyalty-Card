@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { SHOP_CONFIG } from '@/lib/config';
 import {
   ROUTES,
   type ApiResponse,
@@ -192,7 +193,17 @@ export function RedeemRewardForm() {
               <p className="font-mono text-[11px] text-plug-muted">{preview.customerId}</p>
             </div>
 
-            {preview.canRedeem ? (
+            {preview.rewardKind === 'instagram-upsize' ? (
+              preview.canRedeem ? (
+                <span className="rounded-full bg-white px-3 py-1 text-sm font-bold text-plug-black">
+                  INSTAGRAM PERK • FREE UPSIZE
+                </span>
+              ) : (
+                <span className="rounded-full border border-red-500/50 bg-red-950/50 px-3 py-1 text-xs font-semibold text-red-300">
+                  UPSIZE ALREADY USED
+                </span>
+              )
+            ) : preview.canRedeem ? (
               <span className="rounded-full bg-white px-3 py-1 text-sm font-bold text-plug-black">
                 ELIGIBLE FOR FREE COFFEE
               </span>
@@ -230,7 +241,35 @@ export function RedeemRewardForm() {
 
           {/* Action */}
           <div className="mt-6 border-t border-plug-border pt-6">
-            {preview.canRedeem ? (
+            {preview.rewardKind === 'instagram-upsize' ? (
+              preview.canRedeem ? (
+                <div className="space-y-4">
+                  <div className="rounded-xl border border-white/40 bg-plug-black p-4 text-sm text-neutral-200">
+                    <p className="font-semibold text-white">Before you confirm</p>
+                    <p className="mt-1 text-xs leading-relaxed text-neutral-300">
+                      Ask the customer to open Instagram on their phone and show that they follow{' '}
+                      <span className="font-semibold text-white">
+                        {SHOP_CONFIG.instagramHandle}
+                      </span>{' '}
+                      (the profile button should say &ldquo;Following&rdquo;). No stamps are used.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleConfirm}
+                    disabled={loadingConfirm}
+                    aria-busy={loadingConfirm}
+                    className="w-full inline-flex min-h-12 items-center justify-center rounded-xl border border-white bg-white px-6 py-3.5 text-sm font-bold text-plug-black transition-transform active:scale-[0.99] hover:bg-neutral-200 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-plug-black"
+                  >
+                    {loadingConfirm ? 'Granting Upsize...' : 'Follow Checked — Grant Free Upsize'}
+                  </button>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-plug-border bg-plug-black p-4 text-center text-xs text-plug-muted">
+                  This card has already used its one-time Instagram upsize.
+                </div>
+              )
+            ) : preview.canRedeem ? (
               <button
                 type="button"
                 onClick={handleConfirm}
@@ -259,12 +298,18 @@ export function RedeemRewardForm() {
         >
           <div className="flex items-center gap-3">
             <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-base font-black text-black">
-              ✓
+              {confirmResult.result === 'redeemed' ? '✓' : '✕'}
             </span>
             <div>
-              <p className="text-sm text-plug-muted">Transaction Successful</p>
+              <p className="text-sm text-plug-muted">
+                {confirmResult.result === 'redeemed' ? 'Transaction Successful' : 'Not Redeemed'}
+              </p>
               <h3 className="font-display text-2xl font-bold uppercase tracking-wide">
-                REWARD REDEEMED — 10 STAMPS DEDUCTED
+                {confirmResult.result !== 'redeemed'
+                  ? 'NOTHING WAS GIVEN'
+                  : confirmResult.rewardKind === 'instagram-upsize'
+                    ? 'FREE UPSIZE GRANTED — NO STAMPS USED'
+                    : 'REWARD REDEEMED — 10 STAMPS DEDUCTED'}
               </h3>
             </div>
           </div>

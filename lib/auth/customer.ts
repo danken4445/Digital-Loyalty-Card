@@ -1,6 +1,7 @@
 import 'server-only';
 
 import type { CustomerBalanceView, CustomerCardState } from '@/lib/contracts';
+import { logSecurityEvent } from '@/lib/security/logger';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { createSupabaseServerClient, getVerifiedUser } from '@/lib/supabase/server';
 
@@ -48,6 +49,18 @@ export async function getAuthenticatedCustomerCardState(): Promise<CustomerCardS
     throw new Error(`Failed to query customer balance for user "${user.id}": ${error.message}`);
   }
 
+  const { data: upsizeClaim, error: perkError } = await supabase
+    .from('perk_claims')
+    .select('id')
+    .eq('customer_id', user.id)
+    .eq('perk', 'instagram_follow_upsize')
+    .maybeSingle();
+
+  // A perk lookup failure must not take down the stamp card; the perk is hidden instead
+  if (perkError) {
+    logSecurityEvent('warn', 'perk_claims_lookup_failed', { customerId: user.id });
+  }
+
   return {
     customerId: user.id,
     isAnonymous: Boolean(user.is_anonymous),
@@ -56,5 +69,6 @@ export async function getAuthenticatedCustomerCardState(): Promise<CustomerCardS
     stampsRedeemed: data?.stamps_redeemed ?? 0,
     availableStamps: data?.available_stamps ?? 0,
     lastStampedAt: data?.last_stamped_at ?? null,
+    instagramUpsizeClaimed: perkError ? undefined : Boolean(upsizeClaim),
   };
 }

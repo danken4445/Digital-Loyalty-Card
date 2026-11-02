@@ -52,9 +52,10 @@ describe('Phase 2 Customer Identity & Card Provisioning Test Suite', () => {
       data: null,
       error: null,
     });
-    mockEq.mockReturnValue({
+    mockEq.mockImplementation(() => ({
+      eq: mockEq,
       maybeSingle: mockMaybeSingle,
-    });
+    }));
     mockSelect.mockReturnValue({
       eq: mockEq,
     });
@@ -194,6 +195,7 @@ describe('Phase 2 Customer Identity & Card Provisioning Test Suite', () => {
         stampsRedeemed: 0,
         availableStamps: 4,
         lastStampedAt: '2026-11-02T03:00:00.000Z',
+        instagramUpsizeClaimed: false,
       });
 
       expect(mockAdminRpc).toHaveBeenCalledWith('ensure_customer', {
@@ -234,7 +236,32 @@ describe('Phase 2 Customer Identity & Card Provisioning Test Suite', () => {
         stampsRedeemed: 0,
         availableStamps: 0,
         lastStampedAt: null,
+        instagramUpsizeClaimed: false,
       });
+    });
+
+    it('getAuthenticatedCustomerCardState reports instagramUpsizeClaimed when a perk_claims row exists', async () => {
+      const mockUser: User = {
+        id: '33333333-3333-3333-3333-333333333333',
+        app_metadata: {},
+        user_metadata: {},
+        aud: 'authenticated',
+        created_at: new Date().toISOString(),
+        is_anonymous: true,
+      };
+
+      vi.mocked(getVerifiedUser).mockResolvedValueOnce(mockUser);
+      mockAdminRpc.mockResolvedValueOnce({ data: mockUser.id, error: null });
+
+      mockMaybeSingle
+        .mockResolvedValueOnce({ data: null, error: null })
+        .mockResolvedValueOnce({ data: { id: 'perk-claim-1' }, error: null });
+
+      const state = await getAuthenticatedCustomerCardState();
+
+      expect(state?.instagramUpsizeClaimed).toBe(true);
+      expect(mockFrom).toHaveBeenCalledWith('perk_claims');
+      expect(mockEq).toHaveBeenCalledWith('perk', 'instagram_follow_upsize');
     });
 
     it('getAuthenticatedCustomerCardState throws when query encounters database error', async () => {
