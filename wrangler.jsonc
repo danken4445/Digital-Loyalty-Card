@@ -1,0 +1,19 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Must match the Worker name in the Cloudflare dashboard.
+  "name": "caffeine-plug-loyalty",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-10-15",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "services": [
+    {
+      // Self-reference binding; service name must match "name" above.
+      "binding": "WORKER_SELF_REFERENCE",
+      "service": "caffeine-plug-loyalty"
+    }
+  ]
+}

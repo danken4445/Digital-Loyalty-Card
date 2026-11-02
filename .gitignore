@@ -34,3 +34,8 @@ supabase/.temp
 
 # Local editor/tool settings
 .claude/
+
+# Cloudflare (OpenNext / Wrangler)
+.open-next/
+.wrangler/
+.dev.vars
