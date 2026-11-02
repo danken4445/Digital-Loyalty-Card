@@ -61,6 +61,18 @@ When a customer reaches 10 stamps, a gold/white **"CLAIM REWARD"** box appears o
 
 _Note:_ If the customer's QR code says "EXPIRED", ask them to tap the "Refresh Code" button to generate a new 5-minute pass.
 
+### 4b. Instagram Follow = Free Upsize (One Time Per Card)
+
+Every card shows a **"FOLLOW US, SIZE UP"** box. Customers who follow **@thecaffeineplug8400** get one free upsize on any drink:
+
+1. Customer taps **FOLLOW @THECAFFEINEPLUG8400**, follows us in Instagram, then taps **CLAIM UPSIZE**.
+2. A 5-minute QR code with an 8-character code appears on their phone.
+3. Open `/staff/redeem`, scan the QR, tap **Verify Token**. The badge says **INSTAGRAM PERK • FREE UPSIZE**.
+4. **Check the follow:** ask them to open our Instagram profile on their phone. The button must say **Following**.
+5. Tap **Follow Checked — Grant Free Upsize**, then upsize their drink at no charge. **No stamps are used.**
+
+_Note:_ The app can't check Instagram follows on its own (Instagram doesn't allow it), so step 4 is what stops fake claims. If the badge says **UPSIZE ALREADY USED**, that card has already had its upsize.
+
 ---
 
 ## 5. Manual Stamp Fallback (No NFC / Broken Phone)

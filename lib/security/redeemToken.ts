@@ -6,11 +6,28 @@ import { z } from 'zod';
 import { SECURITY_CONFIG, getServerEnv } from '@/lib/config';
 import type {
   IssuedRedeemToken,
+  RedeemTokenKind,
   RedeemTokenPayload,
   VerifyRedeemTokenResult,
 } from '@/lib/contracts';
 
-const TOKEN_PREFIX = 'tcp1';
+/**
+ * The prefix is part of the signed message, so a token minted for one kind can never be
+ * re-labelled as another kind without invalidating the signature.
+ */
+const TOKEN_PREFIXES: Record<RedeemTokenKind, string> = {
+  'free-coffee': 'tcp1',
+  'instagram-upsize': 'tcpig1',
+};
+
+function kindForPrefix(prefix: string): RedeemTokenKind | null {
+  for (const [kind, kindPrefix] of Object.entries(TOKEN_PREFIXES)) {
+    if (kindPrefix === prefix) {
+      return kind as RedeemTokenKind;
+    }
+  }
+  return null;
+}
 const CLOCK_SKEW_TOLERANCE_SECONDS = 30;
 
 const redeemTokenPayloadSchema = z.object({
@@ -21,6 +38,7 @@ const redeemTokenPayloadSchema = z.object({
 });
 
 export interface IssueRedeemTokenOptions {
+  kind?: RedeemTokenKind;
   nowMs?: number;
   ttlSeconds?: number;
   secretOverride?: string;
@@ -42,8 +60,8 @@ function resolveSecret(secretOverride?: string): string {
   return secret;
 }
 
-function computeSignature(payloadB64Url: string, secret: string): Buffer {
-  return createHmac('sha256', secret).update(`${TOKEN_PREFIX}.${payloadB64Url}`).digest();
+function computeSignature(prefix: string, payloadB64Url: string, secret: string): Buffer {
+  return createHmac('sha256', secret).update(`${prefix}.${payloadB64Url}`).digest();
 }
 
 /**
@@ -69,6 +87,8 @@ export async function issueRedeemToken(
   options: IssueRedeemTokenOptions = {},
 ): Promise<IssuedRedeemToken> {
   const parsedCustomerId = z.string().uuid().parse(customerId);
+  const kind = options.kind ?? 'free-coffee';
+  const prefix = TOKEN_PREFIXES[kind];
   const secret = resolveSecret(options.secretOverride);
   const nowSeconds = Math.floor((options.nowMs ?? Date.now()) / 1000);
   const ttlSeconds = options.ttlSeconds ?? SECURITY_CONFIG.redeemTokenTtlSeconds;
@@ -81,9 +101,9 @@ export async function issueRedeemToken(
   };
 
   const payloadB64Url = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
-  const signatureBuf = computeSignature(payloadB64Url, secret);
+  const signatureBuf = computeSignature(prefix, payloadB64Url, secret);
   const signatureB64Url = signatureBuf.toString('base64url');
-  const token = `${TOKEN_PREFIX}.${payloadB64Url}.${signatureB64Url}`;
+  const token = `${prefix}.${payloadB64Url}.${signatureB64Url}`;
   const displayCode = deriveDisplayCode(signatureBuf);
 
   const qrSvg = await QRCode.toString(token, {
@@ -98,6 +118,7 @@ export async function issueRedeemToken(
   });
 
   return {
+    kind,
     token,
     payload,
     expiresAtIso: new Date(payload.exp * 1000).toISOString(),
@@ -125,7 +146,8 @@ export function verifyRedeemToken(
   }
 
   const [prefix, payloadB64Url, signatureB64Url] = parts;
-  if (prefix !== TOKEN_PREFIX || !payloadB64Url || !signatureB64Url) {
+  const kind = prefix ? kindForPrefix(prefix) : null;
+  if (!prefix || !kind || !payloadB64Url || !signatureB64Url) {
     return { valid: false, reason: 'invalid-token' };
   }
 
@@ -143,7 +165,7 @@ export function verifyRedeemToken(
     return { valid: false, reason: 'invalid-token' };
   }
 
-  const expectedSigBuf = computeSignature(payloadB64Url, secret);
+  const expectedSigBuf = computeSignature(prefix, payloadB64Url, secret);
   if (
     providedSigBuf.length !== expectedSigBuf.length ||
     !timingSafeEqual(providedSigBuf, expectedSigBuf)
@@ -180,6 +202,7 @@ export function verifyRedeemToken(
 
   return {
     valid: true,
+    kind,
     payload,
     displayCode: deriveDisplayCode(expectedSigBuf),
   };

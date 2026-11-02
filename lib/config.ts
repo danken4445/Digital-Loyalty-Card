@@ -9,6 +9,7 @@ export const SHOP_CONFIG = Object.freeze({
   name: 'The Caffeine Plug',
   tagline: 'YOUR DAILY DOSE, STRAIGHT FROM THE PLUG',
   instagramHandle: '@thecaffeineplug8400',
+  instagramUrl: 'https://www.instagram.com/thecaffeineplug8400/',
   defaultProductionDomain: 'card.thecaffeineplug.ph',
   currency: 'PHP',
   timezone: 'Asia/Manila',
@@ -25,6 +26,16 @@ export const STAMP_RULES = Object.freeze({
   dailyCap: 2,
   /** Minimum seconds between stamps across any customer on the same physical NFC tag */
   tagThrottleSeconds: 5,
+});
+
+/**
+ * One-time perk for following the shop on Instagram (authoritative once-per-card rule in SQL).
+ * Instagram offers no API to check who follows an account, so the barista verifies the follow.
+ */
+export const INSTAGRAM_PERK = Object.freeze({
+  rewardLabel: 'Free upsize on any drink',
+  /** localStorage key remembering that the customer opened our profile from the card */
+  followOpenedStorageKey: 'tcp_ig_follow_opened',
 });
 
 export const SECURITY_CONFIG = Object.freeze({

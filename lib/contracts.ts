@@ -29,8 +29,19 @@ export const REDEEM_RESULT_CODES = [
   'unauthorized',
   'invalid-token',
   'expired-token',
+  'already-claimed',
 ] as const;
 export type RedeemResultCode = (typeof REDEEM_RESULT_CODES)[number];
+
+/**
+ * What a signed redemption QR token is good for. `free-coffee` spends 10 stamps;
+ * `instagram-upsize` is the one-time follow-us-on-Instagram perk and spends no stamps.
+ */
+export const REDEEM_TOKEN_KINDS = ['free-coffee', 'instagram-upsize'] as const;
+export type RedeemTokenKind = (typeof REDEEM_TOKEN_KINDS)[number];
+
+export const PERKS = ['instagram_follow_upsize'] as const;
+export type Perk = (typeof PERKS)[number];
 
 export const MERGE_RESULT_CODES = [
   'merged',
@@ -97,6 +108,14 @@ export interface RedemptionRow {
   created_at: string;
 }
 
+export interface PerkClaimRow {
+  id: string; // uuid
+  customer_id: string; // uuid
+  perk: Perk;
+  staff_id: string; // uuid
+  created_at: string;
+}
+
 export interface StaffRow {
   user_id: string; // uuid PK references auth.users
   display_name: string;
@@ -154,6 +173,16 @@ export interface RpcContracts {
     };
     Returns: RedeemResultCode;
   };
+  claim_instagram_upsize: {
+    Args: {
+      p_customer: string;
+      p_staff: string;
+    };
+    Returns: Extract<
+      RedeemResultCode,
+      'redeemed' | 'already-claimed' | 'unauthorized' | 'invalid-token'
+    >;
+  };
   merge_anonymous_customer: {
     Args: {
       p_source_customer: string;
@@ -195,6 +224,7 @@ export interface RedeemTokenPayload {
 }
 
 export interface IssuedRedeemToken {
+  kind: RedeemTokenKind;
   token: string;
   payload: RedeemTokenPayload;
   expiresAtIso: string;
@@ -206,6 +236,7 @@ export interface IssuedRedeemToken {
 export type VerifyRedeemTokenResult =
   | {
       valid: true;
+      kind: RedeemTokenKind;
       payload: RedeemTokenPayload;
       displayCode: string;
     }
@@ -234,6 +265,11 @@ export interface CustomerCardState {
   stampsRedeemed: number;
   availableStamps: number;
   lastStampedAt: string | null;
+  /**
+   * True once staff has granted the one-time Instagram follow upsize to this card.
+   * Undefined when the claim status could not be loaded; the perk is then hidden.
+   */
+  instagramUpsizeClaimed?: boolean;
 }
 
 /**
@@ -300,6 +336,7 @@ export interface StaffRedeemRequest {
 export interface StaffRedeemPreviewData {
   mode: 'preview';
   valid: true;
+  rewardKind: RedeemTokenKind;
   customerId: string;
   displayCode: string;
   availableStamps: number;
@@ -312,6 +349,7 @@ export interface StaffRedeemPreviewData {
 export interface StaffRedeemConfirmData {
   mode: 'confirm';
   result: RedeemResultCode;
+  rewardKind?: RedeemTokenKind;
   customerId: string;
   displayCode: string;
   availableStampsAfter: number;
@@ -462,6 +500,7 @@ export const ROUTES = Object.freeze({
     customers: '/api/customers',
     claim: '/api/claim',
     redeemToken: '/api/redeem-token',
+    instagramUpsizeToken: '/api/perks/instagram-upsize',
     mergeIntent: '/api/customers/merge-intent',
     merge: '/api/customers/merge',
     staff: {

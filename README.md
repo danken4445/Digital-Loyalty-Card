@@ -20,6 +20,7 @@ There is no native app to download from an app store. When a customer taps the c
   - 30-minute cooldown between stamps for the same customer
   - Maximum 2 stamps per calendar day per customer in `Asia/Manila` timezone
   - 5-second anti-spam throttle per physical NFC tag
+  - Follow [@thecaffeineplug8400](https://www.instagram.com/thecaffeineplug8400/) on Instagram = one free upsize per card, verified by the barista (no stamps used)
 - **Tech Stack:** Next.js 15 (App Router, TypeScript strict, Tailwind CSS), Supabase (PostgreSQL 15, Auth, Row Level Security, pg_cron), Upstash Redis (edge rate limiting), Cloudflare Turnstile (invisible bot protection), Vitest (unit tests), and pgTAP (database tests).
 
 ---

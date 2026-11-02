@@ -12,7 +12,7 @@ export default async function StaffRedeemPage() {
       currentPath={ROUTES.staff.redeem}
       title="Redeem Reward"
       headerLabel="Redeem Module Header"
-      description="Scan the customer's reward QR code, check the 8-character code matches their phone, then confirm. This uses 10 stamps for one free coffee."
+      description="Scan the customer's QR code and check the 8-character code matches their phone. A free coffee QR uses 10 stamps; an Instagram upsize QR is a one-time perk that uses none — check they follow us first."
     >
       <section aria-label="Customer Redemption Action">
         <RedeemRewardForm />

@@ -155,6 +155,7 @@ export async function POST(
           data: {
             mode: 'confirm',
             result: 'invalid-token',
+            rewardKind: verification.kind,
             customerId: verification.payload.customerId,
             displayCode: verification.displayCode,
             availableStampsAfter: 0,
@@ -176,18 +177,30 @@ export async function POST(
       const totalStamps = bal?.total_stamps ?? 0;
       const stampsRedeemed = bal?.stamps_redeemed ?? 0;
 
+      let canRedeem = availableStamps >= STAMP_RULES.rewardThreshold;
+      if (verification.kind === 'instagram-upsize') {
+        const { data: existingClaim } = await admin
+          .from('perk_claims')
+          .select('id')
+          .eq('customer_id', verification.payload.customerId)
+          .eq('perk', 'instagram_follow_upsize')
+          .maybeSingle();
+        canRedeem = !existingClaim;
+      }
+
       return NextResponse.json<ApiResponse<StaffRedeemResponse>>(
         {
           ok: true,
           data: {
             mode: 'preview',
             valid: true,
+            rewardKind: verification.kind,
             customerId: verification.payload.customerId,
             displayCode: verification.displayCode,
             availableStamps,
             totalStamps,
             stampsRedeemed,
-            canRedeem: availableStamps >= STAMP_RULES.rewardThreshold,
+            canRedeem,
             expiresAtIso: new Date(verification.payload.exp * 1000).toISOString(),
           },
         },
@@ -196,6 +209,59 @@ export async function POST(
     }
 
     // action === 'confirm'
+    if (verification.kind === 'instagram-upsize') {
+      // One claim per card is enforced inside claim_instagram_upsize, so token replay is harmless
+      const { data: claimData, error: claimError } = await admin.rpc('claim_instagram_upsize', {
+        p_customer: verification.payload.customerId,
+        p_staff: auth.staff.userId,
+      });
+
+      if (claimError) {
+        return NextResponse.json<ApiResponse<StaffRedeemResponse>>(
+          {
+            ok: false,
+            error: 'internal_error',
+            message: 'Failed to process Instagram upsize.',
+          },
+          { status: 500 },
+        );
+      }
+
+      const claimResult: RedeemResultCode =
+        claimData === 'redeemed' || claimData === 'already-claimed' || claimData === 'unauthorized'
+          ? claimData
+          : 'invalid-token';
+
+      const { data: claimBal } = await admin
+        .from('customer_balances')
+        .select('available_stamps')
+        .eq('customer_id', verification.payload.customerId)
+        .maybeSingle();
+
+      return NextResponse.json<ApiResponse<StaffRedeemResponse>>(
+        {
+          ok: true,
+          data: {
+            mode: 'confirm',
+            result: claimResult,
+            rewardKind: 'instagram-upsize',
+            customerId: verification.payload.customerId,
+            displayCode: verification.displayCode,
+            availableStampsAfter: claimBal?.available_stamps ?? 0,
+            message:
+              claimResult === 'redeemed'
+                ? 'Instagram upsize granted. Upsize their drink at no charge. No stamps used.'
+                : claimResult === 'already-claimed'
+                  ? 'This card has already used its Instagram upsize.'
+                  : claimResult === 'unauthorized'
+                    ? 'Staff member is not authorized to redeem.'
+                    : 'Upsize could not be granted.',
+          },
+        },
+        { status: 200 },
+      );
+    }
+
     // Pass p_nonce so single-use nonce check & consumption execute atomically inside the customer advisory lock
     const { data: rpcData, error: rpcError } = await admin.rpc('redeem_reward', {
       p_customer: verification.payload.customerId,
@@ -258,6 +324,7 @@ export async function POST(
         data: {
           mode: 'confirm',
           result: redeemResult,
+          rewardKind: 'free-coffee',
           customerId: verification.payload.customerId,
           displayCode: verification.displayCode,
           availableStampsAfter: updatedBal?.available_stamps ?? 0,

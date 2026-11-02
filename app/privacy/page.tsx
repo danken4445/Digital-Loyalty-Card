@@ -114,9 +114,10 @@ export default async function PrivacyPage() {
               <code className="bg-neutral-800 text-neutral-200 px-1 py-0.5 rounded text-xs font-mono">
                 HttpOnly
               </code>{' '}
-              browser cookie and record only the timestamps of your stamps and reward redemptions.
-              We never ask for your name, phone number, or personal details to start earning coffee
-              stamps.
+              browser cookie and record only the timestamps of your stamps, reward redemptions, and
+              whether your card has used its Instagram upsize. We never see or store your Instagram
+              account. We never ask for your name, phone number, or personal details to start
+              earning coffee stamps.
             </p>
             <p>
               <strong className="text-white">Optional Card Backup</strong>: Only if you explicitly

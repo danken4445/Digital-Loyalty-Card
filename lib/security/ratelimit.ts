@@ -8,6 +8,7 @@ export interface RateLimitCheckInput {
     | 'claim'
     | 'customers'
     | 'redeem-token'
+    | 'instagram-upsize-token'
     | 'staff-redeem'
     | 'staff-stamp'
     | 'staff-tags'
@@ -31,6 +32,7 @@ const LIMITS: Record<RateLimitCheckInput['endpoint'], { perIp: number; perCustom
   claim: { perIp: 20, perCustomer: 10 },
   customers: { perIp: 30, perCustomer: 20 },
   'redeem-token': { perIp: 30, perCustomer: 15 },
+  'instagram-upsize-token': { perIp: 30, perCustomer: 15 },
   'staff-redeem': { perIp: 60, perCustomer: 30 },
   'staff-stamp': { perIp: 60, perCustomer: 30 },
   'staff-tags': { perIp: 30, perCustomer: 20 },
