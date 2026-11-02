@@ -2,11 +2,11 @@ import { redirect } from 'next/navigation';
 import { ROUTES } from '@/lib/contracts';
 
 interface RootPageProps {
-  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
-export default async function RootPage({ searchParams }: RootPageProps = {}): Promise<never> {
-  const resolved = searchParams ? await searchParams : undefined;
+export default async function RootPage({ searchParams }: RootPageProps): Promise<never> {
+  const resolved = await searchParams;
   if (resolved && (resolved.code || resolved.token_hash)) {
     const query = new URLSearchParams();
     for (const [key, value] of Object.entries(resolved)) {
