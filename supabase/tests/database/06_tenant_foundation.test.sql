@@ -16,7 +16,7 @@ set search_path to extensions, public;
 grant usage on schema extensions to anon, authenticated, service_role;
 grant execute on all functions in schema extensions to anon, authenticated, service_role;
 
-select plan(14);
+select plan(22);
 
 -- ==============================================================================
 -- 1. Tenant tables exist (5 assertions)
@@ -107,6 +107,116 @@ select throws_ok(
     'anon cannot read tenant_members'
 );
 reset role;
+
+-- ==============================================================================
+-- 5. Legacy compatibility: tenant_id defaults to tenant #1 (2 assertions)
+-- ==============================================================================
+
+insert into auth.users (id, aud, role, email)
+values
+    ('e6000000-0000-4000-8000-000000000001', 'authenticated', 'authenticated', 'phase10-customer@caffeineplug.ph'),
+    ('e6000000-0000-4000-8000-000000000002', 'authenticated', 'authenticated', 'phase10-staff@caffeineplug.ph'),
+    ('e6000000-0000-4000-8000-000000000003', 'authenticated', 'authenticated', 'phase10-backfill@caffeineplug.ph')
+on conflict (id) do nothing;
+
+insert into public.tags (id, label, active)
+values ('tag_phase10_legacy01', 'Phase 10 Legacy Tag', true)
+on conflict (id) do nothing;
+
+select is(
+    public.record_stamp(
+        'e6000000-0000-4000-8000-000000000001'::uuid,
+        'tag_phase10_legacy01',
+        'nfc',
+        null,
+        null,
+        '2026-11-04 10:00:00+08'::timestamptz
+    ),
+    'stamped',
+    'Legacy record_stamp still stamps after tenant columns are added'
+);
+
+select is(
+    (select tenant_id from public.stamps where customer_id = 'e6000000-0000-4000-8000-000000000001'),
+    '7c1f0000-0000-4000-8000-000000000001'::uuid,
+    'Legacy stamp rows default to tenant #1'
+);
+
+-- ==============================================================================
+-- 6. Staff mirror trigger (1 assertion)
+-- ==============================================================================
+
+insert into public.staff (user_id, display_name, role)
+values ('e6000000-0000-4000-8000-000000000002', 'Phase 10 Barista', 'staff');
+
+select is(
+    (select role from public.tenant_members
+     where tenant_id = '7c1f0000-0000-4000-8000-000000000001'
+       and user_id = 'e6000000-0000-4000-8000-000000000002'),
+    'staff',
+    'Inserting a legacy staff row mirrors a tenant #1 membership'
+);
+
+-- ==============================================================================
+-- 7. Backfill function (3 assertions)
+-- ==============================================================================
+
+insert into public.customers (id) values ('e6000000-0000-4000-8000-000000000003');
+
+select private.backfill_tenant1();
+
+select is(
+    (select count(*) from public.customers as c
+     where not exists (
+         select 1 from public.customer_cards as cc
+         where cc.customer_id = c.id
+           and cc.tenant_id = '7c1f0000-0000-4000-8000-000000000001'
+     )),
+    0::bigint,
+    'every customer has a tenant 1 card'
+);
+
+create temporary table phase10_card_count as select count(*) as n from public.customer_cards;
+
+select lives_ok(
+    $$select private.backfill_tenant1()$$,
+    'backfill_tenant1 can run a second time'
+);
+
+select is(
+    (select count(*) from public.customer_cards),
+    (select n from phase10_card_count),
+    'A second backfill run adds no cards'
+);
+
+-- ==============================================================================
+-- 8. Schema guards (2 assertions)
+-- ==============================================================================
+
+select is_empty(
+    $$select t.table_name::text
+      from information_schema.tables as t
+      where t.table_schema = 'public'
+        and t.table_type = 'BASE TABLE'
+        and t.table_name not in ('tenants', 'customers', 'staff')
+        and not exists (
+            select 1 from information_schema.columns as c
+            where c.table_schema = 'public'
+              and c.table_name = t.table_name
+              and c.column_name = 'tenant_id'
+        )$$,
+    'every business table has tenant_id'
+);
+
+select is_empty(
+    $$select c.relname::text
+      from pg_catalog.pg_class as c
+      join pg_catalog.pg_namespace as n on n.oid = c.relnamespace
+      where n.nspname = 'public'
+        and c.relkind = 'r'
+        and not c.relrowsecurity$$,
+    'RLS enabled on every public table'
+);
 
 select * from finish();
 rollback;
