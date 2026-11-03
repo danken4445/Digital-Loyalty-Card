@@ -94,6 +94,9 @@ insert into public.tags (
 ) on conflict (id) do nothing;
 
 -- 4. Second demo tenant (Phase 10/11 multi-tenant local testing only)
+--    Production blocks extra tenants until Phase 12; the local seed opts in.
+select set_config('app.allow_multi_tenant', 'on', false);
+
 insert into public.tenants (id, slug, name, status)
 values ('7c1f0000-0000-4000-8000-0000000000d1', 'demo-roastery', 'Demo Roastery', 'active')
 on conflict (id) do nothing;

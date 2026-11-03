@@ -323,7 +323,7 @@ Rolling back the Worker doesn't undo SQL migrations. The Phase 10–11 multi-ten
 Phases 10–11 make the database multi-tenant while the deployed single-shop app keeps working unchanged (decision D-012 in `DECISIONS.md`):
 
 - The Caffeine Plug is tenant #1 (`caffeine-plug`). Rows written by the current app get tenant #1 automatically through column defaults.
-- **Adding staff:** keep inserting into `public.staff` as described in section 4. A transition-only trigger copies each row into `public.tenant_members` for tenant #1.
+- **Adding and removing staff:** keep using `public.staff` as described in section 4. A transition-only trigger copies each insert or update into `public.tenant_members` for tenant #1, and deleting a `staff` row (or moving it to another user) deactivates the old membership.
 - **Wallet cards:** customers created by the current app have no `customer_cards` row yet. The Phase 12 migration creates them by re-running `private.backfill_tenant1()` before the app switches to the new functions.
-- **Phase 12** switches the app to the tenant-aware functions, then removes the legacy objects: `public.staff`, `public.is_staff()`, the mirror trigger, `public.customer_balances`, the legacy stamp/redeem/merge/perk functions and the `tenant_id` column defaults.
-- Don't create a second tenant in production until Phase 12 is deployed.
+- **Phase 12** switches the app to the tenant-aware functions, then removes the legacy objects: `public.staff`, `public.is_staff()`, the mirror trigger, the single-tenant guard, `public.customer_balances`, the legacy stamp/redeem/merge/perk functions and the `tenant_id` column defaults.
+- **Second tenant:** the database refuses to create any tenant other than tenant #1 (`additional tenants are blocked until Phase 12`). Only the pgTAP tests and the local seed opt in with `set_config('app.allow_multi_tenant', 'on', …)`; never set it in production before Phase 12.

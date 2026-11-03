@@ -16,7 +16,10 @@ set search_path to extensions, public;
 grant usage on schema extensions to anon, authenticated, service_role;
 grant execute on all functions in schema extensions to anon, authenticated, service_role;
 
-select plan(21);
+select plan(22);
+
+-- Additional tenants are blocked in production until Phase 12; tests opt in.
+select set_config('app.allow_multi_tenant', 'on', true);
 
 -- ------------------------------------------------------------------------------
 -- Shared fixtures: tenant A = tenant #1, tenant B = bean-there
@@ -248,6 +251,24 @@ select is(
 select ok(
     pg_get_functiondef('public.delete_customer_data(uuid)'::regprocedure) like '%hashtextextended(p_customer::text, 1001)%',
     'legacy_delete_uses_shared_lock: delete_customer_data takes the same customer lock as stamping'
+);
+
+-- The deployed app records redeemed QR nonces with the customer only in detail.customer_id
+insert into public.audit_log (tenant_id, actor, action, target, detail)
+values (
+    '7c1f0000-0000-4000-8000-000000000001',
+    '5a000000-0000-4000-8000-00000000000a',
+    'staff_redeem_token_used',
+    'nonce-legacy-erasure-0001',
+    jsonb_build_object('customer_id', 'ca000000-0000-4000-8000-00000000000a')
+);
+
+select public.delete_customer_data('ca000000-0000-4000-8000-00000000000a');
+
+select is(
+    (select count(*) from public.audit_log where detail ->> 'customer_id' = 'ca000000-0000-4000-8000-00000000000a'),
+    0::bigint,
+    'legacy_delete_erases_nonce_audit_rows: no audit detail still names the erased customer'
 );
 
 set local role authenticated;

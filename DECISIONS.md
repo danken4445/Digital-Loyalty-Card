@@ -152,6 +152,6 @@ This document records key technical, security, and branding decisions for The Ca
      - Customers created by the legacy flow get their tenant #1 card when the Phase 12 contract migration re-runs `private.backfill_tenant1()`.
      - Phase 12 then:
        - adds the composite FK `(tenant_id, customer_id)` → `customer_cards`;
-       - drops `public.is_staff()`, `public.staff`, the mirror trigger, `public.customer_balances`, the legacy stamp/redeem/merge/perk functions (including the unused `redeem_reward(uuid, uuid)`) and the `tenant_id` column defaults.
+       - drops `public.is_staff()`, `public.staff`, the mirror trigger, the single-tenant guard (`private.guard_single_tenant`, which refuses tenants other than #1 unless `app.allow_multi_tenant` is on), `public.customer_balances`, the legacy stamp/redeem/merge/perk functions (including the unused `redeem_reward(uuid, uuid)`) and the `tenant_id` column defaults.
   6. **`delete_customer_data` lock fix.** It now takes the same customer lock as stamping, `pg_advisory_xact_lock(hashtextextended(p_customer::text, 1001))`.
 - **Why:** One shared database is the only model a small shop's subscription can pay for. Working out the tenant inside SQL stops a routing or service-role bug from crediting, redeeming or reading another shop's data. Expand-then-contract keeps the deployed single-shop app working while the database changes underneath it.

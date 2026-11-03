@@ -16,7 +16,7 @@ set search_path to extensions, public;
 grant usage on schema extensions to anon, authenticated, service_role;
 grant execute on all functions in schema extensions to anon, authenticated, service_role;
 
-select plan(22);
+select plan(26);
 
 -- ==============================================================================
 -- 1. Tenant tables exist (5 assertions)
@@ -89,8 +89,22 @@ select throws_ok(
 );
 
 -- ==============================================================================
--- 4. Slug format and anonymous access (2 assertions)
+-- 4. Transition guard, slug format and anonymous access (4 assertions)
 -- ==============================================================================
+
+select throws_ok(
+    $$insert into public.tenants (slug, name) values ('second-shop', 'Second Shop')$$,
+    'P0001',
+    'additional tenants are blocked until Phase 12',
+    'A second tenant is refused while the legacy single-shop functions are live'
+);
+
+select set_config('app.allow_multi_tenant', 'on', true);
+
+select lives_ok(
+    $$insert into public.tenants (slug, name) values ('second-shop', 'Second Shop')$$,
+    'A second tenant is allowed when app.allow_multi_tenant is on (tests, local seed)'
+);
 
 select throws_ok(
     $$insert into public.tenants (slug, name) values ('Bad Slug!', 'Bad Slug Shop')$$,
@@ -116,7 +130,9 @@ insert into auth.users (id, aud, role, email)
 values
     ('e6000000-0000-4000-8000-000000000001', 'authenticated', 'authenticated', 'phase10-customer@caffeineplug.ph'),
     ('e6000000-0000-4000-8000-000000000002', 'authenticated', 'authenticated', 'phase10-staff@caffeineplug.ph'),
-    ('e6000000-0000-4000-8000-000000000003', 'authenticated', 'authenticated', 'phase10-backfill@caffeineplug.ph')
+    ('e6000000-0000-4000-8000-000000000003', 'authenticated', 'authenticated', 'phase10-backfill@caffeineplug.ph'),
+    ('e6000000-0000-4000-8000-000000000004', 'authenticated', 'authenticated', 'phase10-staff-old@caffeineplug.ph'),
+    ('e6000000-0000-4000-8000-000000000005', 'authenticated', 'authenticated', 'phase10-staff-new@caffeineplug.ph')
 on conflict (id) do nothing;
 
 insert into public.tags (id, label, active)
@@ -155,6 +171,33 @@ select is(
        and user_id = 'e6000000-0000-4000-8000-000000000002'),
     'staff',
     'Inserting a legacy staff row mirrors a tenant #1 membership'
+);
+
+delete from public.staff where user_id = 'e6000000-0000-4000-8000-000000000002';
+
+select is(
+    (select active from public.tenant_members
+     where tenant_id = '7c1f0000-0000-4000-8000-000000000001'
+       and user_id = 'e6000000-0000-4000-8000-000000000002'),
+    false,
+    'Deleting a legacy staff row deactivates the tenant #1 membership'
+);
+
+insert into public.staff (user_id, display_name, role)
+values ('e6000000-0000-4000-8000-000000000004', 'Phase 10 Reassigned', 'staff');
+
+update public.staff
+set user_id = 'e6000000-0000-4000-8000-000000000005'
+where user_id = 'e6000000-0000-4000-8000-000000000004';
+
+select results_eq(
+    $$select user_id, active from public.tenant_members
+      where tenant_id = '7c1f0000-0000-4000-8000-000000000001'
+        and user_id in ('e6000000-0000-4000-8000-000000000004', 'e6000000-0000-4000-8000-000000000005')
+      order by user_id$$,
+    $$values ('e6000000-0000-4000-8000-000000000004'::uuid, false),
+             ('e6000000-0000-4000-8000-000000000005'::uuid, true)$$,
+    'Moving a legacy staff row to another user deactivates the old membership'
 );
 
 -- ==============================================================================

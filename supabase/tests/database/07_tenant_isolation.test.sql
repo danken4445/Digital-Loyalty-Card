@@ -17,7 +17,10 @@ set search_path to extensions, public;
 grant usage on schema extensions to anon, authenticated, service_role;
 grant execute on all functions in schema extensions to anon, authenticated, service_role;
 
-select plan(16);
+select plan(17);
+
+-- Additional tenants are blocked in production until Phase 12; tests opt in.
+select set_config('app.allow_multi_tenant', 'on', true);
 
 -- ------------------------------------------------------------------------------
 -- Shared fixtures: tenant A = tenant #1, tenant B = bean-there (Asia/Tokyo)
@@ -195,6 +198,21 @@ select is_empty(
       where n.nspname = 'private'
         and has_function_privilege('anon', p.oid, 'execute')$$,
     'No private function is executable by anon'
+);
+
+-- Catalog-wide guard: SECURITY DEFINER functions are callable only by service_role,
+-- except the two helpers RLS and the middleware need.
+select is_empty(
+    $$select n.nspname || '.' || p.proname || ' -> ' || r.rolname
+      from pg_catalog.pg_proc as p
+      join pg_catalog.pg_namespace as n on n.oid = p.pronamespace
+      cross join (values ('anon'), ('authenticated')) as r(rolname)
+      where n.nspname in ('public', 'private')
+        and p.prosecdef
+        and has_function_privilege(r.rolname, p.oid, 'execute')
+        and not (r.rolname = 'authenticated'
+                 and (n.nspname, p.proname) in (('public', 'is_staff'), ('private', 'staff_tenant_ids')))$$,
+    'No SECURITY DEFINER function is executable by anon or authenticated beyond is_staff and staff_tenant_ids'
 );
 
 select * from finish();
