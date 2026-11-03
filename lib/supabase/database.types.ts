@@ -31,6 +31,7 @@ export type Database = {
           detail: Json | null;
           id: string;
           target: string | null;
+          tenant_id: string | null;
         };
         ComputedFields: never;
         Insert: {
@@ -40,6 +41,7 @@ export type Database = {
           detail?: Json | null;
           id?: string;
           target?: string | null;
+          tenant_id?: string | null;
         };
         Update: {
           action?: string;
@@ -48,8 +50,61 @@ export type Database = {
           detail?: Json | null;
           id?: string;
           target?: string | null;
+          tenant_id?: string | null;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: 'audit_log_tenant_id_fkey';
+            columns: ['tenant_id'];
+            isOneToOne: false;
+            referencedRelation: 'tenants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      customer_cards: {
+        Row: {
+          added_at: string;
+          consent_version: string;
+          customer_id: string;
+          tenant_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          added_at?: string;
+          consent_version?: string;
+          customer_id: string;
+          tenant_id: string;
+        };
+        Update: {
+          added_at?: string;
+          consent_version?: string;
+          customer_id?: string;
+          tenant_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'customer_cards_customer_id_fkey';
+            columns: ['customer_id'];
+            isOneToOne: false;
+            referencedRelation: 'customer_balances';
+            referencedColumns: ['customer_id'];
+          },
+          {
+            foreignKeyName: 'customer_cards_customer_id_fkey';
+            columns: ['customer_id'];
+            isOneToOne: false;
+            referencedRelation: 'customers';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'customer_cards_tenant_id_fkey';
+            columns: ['tenant_id'];
+            isOneToOne: false;
+            referencedRelation: 'tenants';
+            referencedColumns: ['id'];
+          },
+        ];
       };
       customers: {
         Row: {
@@ -74,6 +129,7 @@ export type Database = {
           id: string;
           perk: string;
           staff_id: string;
+          tenant_id: string;
         };
         ComputedFields: never;
         Insert: {
@@ -82,6 +138,7 @@ export type Database = {
           id?: string;
           perk: string;
           staff_id: string;
+          tenant_id?: string;
         };
         Update: {
           created_at?: string;
@@ -89,6 +146,7 @@ export type Database = {
           id?: string;
           perk?: string;
           staff_id?: string;
+          tenant_id?: string;
         };
         Relationships: [
           {
@@ -105,6 +163,13 @@ export type Database = {
             referencedRelation: 'customers';
             referencedColumns: ['id'];
           },
+          {
+            foreignKeyName: 'perk_claims_tenant_id_fkey';
+            columns: ['tenant_id'];
+            isOneToOne: false;
+            referencedRelation: 'tenants';
+            referencedColumns: ['id'];
+          },
         ];
       };
       redemptions: {
@@ -114,6 +179,7 @@ export type Database = {
           id: string;
           staff_id: string;
           stamps_used: number;
+          tenant_id: string;
         };
         ComputedFields: never;
         Insert: {
@@ -122,6 +188,7 @@ export type Database = {
           id?: string;
           staff_id: string;
           stamps_used: number;
+          tenant_id?: string;
         };
         Update: {
           created_at?: string;
@@ -129,6 +196,7 @@ export type Database = {
           id?: string;
           staff_id?: string;
           stamps_used?: number;
+          tenant_id?: string;
         };
         Relationships: [
           {
@@ -143,6 +211,13 @@ export type Database = {
             columns: ['customer_id'];
             isOneToOne: false;
             referencedRelation: 'customers';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'redemptions_tenant_id_fkey';
+            columns: ['tenant_id'];
+            isOneToOne: false;
+            referencedRelation: 'tenants';
             referencedColumns: ['id'];
           },
         ];
@@ -181,6 +256,7 @@ export type Database = {
           source: string;
           staff_id: string | null;
           tag_id: string | null;
+          tenant_id: string;
         };
         ComputedFields: never;
         Insert: {
@@ -191,6 +267,7 @@ export type Database = {
           source?: string;
           staff_id?: string | null;
           tag_id?: string | null;
+          tenant_id?: string;
         };
         Update: {
           created_at?: string;
@@ -200,6 +277,7 @@ export type Database = {
           source?: string;
           staff_id?: string | null;
           tag_id?: string | null;
+          tenant_id?: string;
         };
         Relationships: [
           {
@@ -223,6 +301,13 @@ export type Database = {
             referencedRelation: 'tags';
             referencedColumns: ['id'];
           },
+          {
+            foreignKeyName: 'stamps_tenant_id_fkey';
+            columns: ['tenant_id'];
+            isOneToOne: false;
+            referencedRelation: 'tenants';
+            referencedColumns: ['id'];
+          },
         ];
       };
       tags: {
@@ -232,6 +317,7 @@ export type Database = {
           deactivated_at: string | null;
           id: string;
           label: string | null;
+          tenant_id: string;
         };
         ComputedFields: never;
         Insert: {
@@ -240,6 +326,7 @@ export type Database = {
           deactivated_at?: string | null;
           id: string;
           label?: string | null;
+          tenant_id?: string;
         };
         Update: {
           active?: boolean;
@@ -247,11 +334,190 @@ export type Database = {
           deactivated_at?: string | null;
           id?: string;
           label?: string | null;
+          tenant_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'tags_tenant_id_fkey';
+            columns: ['tenant_id'];
+            isOneToOne: false;
+            referencedRelation: 'tenants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      tenant_domains: {
+        Row: {
+          host: string;
+          tenant_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          host: string;
+          tenant_id: string;
+        };
+        Update: {
+          host?: string;
+          tenant_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'tenant_domains_tenant_id_fkey';
+            columns: ['tenant_id'];
+            isOneToOne: false;
+            referencedRelation: 'tenants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      tenant_members: {
+        Row: {
+          active: boolean;
+          created_at: string;
+          display_name: string;
+          role: string;
+          tenant_id: string;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          active?: boolean;
+          created_at?: string;
+          display_name: string;
+          role?: string;
+          tenant_id: string;
+          user_id: string;
+        };
+        Update: {
+          active?: boolean;
+          created_at?: string;
+          display_name?: string;
+          role?: string;
+          tenant_id?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'tenant_members_tenant_id_fkey';
+            columns: ['tenant_id'];
+            isOneToOne: false;
+            referencedRelation: 'tenants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      tenant_settings: {
+        Row: {
+          brand: NonNullable<Json>;
+          cooldown_minutes: number;
+          currency: string;
+          daily_cap: number;
+          perks: NonNullable<Json>;
+          reward_label: string;
+          reward_threshold: number;
+          tag_throttle_seconds: number;
+          tenant_id: string;
+          timezone: string;
+          updated_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          brand?: NonNullable<Json>;
+          cooldown_minutes?: number;
+          currency?: string;
+          daily_cap?: number;
+          perks?: NonNullable<Json>;
+          reward_label?: string;
+          reward_threshold?: number;
+          tag_throttle_seconds?: number;
+          tenant_id: string;
+          timezone?: string;
+          updated_at?: string;
+        };
+        Update: {
+          brand?: NonNullable<Json>;
+          cooldown_minutes?: number;
+          currency?: string;
+          daily_cap?: number;
+          perks?: NonNullable<Json>;
+          reward_label?: string;
+          reward_threshold?: number;
+          tag_throttle_seconds?: number;
+          tenant_id?: string;
+          timezone?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'tenant_settings_tenant_id_fkey';
+            columns: ['tenant_id'];
+            isOneToOne: true;
+            referencedRelation: 'tenants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      tenants: {
+        Row: {
+          created_at: string;
+          id: string;
+          name: string;
+          slug: string;
+          status: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          id?: string;
+          name: string;
+          slug: string;
+          status?: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          name?: string;
+          slug?: string;
+          status?: string;
         };
         Relationships: [];
       };
     };
     Views: {
+      card_balances: {
+        Row: {
+          available_stamps: number | null;
+          customer_id: string;
+          last_stamped_at: string | null;
+          stamps_redeemed: number | null;
+          tenant_id: string;
+          total_stamps: number | null;
+        };
+        ComputedFields: never;
+        Relationships: [
+          {
+            foreignKeyName: 'customer_cards_customer_id_fkey';
+            columns: ['customer_id'];
+            isOneToOne: false;
+            referencedRelation: 'customer_balances';
+            referencedColumns: ['customer_id'];
+          },
+          {
+            foreignKeyName: 'customer_cards_customer_id_fkey';
+            columns: ['customer_id'];
+            isOneToOne: false;
+            referencedRelation: 'customers';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'customer_cards_tenant_id_fkey';
+            columns: ['tenant_id'];
+            isOneToOne: false;
+            referencedRelation: 'tenants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       customer_balances: {
         Row: {
           available_stamps: number | null;
@@ -265,20 +531,28 @@ export type Database = {
       };
     };
     Functions: {
-      claim_instagram_upsize: {
-        Args: { p_customer: string; p_staff: string };
+      add_card: {
+        Args: { p_consent_version?: string; p_customer: string; p_tenant: string };
         Returns: string;
       };
-      cleanup_stale_anonymous_customers: {
-        Args: { p_older_than?: string };
-        Returns: number;
+      claim_card_perk: {
+        Args: { p_actor: string; p_customer: string; p_perk: string; p_tenant: string };
+        Returns: string;
       };
-      delete_customer_data: {
-        Args: { p_customer: string };
-        Returns: boolean;
+      claim_instagram_upsize: { Args: { p_customer: string; p_staff: string }; Returns: string };
+      cleanup_stale_anonymous_customers: { Args: { p_older_than?: string }; Returns: number };
+      create_tag: {
+        Args: { p_actor: string; p_label?: string; p_tag_id: string; p_tenant: string };
+        Returns: string;
       };
+      deactivate_tag: {
+        Args: { p_actor: string; p_tag_id: string; p_tenant: string };
+        Returns: string;
+      };
+      delete_customer_data: { Args: { p_customer: string }; Returns: boolean };
+      delete_wallet: { Args: { p_customer: string }; Returns: boolean };
       ensure_customer: { Args: { p_customer: string }; Returns: string };
-      is_staff: { Args: Record<string, never>; Returns: boolean };
+      is_staff: { Args: Record<PropertyKey, never>; Returns: boolean };
       log_audit_event: {
         Args: { p_action: string; p_actor: string; p_detail?: Json; p_target?: string };
         Returns: string;
@@ -287,6 +561,7 @@ export type Database = {
         Args: { p_source_customer: string; p_target_customer: string };
         Returns: string;
       };
+      merge_wallets: { Args: { p_source: string; p_target: string }; Returns: Json };
       record_stamp: {
         Args: {
           p_customer: string;
@@ -298,9 +573,37 @@ export type Database = {
         };
         Returns: string;
       };
-      redeem_reward: {
-        Args: { p_customer: string; p_nonce?: string; p_staff: string };
+      redeem_card_reward: {
+        Args: { p_actor: string; p_customer: string; p_nonce: string; p_tenant: string };
         Returns: string;
+      };
+      redeem_reward:
+        | { Args: { p_customer: string; p_staff: string }; Returns: string }
+        | { Args: { p_customer: string; p_nonce: string; p_staff: string }; Returns: string };
+      remove_card: { Args: { p_customer: string; p_tenant: string }; Returns: boolean };
+      rotate_tag: {
+        Args: {
+          p_actor: string;
+          p_label?: string;
+          p_new_tag_id: string;
+          p_old_tag_id: string;
+          p_tenant: string;
+        };
+        Returns: string;
+      };
+      stamp_card_manual: {
+        Args: {
+          p_actor: string;
+          p_customer: string;
+          p_now?: string;
+          p_reason: string;
+          p_tenant: string;
+        };
+        Returns: string;
+      };
+      stamp_card_nfc: {
+        Args: { p_customer: string; p_now?: string; p_tag: string };
+        Returns: Json;
       };
     };
     Enums: {

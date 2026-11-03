@@ -29,7 +29,7 @@ There is no native app to download from an app store. When a customer taps the c
 
 Comprehensive step-by-step documentation for Dan (Owner) and shop baristas is located in the `docs/` directory:
 
-- 🚀 **[Deployment & Operations Runbook](docs/DEPLOYMENT_AND_OPS.md):** Complete guide to deploying to hosted Supabase, Vercel, Cloudflare Turnstile, and Upstash Redis; creating owner/staff accounts; running SQL migrations; scheduling automated 30-day stale account cleanups; and executing 5-second Vercel instant rollbacks.
+- 🚀 **[Deployment & Operations Runbook](docs/DEPLOYMENT_AND_OPS.md):** Complete guide to deploying to hosted Supabase, Cloudflare Workers, Cloudflare Turnstile, and Upstash Redis; creating owner/staff accounts; running SQL migrations; scheduling automated 30-day stale account cleanups; rolling back with Wrangler; and the multi-tenant transition rules.
 - 🏷️ **[NFC & Counter QR Provisioning Guide](docs/NFC_AND_QR_PROVISIONING.md):** How to generate and print counter QR standees (`npm run qr:counter`), encode physical NXP NTAG215 cards using NFC Tools, password-lock tags against tampering, and rotate lost or compromised NFC cards in under 10 seconds.
 - ☕ **[Barista Counter Cheatsheet](docs/STAFF_COUNTER_CHEATSHEET.md):** A 1-page printable reference card designed to be laminated beside the cash register. Explains how to onboard first-time customers, how to tap iPhones vs Android phones, what tap status banners mean, how to redeem free drinks at 10 stamps, and how to issue manual fallback stamps.
 - 🔒 **[Privacy & Data Protection (`/privacy`)](app/privacy/page.tsx):** Implements the Philippines Data Privacy Act of 2012 (RA 10173), explaining data minimization, 30-day retention policies, and customer self-service data erasure.

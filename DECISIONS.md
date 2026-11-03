@@ -124,3 +124,34 @@ This document records key technical, security, and branding decisions for The Ca
   3. Baristas scan it on the existing `/staff/redeem` screen, check the follow on the customer's phone, and confirm. `public.claim_instagram_upsize(p_customer, p_staff)` records it in `public.perk_claims`, with `unique (customer_id, perk)` and the customer advisory lock (namespace `1001`) allowing one claim per card. No stamps are spent.
   4. `merge_anonymous_customer` moves perk claims to the target and drops duplicates. Erasure cascades from `public.customers`.
 - **Why:** Instagram's APIs don't let a third-party app check whether a given person follows an account, so the app can't verify the follow itself. An honor-system button would let anyone claim, so the barista does the check. Limit: a customer who clears their browser gets a new anonymous card and could claim again, but only by showing the follow at the counter again.
+
+---
+
+## D-012: Multi-Tenant Database (Phases 10–11): Wallet, Per-Shop Rules, Expand-Then-Contract
+
+- **Date:** 2026-11-04
+- **Status:** Accepted
+- **What:**
+  1. **Owner decisions** (see `docs/assessments/MULTI_TENANT_READINESS_2026-11-03.md`):
+     - **D1:** one login with a separate card per shop, collected in a wallet (`public.customer_cards`).
+     - **D2:** path routing on one domain (`/s/<slug>`, `/t/<tagId>` unchanged, `/wallet`).
+     - **D3:** stamp rules configurable per shop (`public.tenant_settings`).
+     - **D4:** billing deferred.
+  2. **Shared schema with `tenant_id` on every business table.** The Caffeine Plug is tenant #1 (`7c1f0000-0000-4000-8000-000000000001`, slug `caffeine-plug`) with its original rules. RLS gives staff rows of the tenants they're active members of (`private.staff_tenant_ids()`), and gives customers their own rows across every tenant.
+  3. **Tenant-aware functions use new names**, not overloads:
+     - `stamp_card_nfc`, `add_card`, `stamp_card_manual`, `redeem_card_reward`, `claim_card_perk`;
+     - `create_tag`, `rotate_tag`, `deactivate_tag`;
+     - `remove_card`, `delete_wallet`, `merge_wallets`.
+
+     The legacy functions have defaulted parameters, so an overload such as `record_stamp(uuid, text)` would make calls ambiguous ("function is not unique").
+
+  4. **The tenant always comes from the database.** NFC stamps read `tags.tenant_id`. Staff actions take `p_actor` and require an active membership in `p_tenant`, plus a card for the customer in that tenant.
+  5. **Transition rules until Phase 12 switches the app over:**
+     - Legacy functions write tenant #1 rows through column defaults.
+     - A transition-only trigger mirrors legacy `public.staff` rows into tenant #1 memberships.
+     - Customers created by the legacy flow get their tenant #1 card when the Phase 12 contract migration re-runs `private.backfill_tenant1()`.
+     - Phase 12 then:
+       - adds the composite FK `(tenant_id, customer_id)` → `customer_cards`;
+       - drops `public.is_staff()`, `public.staff`, the mirror trigger, `public.customer_balances`, the legacy stamp/redeem/merge/perk functions (including the unused `redeem_reward(uuid, uuid)`) and the `tenant_id` column defaults.
+  6. **`delete_customer_data` lock fix.** It now takes the same customer lock as stamping, `pg_advisory_xact_lock(hashtextextended(p_customer::text, 1001))`.
+- **Why:** One shared database is the only model a small shop's subscription can pay for. Working out the tenant inside SQL stops a routing or service-role bug from crediting, redeeming or reading another shop's data. Expand-then-contract keeps the deployed single-shop app working while the database changes underneath it.

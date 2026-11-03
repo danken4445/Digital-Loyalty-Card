@@ -25,12 +25,11 @@ Key architectural highlights:
 
 Before starting your production deployment, make sure you have access to these external services:
 
-1. **GitHub Account:** To host the private code repository and trigger Vercel deployments.
+1. **GitHub Account:** To host the private code repository.
 2. **Supabase Account:** [supabase.com](https://supabase.com) — Provides hosted PostgreSQL, authentication, and database backups.
-3. **Vercel Account:** [vercel.com](https://vercel.com) — Provides worldwide Next.js edge hosting, automatic SSL, and instant rollbacks.
-4. **Cloudflare Account:** [cloudflare.com](https://cloudflare.com) — Provides Turnstile CAPTCHA bot protection.
-5. **Upstash Account (Recommended):** [upstash.com](https://upstash.com) — Provides serverless Redis for rate limiting across multiple server instances.
-6. **Domain Registrar / DNS:** Where `thecaffeineplug.ph` is managed, with access to create a `card` CNAME record.
+3. **Cloudflare Account:** [cloudflare.com](https://cloudflare.com) — Hosts the Next.js app on Cloudflare Workers (built with OpenNext) and provides Turnstile CAPTCHA bot protection.
+4. **Upstash Account (Recommended):** [upstash.com](https://upstash.com) — Provides serverless Redis for rate limiting across multiple server instances.
+5. **Domain Registrar / DNS:** Where `thecaffeineplug.ph` is managed, with access to create a `card` CNAME record.
 
 ---
 
@@ -164,7 +163,7 @@ Cloudflare Turnstile protects customer card generation from spam bots while keep
 
 ### 5.2 Upstash Redis (Distributed Rate Limiting)
 
-Upstash Redis enforces per-IP and per-customer rate limits across Vercel edge instances to prevent card provisioning floods.
+Upstash Redis enforces per-IP and per-customer rate limits across Cloudflare Worker instances to prevent card provisioning floods.
 
 1. Log in to [console.upstash.com](https://console.upstash.com).
 2. Click **Create Database**.
@@ -178,56 +177,56 @@ Upstash Redis enforces per-IP and per-customer rate limits across Vercel edge in
 
 ---
 
-## 6. Step 4: Deploy Frontend to Vercel
+## 6. Step 4: Deploy Frontend to Cloudflare Workers
 
-1. **Connect GitHub to Vercel:**
-   - Log in to [vercel.com](https://vercel.com) using your GitHub account.
-   - Click **Add New...** -> **Project**.
-   - Select your repository (`caffeine-plug-loyalty`) and click **Import**.
+The app runs on Cloudflare Workers, built with OpenNext (`@opennextjs/cloudflare`). The Worker is named `digital-loyalty-card`; the name in `wrangler.jsonc` must match the Worker name in the Cloudflare dashboard.
 
-2. **Configure Build Settings:**
-   - **Framework Preset:** `Next.js` (detected automatically).
-   - **Root Directory:** `./` (default).
-   - **Build Command:** `next build` (default).
-   - **Output Directory:** `.next` (default).
+1. **Set public variables in `wrangler.jsonc` (`vars`):**
+   - `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_TURNSTILE_SITE_KEY`.
+   - These values are public and are built into the browser bundle.
 
-3. **Set Environment Variables:**
-   - In the Vercel project configuration screen, expand **Environment Variables**.
-   - Add every variable from the table below:
+2. **Set server secrets with Wrangler.** Run once per secret, then paste the value when prompted:
+   ```bash
+   npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+   ```
+   Repeat for `REDEEM_TOKEN_SECRET`, `TURNSTILE_SECRET_KEY`, `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`.
 
-| Environment Variable             | Visibility               | Purpose / Source                                                    | Example Value                     |
-| :------------------------------- | :----------------------- | :------------------------------------------------------------------ | :-------------------------------- |
-| `NEXT_PUBLIC_SITE_URL`           | Public (Client & Server) | Production domain                                                   | `https://card.thecaffeineplug.ph` |
-| `NEXT_PUBLIC_SUPABASE_URL`       | Public (Client & Server) | Hosted Supabase project URL                                         | `https://xyzcompany.supabase.co`  |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY`  | Public (Client & Server) | Hosted Supabase public anon key                                     | `eyJhbGciOi...`                   |
-| `SUPABASE_SERVICE_ROLE_KEY`      | **Secret (Server Only)** | Privileged database admin key                                       | `eyJhbGciOi...`                   |
-| `REDEEM_TOKEN_SECRET`            | **Secret (Server Only)** | 64-character random hex secret for signed 5-minute reward QR tokens | _Generate using step below_       |
-| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Public (Client & Server) | Cloudflare Turnstile public site key                                | `0x4AAAAAA...`                    |
-| `TURNSTILE_SECRET_KEY`           | **Secret (Server Only)** | Cloudflare Turnstile secret key                                     | `0x4AAAAAA...`                    |
-| `UPSTASH_REDIS_REST_URL`         | **Secret (Server Only)** | Upstash Redis REST URL                                              | `https://...upstash.io`           |
-| `UPSTASH_REDIS_REST_TOKEN`       | **Secret (Server Only)** | Upstash Redis REST Token                                            | `AX...=`                          |
+| Environment Variable             | Where                 | Purpose / Source                                                    | Example Value                     |
+| :------------------------------- | :-------------------- | :------------------------------------------------------------------ | :-------------------------------- |
+| `NEXT_PUBLIC_SITE_URL`           | `wrangler.jsonc` vars | Production domain                                                   | `https://card.thecaffeineplug.ph` |
+| `NEXT_PUBLIC_SUPABASE_URL`       | `wrangler.jsonc` vars | Hosted Supabase project URL                                         | `https://xyzcompany.supabase.co`  |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY`  | `wrangler.jsonc` vars | Hosted Supabase publishable key                                     | `sb_publishable_...`              |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | `wrangler.jsonc` vars | Cloudflare Turnstile public site key                                | `0x4AAAAAA...`                    |
+| `SUPABASE_SERVICE_ROLE_KEY`      | **Wrangler secret**   | Privileged database admin key                                       | `eyJhbGciOi...`                   |
+| `REDEEM_TOKEN_SECRET`            | **Wrangler secret**   | 64-character random hex secret for signed 5-minute reward QR tokens | _Generate using step below_       |
+| `TURNSTILE_SECRET_KEY`           | **Wrangler secret**   | Cloudflare Turnstile secret key                                     | `0x4AAAAAA...`                    |
+| `UPSTASH_REDIS_REST_URL`         | **Wrangler secret**   | Upstash Redis REST URL                                              | `https://...upstash.io`           |
+| `UPSTASH_REDIS_REST_TOKEN`       | **Wrangler secret**   | Upstash Redis REST Token                                            | `AX...=`                          |
 
-4. **How to Generate `REDEEM_TOKEN_SECRET`:**
+3. **How to Generate `REDEEM_TOKEN_SECRET`:**
    - Open a terminal on your computer and run this command:
      ```bash
      node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
      ```
    - It outputs a 64-character random string (e.g., `8f7b3a1c9e2d...`).
-   - Copy this string and paste it into Vercel as `REDEEM_TOKEN_SECRET`.
+   - Store it with `npx wrangler secret put REDEEM_TOKEN_SECRET`.
 
-5. **Deploy the Project:**
-   - Click **Deploy**.
-   - Vercel will build the Next.js application in about 1-2 minutes.
+4. **Preview, then deploy:**
 
-6. **Connect Your Custom Domain (`card.thecaffeineplug.ph`):**
-   - In Vercel, go to **Project Settings** -> **Domains**.
-   - Enter `card.thecaffeineplug.ph` and click **Add**.
-   - Open your DNS provider (Cloudflare, Namecheap, GoDaddy, etc.) and add this DNS record:
-     - **Type:** `CNAME`
-     - **Name / Host:** `card`
-     - **Target / Value:** `cname.vercel-dns.com`
-     - **TTL:** Automatic or 300 seconds
-   - Vercel will automatically verify the record and issue an SSL/TLS certificate.
+   ```bash
+   npm run preview:cf
+   ```
+
+   ```bash
+   npm run deploy:cf
+   ```
+
+   `deploy:cf` builds the app with OpenNext and uploads a new Worker version.
+
+5. **Connect Your Custom Domain (`card.thecaffeineplug.ph`):**
+   - The domain's DNS must be managed by Cloudflare.
+   - In the Cloudflare dashboard, open **Workers & Pages** -> `digital-loyalty-card` -> **Settings** -> **Domains & Routes**, and add `card.thecaffeineplug.ph` as a custom domain (`TO VERIFY` exact labels).
+   - Cloudflare creates the DNS record and issues the TLS certificate.
 
 ---
 
@@ -295,20 +294,36 @@ Run these verification tests immediately after deployment:
 
 If a bad code commit or styling regression occurs in production, follow these steps to restore service in under 60 seconds:
 
-### Method 1: Vercel Instant Rollback (Zero Rebuild Time — Recommended)
+### Method 1: Wrangler Rollback (No Rebuild — Recommended)
 
-1. Log in to [vercel.com](https://vercel.com) and click on your `caffeine-plug-loyalty` project.
-2. Click the **Deployments** tab.
-3. Find the previous stable deployment that worked.
-4. Click the three dots icon (`...`) on the right side of that deployment row.
-5. Select **Promote to Production** (`TO VERIFY` exact button label).
-6. Vercel immediately redirects 100% of web traffic to the previous healthy build within 5 seconds without needing a new build.
+1. On your computer terminal, roll the Worker back to its previous version:
+   ```bash
+   npx wrangler rollback
+   ```
+2. Wrangler asks for a reason and confirmation, then serves the previous version without a new build. You can also pick an older version from the Worker's **Deployments** tab in the Cloudflare dashboard (`TO VERIFY` exact labels).
 
 ### Method 2: Git Revert (Clean Code History)
 
-1. On your computer terminal, revert the problematic commit:
+1. On your computer terminal, revert the problematic commit and redeploy:
    ```bash
    git revert HEAD
-   git push origin master
    ```
-2. Vercel detects the git push and automatically builds and deploys the reverted code.
+   ```bash
+   npm run deploy:cf
+   ```
+
+### Database migrations are not rolled back by either method
+
+Rolling back the Worker doesn't undo SQL migrations. The Phase 10–11 multi-tenant migrations are additive, so the previous app version keeps working on the newer schema (see section 9).
+
+---
+
+## 9. Multi-Tenant Transition (Phases 10–12)
+
+Phases 10–11 make the database multi-tenant while the deployed single-shop app keeps working unchanged (decision D-012 in `DECISIONS.md`):
+
+- The Caffeine Plug is tenant #1 (`caffeine-plug`). Rows written by the current app get tenant #1 automatically through column defaults.
+- **Adding staff:** keep inserting into `public.staff` as described in section 4. A transition-only trigger copies each row into `public.tenant_members` for tenant #1.
+- **Wallet cards:** customers created by the current app have no `customer_cards` row yet. The Phase 12 migration creates them by re-running `private.backfill_tenant1()` before the app switches to the new functions.
+- **Phase 12** switches the app to the tenant-aware functions, then removes the legacy objects: `public.staff`, `public.is_staff()`, the mirror trigger, `public.customer_balances`, the legacy stamp/redeem/merge/perk functions and the `tenant_id` column defaults.
+- Don't create a second tenant in production until Phase 12 is deployed.
