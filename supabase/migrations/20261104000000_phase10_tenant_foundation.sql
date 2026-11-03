@@ -94,6 +94,8 @@ begin
 end;
 $$;
 
+revoke all on function private.validate_tenant_settings() from public, anon, authenticated;
+
 drop trigger if exists tenant_settings_validate on public.tenant_settings;
 create trigger tenant_settings_validate
   before insert or update on public.tenant_settings

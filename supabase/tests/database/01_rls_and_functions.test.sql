@@ -458,6 +458,10 @@ select is(
 );
 
 -- 5.2 Simulate Staff user
+-- Since Phase 11, staff see customers through a card in their tenant. Give these
+-- legacy (tenant #1) customers their cards, as the Phase 12 contract backfill does.
+reset role;
+select private.backfill_tenant1();
 set local role authenticated;
 set local "request.jwt.claims" = '{"sub":"00000000-0000-0000-0000-000000000001","role":"authenticated"}';
 set local "request.jwt.claim.sub" = '00000000-0000-0000-0000-000000000001';
