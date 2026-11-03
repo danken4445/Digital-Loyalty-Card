@@ -95,11 +95,11 @@ insert into public.tags (
 
 -- 4. Second demo tenant (Phase 10/11 multi-tenant local testing only)
 insert into public.tenants (id, slug, name, status)
-values ('7c1f0000-0000-4000-8000-00000000000b', 'bean-there', 'Bean There', 'active')
+values ('7c1f0000-0000-4000-8000-0000000000d1', 'demo-roastery', 'Demo Roastery', 'active')
 on conflict (id) do nothing;
 
 insert into public.tenant_settings (tenant_id, cooldown_minutes, daily_cap, reward_threshold, tag_throttle_seconds, timezone, reward_label)
-values ('7c1f0000-0000-4000-8000-00000000000b', 60, 1, 8, 5, 'Asia/Manila', 'FREE PASTRY')
+values ('7c1f0000-0000-4000-8000-0000000000d1', 60, 1, 8, 5, 'Asia/Manila', 'FREE PASTRY')
 on conflict (tenant_id) do nothing;
 
 -- 5. Demo owner for the second tenant (local Docker development only, like the seed owner above)
@@ -122,11 +122,11 @@ insert into auth.users (
   '00000000-0000-0000-0000-0000000000b1',
   'authenticated',
   'authenticated',
-  'owner@beanthere.test',
+  'owner@demoroastery.test',
   extensions.crypt('password123', extensions.gen_salt('bf')),
   now(),
   '{"provider": "email", "providers": ["email"]}'::jsonb,
-  '{"display_name": "Bean There Owner"}'::jsonb,
+  '{"display_name": "Demo Roastery Owner"}'::jsonb,
   now(),
   now(),
   '',
@@ -145,7 +145,7 @@ insert into auth.identities (
 ) values (
   '00000000-0000-0000-0000-0000000000b1',
   '00000000-0000-0000-0000-0000000000b1',
-  jsonb_build_object('sub', '00000000-0000-0000-0000-0000000000b1', 'email', 'owner@beanthere.test'),
+  jsonb_build_object('sub', '00000000-0000-0000-0000-0000000000b1', 'email', 'owner@demoroastery.test'),
   'email',
   '00000000-0000-0000-0000-0000000000b1',
   now(),
@@ -153,13 +153,13 @@ insert into auth.identities (
   now()
 ) on conflict do nothing;
 
--- Bean There owner, plus the Caffeine Plug seed owner as a manager (one person, two shops)
+-- Demo Roastery owner, plus the Caffeine Plug seed owner as a manager (one person, two shops)
 insert into public.tenant_members (tenant_id, user_id, role, display_name, active)
 values
-  ('7c1f0000-0000-4000-8000-00000000000b', '00000000-0000-0000-0000-0000000000b1', 'owner', 'Bean There Owner', true),
-  ('7c1f0000-0000-4000-8000-00000000000b', '00000000-0000-0000-0000-000000000001', 'manager', 'Dan (Owner)', true)
+  ('7c1f0000-0000-4000-8000-0000000000d1', '00000000-0000-0000-0000-0000000000b1', 'owner', 'Demo Roastery Owner', true),
+  ('7c1f0000-0000-4000-8000-0000000000d1', '00000000-0000-0000-0000-000000000001', 'manager', 'Dan (Owner)', true)
 on conflict (tenant_id, user_id) do nothing;
 
 insert into public.tags (id, label, active, tenant_id)
-values ('tcp_tag_demo_beanthere01', 'Bean There Counter NTAG215', true, '7c1f0000-0000-4000-8000-00000000000b')
+values ('tcp_tag_demo_roastery01', 'Demo Roastery Counter NTAG215', true, '7c1f0000-0000-4000-8000-0000000000d1')
 on conflict (id) do nothing;
