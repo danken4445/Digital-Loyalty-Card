@@ -830,7 +830,7 @@ describe('Phase 4 Customer Card UI & Signed Redemption Token Test Suite', () => 
           expect(html).toContain(expected.badge);
           expect(html).toContain(expected.text);
           expect(html).not.toContain('Caffeine Plug');
-          expect(html).not.toMatch(/d+-minute|max d+ stamps|d+ seconds/);
+          expect(html).not.toMatch(/\d+-minute|max \d+ stamps|\d+ seconds/);
         }
       });
 

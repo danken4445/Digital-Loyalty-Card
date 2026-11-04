@@ -252,7 +252,7 @@ describe('POST /api/cards', () => {
     expect(rpc).toHaveBeenCalledTimes(1);
   });
 
-  it('reports a cross-tenant tag result but still redirects to this tenant shop', async () => {
+  it('reports a cross-tenant tag result but redirects to this shop without a result param', async () => {
     rpc
       .mockResolvedValueOnce({ data: 'added', error: null })
       .mockResolvedValueOnce({ data: { result: 'no-card', tenant_slug: 'other-shop' }, error: null });
@@ -263,7 +263,22 @@ describe('POST /api/cards', () => {
     expect(json.data).toEqual({
       result: 'added',
       stampResult: 'no-card',
-      redirectTo: '/s/bean-there?r=no-card',
+      redirectTo: '/s/bean-there',
+    });
+  });
+
+  it('does not show another shop stamped result on this shop page', async () => {
+    rpc
+      .mockResolvedValueOnce({ data: 'already-added', error: null })
+      .mockResolvedValueOnce({ data: { result: 'stamped', tenant_slug: 'other-shop' }, error: null });
+
+    const response = await ADD_CARD(jsonPost(url, { tenantSlug: 'bean-there', tagId: TAG }));
+    const json = await response.json();
+
+    expect(json.data).toEqual({
+      result: 'already-added',
+      stampResult: 'stamped',
+      redirectTo: '/s/bean-there',
     });
   });
 

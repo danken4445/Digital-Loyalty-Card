@@ -93,6 +93,7 @@ export async function POST(
     }
 
     let stampResult: StampResultCode | undefined;
+    let stampedOtherShop = false;
     if (tagId) {
       const tap = verifyTap({ tagId });
       if (!tap.valid) {
@@ -104,7 +105,9 @@ export async function POST(
           p_tag: tap.normalizedTagId,
         });
         if (!stampError) {
-          stampResult = parseStampCardPayload(stampData).result;
+          const outcome = parseStampCardPayload(stampData);
+          stampResult = outcome.result;
+          stampedOtherShop = outcome.tenantSlug !== null && outcome.tenantSlug !== tenant.slug;
         }
       }
     }
@@ -114,7 +117,11 @@ export async function POST(
       data: {
         result: addData,
         ...(stampResult ? { stampResult } : {}),
-        redirectTo: stampResult ? ROUTES.shopWithResult(tenant.slug, stampResult) : shopPath,
+        // A tag from another shop acted on that shop's card, so its result must not show on this page.
+        redirectTo:
+          stampResult && !stampedOtherShop
+            ? ROUTES.shopWithResult(tenant.slug, stampResult)
+            : shopPath,
       },
     });
   } catch {
