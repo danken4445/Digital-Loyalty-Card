@@ -18,10 +18,10 @@ test.describe('Caffeine Plug NFC Loyalty - End-to-End Smoke Tests', () => {
     expect(headers['cache-control']).toBe('no-store, no-cache, must-revalidate, max-age=0');
   });
 
-  test('2. Visiting /card without a session renders onboarding and verifies security headers', async ({
+  test('2. Visiting /s/caffeine-plug without a session renders onboarding and verifies security headers', async ({
     page,
   }) => {
-    const response = await page.goto('/card');
+    const response = await page.goto('/s/caffeine-plug');
     expect(response).not.toBeNull();
     expect(response!.status()).toBe(200);
 
@@ -34,10 +34,13 @@ test.describe('Caffeine Plug NFC Loyalty - End-to-End Smoke Tests', () => {
     expect(headers['content-security-policy']).toContain("frame-ancestors 'none'");
 
     // Verify brand identity & onboarding copy
-    const heading = page.getByRole('heading', { name: /THE CAFFEINE PLUG/i, level: 1 });
+    const heading = page.getByRole('heading', {
+      name: /Get your The Caffeine Plug card/i,
+      level: 1,
+    });
     await expect(heading).toBeVisible();
 
-    // Verify "GET MY CARD" button is rendered
+    // Verify the Turnstile-protected "GET MY CARD" button is rendered
     const getCardButton = page.getByRole('button', { name: /GET MY CARD/i });
     await expect(getCardButton).toBeVisible();
 
@@ -45,6 +48,17 @@ test.describe('Caffeine Plug NFC Loyalty - End-to-End Smoke Tests', () => {
     const privacyLink = page.getByRole('link', { name: /Privacy/i });
     await expect(privacyLink).toBeVisible();
     await expect(privacyLink).toHaveAttribute('href', '/privacy');
+  });
+
+  test('2b. Visiting /wallet without a session renders the empty wallet', async ({ page }) => {
+    const response = await page.goto('/wallet');
+    expect(response).not.toBeNull();
+    expect(response!.status()).toBe(200);
+
+    await expect(
+      page.getByRole('heading', { name: /Your loyalty wallet/i, level: 1 }),
+    ).toBeVisible();
+    await expect(page.getByText(/Nothing to show yet/i)).toBeVisible();
   });
 
   test('3. Visiting /start?t=tag_caffeine_plug_counter_01 without a session renders Turnstile-protected onboarding without creating account on GET', async ({
@@ -55,8 +69,10 @@ test.describe('Caffeine Plug NFC Loyalty - End-to-End Smoke Tests', () => {
     expect(response).not.toBeNull();
     expect(response!.status()).toBe(200);
 
-    // Verify tap detected badge and tag indicator
-    await expect(page.getByText('NFC TAP DETECTED').first()).toBeVisible();
+    // Verify the tap-claim onboarding copy
+    await expect(
+      page.getByRole('heading', { name: /Claim your first stamp/i, level: 1 }),
+    ).toBeVisible();
 
     // Verify Turnstile-protected CTA button
     const claimButton = page.getByRole('button', { name: /GET MY CARD & CLAIM STAMP/i });

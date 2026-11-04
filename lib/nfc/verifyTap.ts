@@ -17,7 +17,7 @@ export interface VerifyTapInput {
  * Current v1 implementation (NXP NTAG215):
  * Validates that the static random tag identifier is well-formed (`8..128` URL-safe characters).
  * Authoritative active-status and 5-second per-tag throttle checks execute atomically inside
- * Postgres `public.record_stamp`.
+ * Postgres `public.stamp_card_nfc`.
  *
  * Future upgrade path (Phase 9 NTAG 424 DNA SUN):
  * Swap internals here to verify AES-128 CMAC signature + monotonic tap counter from `query`

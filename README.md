@@ -68,10 +68,10 @@ Comprehensive step-by-step documentation for Dan (Owner) and shop baristas is lo
                       `/staff/redeem` (Atomic)
 ```
 
-1. **Tap Route (`/t/[tagId]`):** Customers tap the barista's NTAG215 card. The server validates the tag ID in the database and records the stamp via PostgreSQL `SECURITY DEFINER` RPC (`record_stamp()`).
+1. **Tap Route (`/t/[tagId]`):** Customers tap the barista's NTAG215 card. The server validates the tag ID in the database and records the stamp via PostgreSQL `SECURITY DEFINER` RPC (`stamp_card_nfc()`); the shop comes from the tag, never from the request.
 2. **Anti-Fraud & Cooldown Engine:** Enforced at the database transaction level using Postgres advisory locks (`pg_advisory_xact_lock`). Stamping is strictly bounded by a 30-minute customer cooldown and a 2 stamps/day cap in Manila time.
-3. **Signed 5-Minute Redemption Tokens:** When a customer earns 10 stamps, the server issues a cryptographically signed HMAC-SHA256 token (`tcp1.<payload>.<sig>`) rendered as an inline vector QR code. The token expires in 300 seconds and is consumed atomically with single-use nonce tracking to eliminate screenshot fraud.
-4. **Account Recovery & Atomic Merge:** Customers can link their anonymous wallet to Google or Email at any time. If an existing account already exists, an atomic merge RPC (`merge_anonymous_customer()`) combines stamp balances using ascending UUID locking to prevent deadlocks.
+3. **Signed 5-Minute Redemption Tokens:** When a customer earns 10 stamps, the server issues a cryptographically signed HMAC-SHA256 token (`tcp2.<payload>.<sig>`; the Instagram upsize perk uses `tcpig2`) rendered as an inline vector QR code. The token expires in 300 seconds and is consumed atomically with single-use nonce tracking to eliminate screenshot fraud.
+4. **Account Recovery & Atomic Merge:** Customers can link their anonymous wallet to Google or Email at any time. If an existing account already exists, an atomic merge RPC (`merge_wallets()`) combines stamp balances using ascending UUID locking to prevent deadlocks.
 
 ---
 
@@ -97,9 +97,14 @@ Follow these numbered steps to get the app running on your local machine:
 
 2. **Start the local Supabase services:**
 
+   Supabase Auth is the only Cloudflare Turnstile verifier, and `supabase/config.toml` (`[auth.captcha]`) reads `TURNSTILE_SECRET_KEY` when the Auth container starts. Export Cloudflare's Turnstile test secret first:
+
    ```bash
+   export TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA
    npx supabase start
    ```
+
+   _(On Windows PowerShell: `$env:TURNSTILE_SECRET_KEY = "1x0000000000000000000000000000000AA"`)_
 
    _What this does:_ Boots a local PostgreSQL 15 database and Auth server in Docker containers, applies all SQL migrations, and outputs your local credentials (`API URL`, `anon key`, `service_role key`).
 

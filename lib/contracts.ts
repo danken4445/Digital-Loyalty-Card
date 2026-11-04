@@ -257,7 +257,7 @@ export interface CustomerBalanceView {
 }
 
 /**
- * Postgres SECURITY DEFINER RPC function contracts (service_role only, except `is_staff`).
+ * Postgres SECURITY DEFINER RPC function contracts (service_role only).
  */
 export interface RpcContracts {
   /** Phase 11 tenant-aware functions (migrations 20261104*). Each staff action takes p_actor and checks membership in SQL. */
@@ -336,63 +336,11 @@ export interface RpcContracts {
     Args: { p_source: string; p_target: string };
     Returns: { result: MergeResultCode; cards_moved: number; cards_combined: number };
   };
-  /** @deprecated Legacy single-tenant check; middleware stops using it in Phase 12 and the contract migration drops it. */
-  is_staff: {
-    Args: Record<string, never>;
-    Returns: boolean;
-  };
   ensure_customer: {
     Args: {
       p_customer: string;
     };
     Returns: string; // customer uuid
-  };
-  /** @deprecated Use stamp_card_nfc / stamp_card_manual. Dropped by the Phase 12 contract migration. */
-  record_stamp: {
-    Args: {
-      p_customer: string;
-      p_tag?: string | null;
-      p_source?: StampSource;
-      p_staff?: string | null;
-      p_reason?: string | null;
-      p_now?: string;
-    };
-    Returns: StampResultCode;
-  };
-  /** @deprecated Use redeem_card_reward. Dropped by the Phase 12 contract migration. */
-  redeem_reward: {
-    Args: {
-      p_customer: string;
-      p_staff: string;
-      p_nonce?: string;
-    };
-    Returns: RedeemResultCode;
-  };
-  /** @deprecated Use claim_card_perk. Dropped by the Phase 12 contract migration. */
-  claim_instagram_upsize: {
-    Args: {
-      p_customer: string;
-      p_staff: string;
-    };
-    Returns: Extract<
-      RedeemResultCode,
-      'redeemed' | 'already-claimed' | 'unauthorized' | 'invalid-token'
-    >;
-  };
-  /** @deprecated Use merge_wallets. Dropped by the Phase 12 contract migration. */
-  merge_anonymous_customer: {
-    Args: {
-      p_source_customer: string;
-      p_target_customer: string;
-    };
-    Returns: MergeResultCode;
-  };
-  /** @deprecated Use delete_wallet. Dropped by the Phase 12 contract migration. */
-  delete_customer_data: {
-    Args: {
-      p_customer: string;
-    };
-    Returns: boolean;
   };
   cleanup_stale_anonymous_customers: {
     Args: {
@@ -411,6 +359,7 @@ export interface RpcContracts {
     };
     Returns: string;
   };
+  merge_nonce_used: { Args: { p_nonce: string }; Returns: boolean };
 }
 
 /**
@@ -701,7 +650,7 @@ export const ROUTES = Object.freeze({
   home: '/',
   /** Redirector: one card → that shop; otherwise → wallet (host alias → that shop). */
   card: '/card',
-  /** @deprecated Use shopWithResult. Removed by the Phase 12 contract task. */
+  /** Kept for the shop-less invalid-tag outcome (/t cannot name a shop); prefer shopWithResult otherwise. */
   cardWithResult: (result: StampResultCode) => `/card?r=${encodeURIComponent(result)}`,
   wallet: '/wallet',
   shop: (slug: string) => `/s/${encodeURIComponent(slug)}`,

@@ -59,6 +59,7 @@ Follow these numbered steps to set up your hosted Supabase database:
      - **Option B (Supabase CLI):**
        1. Link your local project: `npx supabase link --project-ref <your-project-ref>`
        2. Push all migrations: `npx supabase db push`
+   - The `20261104*` (Phases 10-11, multi-tenant) and `20261105000000_phase12_contract.sql` (Phase 12, removes the legacy single-shop objects) migrations follow the five above. Apply them in order too (`npx supabase db push` does). Apply the Phase 12 migration only after the Phase 12 app is deployed (see section 9).
    - _CRITICAL WARNING:_ Never run `supabase/seed.sql` on your production database. `seed.sql` is strictly for local Docker development and contains mock testing accounts.
 
 3. **Enable Anonymous Sign-Ins:**
@@ -132,12 +133,12 @@ To manage NFC tags and approve coffee redemptions at the counter, Dan must have 
    - In the users table, find the row you just created.
    - Copy the value from the **User UID** column (a 36-character UUID like `a1b2c3d4-e5f6-7890-abcd-ef1234567890`).
 
-3. **Promote the User to Owner in the Staff Table:**
+3. **Make the User an Owner of The Caffeine Plug:**
    - In the Supabase left navigation, click **SQL Editor**.
    - Paste and run the following SQL command (replace `<YOUR-AUTH-USER-UUID>` with the UID copied above):
      ```sql
-     insert into public.staff (user_id, display_name, role, active)
-     values ('<YOUR-AUTH-USER-UUID>', 'Dan (Owner)', 'owner', true);
+     insert into public.tenant_members (tenant_id, user_id, role, display_name, active)
+     values ('7c1f0000-0000-4000-8000-000000000001', '<YOUR-AUTH-USER-UUID>', 'owner', 'Dan (Owner)', true);
      ```
    - Click **Run**.
    - Verify the query returns `SUCCESS 1 rows affected`.
@@ -315,16 +316,51 @@ If a bad code commit or styling regression occurs in production, follow these st
 
 ### Database migrations are not rolled back by either method
 
-Rolling back the Worker doesn't undo SQL migrations. The Phase 10–11 multi-tenant migrations are additive, so the previous app version keeps working on the newer schema (see section 9).
+Rolling back the Worker doesn't undo SQL migrations. The Phase 10–11 multi-tenant migrations are additive, so the previous single-shop app version keeps working on that schema. The Phase 12 contract migration is not: it drops the functions the single-shop app calls, so after it is applied, roll back only to a Phase 12 (or later) Worker version (see section 9).
 
 ---
 
-## 9. Multi-Tenant Transition (Phases 10–12)
+## 9. Multi-Tenant Operations
 
-Phases 10–11 make the database multi-tenant while the deployed single-shop app keeps working unchanged (decision D-012 in `DECISIONS.md`):
+The database and the app are multi-tenant (decision D-012 and D-013 in `DECISIONS.md`). The Caffeine Plug is tenant #1 (`caffeine-plug`, id `7c1f0000-0000-4000-8000-000000000001`). Until the Phase 14 console exists, shops and staff are managed with SQL in the Supabase SQL Editor.
 
-- The Caffeine Plug is tenant #1 (`caffeine-plug`). Rows written by the current app get tenant #1 automatically through column defaults.
-- **Adding and removing staff:** keep using `public.staff` as described in section 4. A transition-only trigger copies each insert or update into `public.tenant_members` for tenant #1, and deleting a `staff` row (or moving it to another user) deactivates the old membership.
-- **Wallet cards:** customers created by the current app have no `customer_cards` row yet. The Phase 12 migration creates them by re-running `private.backfill_tenant1()` before the app switches to the new functions.
-- **Phase 12** switches the app to the tenant-aware functions, then removes the legacy objects: `public.staff`, `public.is_staff()`, the mirror trigger, the single-tenant guard, `public.customer_balances`, the legacy stamp/redeem/merge/perk functions and the `tenant_id` column defaults.
-- **Second tenant:** the database refuses to create any tenant other than tenant #1 (`additional tenants are blocked until Phase 12`). Only the pgTAP tests and the local seed opt in with `set_config('app.allow_multi_tenant', 'on', …)`; never set it in production before Phase 12.
+**Deploy order for the Phase 12 contract:** deploy the Phase 12 app first (it only calls tenant-aware functions), confirm a tap, a redemption and `/wallet` work, then apply `20261105000000_phase12_contract.sql`. The migration drops `public.staff`, `public.is_staff()`, `public.customer_balances`, the single-shop stamp, redeem, merge, perk and erasure functions and every `tenant_id` column default, and adds the composite foreign key from stamps, redemptions and perk claims to `customer_cards`. Until it is applied, wallet-merge links fail closed (the app calls `merge_nonce_used`, which the migration creates), so apply it promptly after the deploy.
+
+### Adding a shop
+
+Run once per shop (replace the slug, name and values; the slug is lowercase letters, digits and hyphens, 3 to 40 characters):
+
+```sql
+with new_shop as (
+  insert into public.tenants (slug, name, status)
+  values ('demo-roastery', 'Demo Roastery', 'active')
+  returning id
+)
+insert into public.tenant_settings (tenant_id, cooldown_minutes, daily_cap, reward_threshold, tag_throttle_seconds, timezone, currency, reward_label)
+select id, 30, 2, 10, 5, 'Asia/Manila', 'PHP', 'FREE COFFEE' from new_shop;
+```
+
+The shop's customer page is then `/s/<slug>`. `status` is one of `trial`, `active`, `suspended` (no new stamps) or `closed` (page returns 404). To use a custom domain, add a row to `public.tenant_domains (host, tenant_id)`.
+
+### Adding, changing and removing staff
+
+Create the person's auth user first (section 4, steps 1 and 2), then give them a membership. A person can belong to several shops, one `tenant_members` row each; `role` is `owner`, `manager` or `staff`.
+
+```sql
+insert into public.tenant_members (tenant_id, user_id, role, display_name, active)
+values ('<TENANT-UUID>', '<AUTH-USER-UUID>', 'staff', 'Barista Name', true)
+on conflict (tenant_id, user_id) do update
+set role = excluded.role, display_name = excluded.display_name, active = excluded.active;
+```
+
+To remove access, set `active = false` on that membership (history is kept). Staff who belong to several shops pick the active shop with the switcher in the staff area.
+
+### Registering tags
+
+Owners and managers register and rotate NFC tags in `/staff/tags` for the active shop. Each tag belongs to exactly one shop, and a tap always credits the tag's shop.
+
+### Customer data
+
+- A customer's wallet holds one card per shop; stamps, redemptions and perk claims belong to a (shop, customer) card.
+- Erasing from `/privacy` deletes the whole wallet; removing a single card deletes only that shop's ledger.
+- Platform-level audit rows (wallet erasure, stale-account cleanup, wallet merges) have a null `tenant_id` and are not visible to any shop's staff.

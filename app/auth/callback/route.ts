@@ -71,9 +71,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         const verification = verifyMergeIntentToken(mergeCookie);
         if (verification.valid && verification.payload.sourceCustomerId !== user.id) {
           const admin = createSupabaseAdminClient();
-          const { used: nonceUsed } = await isMergeNonceUsed(admin, verification.payload.nonce);
+          const { used: nonceUsed, failed: nonceCheckFailed } = await isMergeNonceUsed(
+            admin,
+            verification.payload.nonce,
+          );
 
-          if (!nonceUsed) {
+          // Fail closed: if the single-use check errors, skip the merge rather than risk replaying a token.
+          if (!nonceUsed && !nonceCheckFailed) {
             const { data: rpcResult } = await admin.rpc('merge_wallets', {
               p_source: verification.payload.sourceCustomerId,
               p_target: user.id,

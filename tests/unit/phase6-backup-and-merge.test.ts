@@ -726,9 +726,10 @@ describe('Phase 6: Customer Backup, Recovery & Merge Test Suite', () => {
 
       const issued = issueMergeIntentToken(TEST_SOURCE_CUSTOMER_ID);
 
-      // Mock audit_log containing this nonce already
-      tableQueryHandlers['audit_log'] = () =>
-        createMockSupabaseQuery({ id: 'existing-audit-log-uuid' }, null);
+      // The nonce was already consumed (merge_nonce_used RPC)
+      mockAdminClient.rpc.mockImplementation(async (rpcName: string) =>
+        rpcName === 'merge_nonce_used' ? { data: true, error: null } : { data: null, error: null },
+      );
 
       const request = new Request('http://localhost:3000/api/customers/merge', {
         method: 'POST',
@@ -751,8 +752,11 @@ describe('Phase 6: Customer Backup, Recovery & Merge Test Suite', () => {
 
       const issued = issueMergeIntentToken(TEST_SOURCE_CUSTOMER_ID);
 
-      tableQueryHandlers['audit_log'] = () =>
-        createMockSupabaseQuery(null, { message: 'Database connection failed' });
+      mockAdminClient.rpc.mockImplementation(async (rpcName: string) =>
+        rpcName === 'merge_nonce_used'
+          ? { data: null, error: { message: 'Database connection failed' } }
+          : { data: null, error: null },
+      );
 
       const request = new Request('http://localhost:3000/api/customers/merge', {
         method: 'POST',
@@ -774,7 +778,6 @@ describe('Phase 6: Customer Backup, Recovery & Merge Test Suite', () => {
 
       const issued = issueMergeIntentToken(TEST_SOURCE_CUSTOMER_ID);
 
-      tableQueryHandlers['audit_log'] = () => createMockSupabaseQuery(null, null);
 
       mockAdminClient.rpc.mockImplementation(async (rpcName: string) => {
         if (rpcName === 'merge_wallets') {
@@ -803,7 +806,6 @@ describe('Phase 6: Customer Backup, Recovery & Merge Test Suite', () => {
 
       const issued = issueMergeIntentToken(TEST_SOURCE_CUSTOMER_ID);
 
-      tableQueryHandlers['audit_log'] = () => createMockSupabaseQuery(null, null);
 
       mockAdminClient.rpc.mockImplementation(async (rpcName: string, args: any) => {
         if (rpcName === 'merge_wallets') {
@@ -858,7 +860,6 @@ describe('Phase 6: Customer Backup, Recovery & Merge Test Suite', () => {
       const issued = issueMergeIntentToken(TEST_SOURCE_CUSTOMER_ID);
       mockCookieMap.set(MERGE_INTENT_COOKIE_NAME, issued.mergeToken);
 
-      tableQueryHandlers['audit_log'] = () => createMockSupabaseQuery(null, null);
 
       vi.mocked(listWalletCards).mockResolvedValue(walletOf(5, 5));
 
@@ -884,7 +885,6 @@ describe('Phase 6: Customer Backup, Recovery & Merge Test Suite', () => {
       // Token where sourceCustomerId matches target user
       const issued = issueMergeIntentToken(TEST_SOURCE_CUSTOMER_ID);
 
-      tableQueryHandlers['audit_log'] = () => createMockSupabaseQuery(null, null);
 
       mockAdminClient.rpc.mockImplementation(async (rpcName: string) => {
         if (rpcName === 'merge_wallets') {
@@ -1004,7 +1004,6 @@ describe('Phase 6: Customer Backup, Recovery & Merge Test Suite', () => {
 
       const issued = issueMergeIntentToken(TEST_SOURCE_CUSTOMER_ID);
 
-      tableQueryHandlers['audit_log'] = () => createMockSupabaseQuery(null, null);
 
       mockAdminClient.rpc.mockImplementation(async (rpcName: string, args: any) => {
         if (rpcName === 'merge_wallets') {
@@ -1080,16 +1079,17 @@ describe('Phase 6: Customer Backup, Recovery & Merge Test Suite', () => {
       expect(res.cookies.get(MERGE_INTENT_COOKIE_NAME)?.maxAge).toBe(0);
     });
 
-    it('skips auto-merge if token nonce has already been used in audit_log', async () => {
+    it('skips auto-merge if token nonce has already been used', async () => {
       vi.mocked(getVerifiedUser).mockResolvedValue({
         id: TEST_TARGET_CUSTOMER_ID,
       } as User);
 
       const issued = issueMergeIntentToken(TEST_SOURCE_CUSTOMER_ID);
 
-      // Existing nonce in audit_log
-      tableQueryHandlers['audit_log'] = () =>
-        createMockSupabaseQuery({ id: 'previously-used-nonce-id' }, null);
+      // Existing nonce (merge_nonce_used RPC reports it consumed)
+      mockAdminClient.rpc.mockImplementation(async (rpcName: string) =>
+        rpcName === 'merge_nonce_used' ? { data: true, error: null } : { data: null, error: null },
+      );
 
       const req = new NextRequest('http://localhost:3000/auth/callback', {
         headers: {
@@ -1104,6 +1104,32 @@ describe('Phase 6: Customer Backup, Recovery & Merge Test Suite', () => {
         'merge_wallets',
         expect.anything(),
       );
+      expect(res.cookies.get(MERGE_INTENT_COOKIE_NAME)?.maxAge).toBe(0);
+    });
+
+    it('fails closed and skips auto-merge when the nonce check errors', async () => {
+      vi.mocked(getVerifiedUser).mockResolvedValue({
+        id: TEST_TARGET_CUSTOMER_ID,
+      } as User);
+
+      const issued = issueMergeIntentToken(TEST_SOURCE_CUSTOMER_ID);
+
+      mockAdminClient.rpc.mockImplementation(async (rpcName: string) =>
+        rpcName === 'merge_nonce_used'
+          ? { data: null, error: { message: 'Database connection failed' } }
+          : { data: null, error: null },
+      );
+
+      const req = new NextRequest('http://localhost:3000/auth/callback', {
+        headers: {
+          cookie: `${MERGE_INTENT_COOKIE_NAME}=${issued.mergeToken}`,
+        },
+      });
+
+      const res = await authCallbackGet(req);
+      expect(res.status).toBe(303);
+
+      expect(mockAdminClient.rpc).not.toHaveBeenCalledWith('merge_wallets', expect.anything());
       expect(res.cookies.get(MERGE_INTENT_COOKIE_NAME)?.maxAge).toBe(0);
     });
   });

@@ -155,3 +155,22 @@ This document records key technical, security, and branding decisions for The Ca
        - drops `public.is_staff()`, `public.staff`, the mirror trigger, the single-tenant guard (`private.guard_single_tenant`, which refuses tenants other than #1 unless `app.allow_multi_tenant` is on), `public.customer_balances`, the legacy stamp/redeem/merge/perk functions (including the unused `redeem_reward(uuid, uuid)`) and the `tenant_id` column defaults.
   6. **`delete_customer_data` lock fix.** It now takes the same customer lock as stamping, `pg_advisory_xact_lock(hashtextextended(p_customer::text, 1001))`.
 - **Why:** One shared database is the only model a small shop's subscription can pay for. Working out the tenant inside SQL stops a routing or service-role bug from crediting, redeeming or reading another shop's data. Expand-then-contract keeps the deployed single-shop app working while the database changes underneath it.
+
+---
+
+## D-013: Multi-Tenant App Switch and Contract (Phase 12)
+
+- **Date:** 2026-11-05
+- **Status:** Accepted
+- **What:**
+  1. **The app switched to the tenant-aware functions.** Customers use `/s/<slug>` and `/wallet` (`/card` is only a redirector); NFC taps go through `stamp_card_nfc`, which reads the shop from the tag; staff actions take the active shop from the staff session and call `stamp_card_manual`, `redeem_card_reward`, `claim_card_perk` and the tag functions. Redemption QR tokens are v2 (`tcp2` / `tcpig2`) and carry the shop; v1 tokens are rejected.
+  2. **The contract migration (`20261105000000_phase12_contract.sql`) removes every legacy single-shop object:**
+     - the transition trigger and guard (`staff_mirror_to_tenant1`, `tenants_single_tenant_guard`) and their functions, plus `private.backfill_tenant1()` after one last insert-only run;
+     - `record_stamp`, `redeem_reward` (both overloads), `claim_instagram_upsize`, `merge_anonymous_customer`, `delete_customer_data`, `is_staff()`, the `customer_balances` view and the `public.staff` table;
+     - the `tenant_id` defaults on `tags`, `stamps`, `redemptions`, `perk_claims` and `audit_log`, so every writer must name its tenant.
+  3. **Composite foreign keys** `(tenant_id, customer_id)` → `customer_cards` (cascade) on `stamps`, `redemptions` and `perk_claims`: a ledger row cannot exist without a wallet card, and removing a card erases that shop's ledger.
+  4. **Platform audit rows have a null `tenant_id`** (`customer_self_deleted`, `stale_anonymous_cleanup`, `merge_anonymous_customer`, `customer_merge_token_used`). `log_audit_event` gained `p_tenant uuid default null`.
+  5. **No service-role table reads.** ESLint forbids `admin.from(...)`: the service role calls RPCs only, and reads go through the session client (RLS) or the public tenant readers. The single-use merge nonce lookup moved to the service-role-only RPC `merge_nonce_used`, and callers fail closed when it errors.
+  6. **`cleanup_stale_anonymous_customers` fix.** It no longer schema-qualifies `coalesce` (not a `pg_catalog` function, so the call failed at runtime), and spares anyone with a `tenant_members` row instead of a `staff` row.
+  7. **Local setup:** Supabase Auth is the only Turnstile verifier; export `TURNSTILE_SECRET_KEY` (Cloudflare's test secret) before `supabase start`.
+- **Why:** The expand-then-contract plan from D-012 ends here: with no caller left for the legacy functions, keeping them would leave a tenant-blind write path next to the safe one. Dropping the column defaults turns any future writer that forgets its tenant into a loud error instead of a silent tenant #1 row.

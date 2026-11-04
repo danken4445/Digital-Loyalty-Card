@@ -668,18 +668,25 @@ describe('Phase 3 Stamp Engine & Tap Route Test Suite', () => {
       expect(testUserId).toBeDefined();
 
       try {
+        // The customer needs a wallet card at the demo tag's shop (tenant #1, The Caffeine Plug)
+        const { data: addResult, error: addError } = await realAdminClient.rpc('add_card', {
+          p_customer: testUserId!,
+          p_tenant: '7c1f0000-0000-4000-8000-000000000001',
+        });
+        expect(addError).toBeNull();
+        expect(addResult).toBe('added');
+
         // Fire 20 real parallel HTTP RPC requests simultaneously
         const responses = await Promise.all(
           Array.from({ length: 20 }, () =>
-            realAdminClient.rpc('record_stamp', {
+            realAdminClient.rpc('stamp_card_nfc', {
               p_customer: testUserId!,
               p_tag: 'tcp_tag_demo_9x8k2m4p7q1w',
-              p_source: 'nfc',
             }),
           ),
         );
 
-        const results = responses.map((r) => r.data);
+        const results = responses.map((r) => (r.data as { result?: string } | null)?.result);
         const stampedCount = results.filter((r) => r === 'stamped').length;
         const cooldownCount = results.filter((r) => r === 'cooldown').length;
 
