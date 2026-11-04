@@ -20,8 +20,11 @@ export function isStampResultCode(value: unknown): value is StampResultCode {
 export const STAMP_SOURCES = ['nfc', 'manual'] as const;
 export type StampSource = (typeof STAMP_SOURCES)[number];
 
-export const STAFF_ROLES = ['staff', 'owner'] as const;
+export const STAFF_ROLES = ['owner', 'manager', 'staff'] as const;
 export type StaffRole = (typeof STAFF_ROLES)[number];
+
+/** Roles allowed to create, rotate and deactivate tags (enforced again in SQL). */
+export const TAG_MANAGER_ROLES = ['owner', 'manager'] as const satisfies readonly StaffRole[];
 
 export const REDEEM_RESULT_CODES = [
   'redeemed',
@@ -30,6 +33,10 @@ export const REDEEM_RESULT_CODES = [
   'invalid-token',
   'expired-token',
   'already-claimed',
+  'no-card',
+  'tenant-unavailable',
+  'invalid-perk',
+  'wrong-tenant',
 ] as const;
 export type RedeemResultCode = (typeof REDEEM_RESULT_CODES)[number];
 
@@ -42,6 +49,112 @@ export type RedeemTokenKind = (typeof REDEEM_TOKEN_KINDS)[number];
 
 export const PERKS = ['instagram_follow_upsize'] as const;
 export type Perk = (typeof PERKS)[number];
+
+/**
+ * Multi-tenant (Phase 12) shop contracts. A tenant is one shop; settings mirror public.tenant_settings,
+ * which stays the single authority for stamp rules (enforced in SQL).
+ */
+export const TENANT_STATUSES = ['trial', 'active', 'suspended', 'closed'] as const;
+export type TenantStatus = (typeof TENANT_STATUSES)[number];
+
+export interface TenantBrand {
+  /** CSS color for the card background, e.g. "#0A0A0A" */
+  primaryColor?: string;
+  /** CSS color for accents and the stamp ink, e.g. "#FFFFFF" */
+  accentColor?: string;
+  /** Absolute or root-relative URL of the shop logo */
+  logoUrl?: string;
+  /** Absolute or root-relative URL of decorative card art */
+  cardArtUrl?: string;
+  tagline?: string;
+}
+
+export interface TenantPerkConfig {
+  label: string;
+  /** e.g. an Instagram handle such as "@thecaffeineplug8400" */
+  handle?: string;
+}
+
+export type TenantPerks = Partial<Record<Perk, TenantPerkConfig>>;
+
+export interface TenantSettings {
+  cooldownMinutes: number;
+  dailyCap: number;
+  rewardThreshold: number;
+  tagThrottleSeconds: number;
+  /** IANA timezone, e.g. "Asia/Manila" */
+  timezone: string;
+  /** ISO 4217 code, e.g. "PHP" */
+  currency: string;
+  rewardLabel: string;
+  brand: TenantBrand;
+  perks: TenantPerks;
+}
+
+export interface TenantContext {
+  id: string;
+  slug: string;
+  name: string;
+  status: TenantStatus;
+  settings: TenantSettings;
+}
+
+/** Tenant #1 (The Caffeine Plug), created by migration 20261104000000. */
+export const TENANT_ONE_ID = '7c1f0000-0000-4000-8000-000000000001' as const;
+export const TENANT_ONE_SLUG = 'caffeine-plug' as const;
+
+/** One card in a customer's wallet (one per shop). */
+export interface WalletCardSummary {
+  tenantId: string;
+  tenantSlug: string;
+  tenantName: string;
+  brand: TenantBrand;
+  rewardThreshold: number;
+  rewardLabel: string;
+  availableStamps: number;
+  totalStamps: number;
+  lastStampedAt: string | null;
+  addedAt: string;
+}
+
+export interface StaffMembership {
+  tenantId: string;
+  tenantSlug: string;
+  tenantName: string;
+  role: StaffRole;
+}
+
+/** HttpOnly cookie holding the staff member's active shop (re-verified against memberships on every request). */
+export const STAFF_TENANT_COOKIE_NAME = 'tcp_staff_tenant' as const;
+
+export const ADD_CARD_RESULT_CODES = ['added', 'already-added', 'tenant-unavailable'] as const;
+export type AddCardResultCode = (typeof ADD_CARD_RESULT_CODES)[number];
+
+export interface AddCardRequest {
+  tenantSlug: string;
+  /** Present when the customer arrived from an NFC tap: the stamp is claimed right after adding the card. */
+  tagId?: string;
+  consentVersion?: string;
+}
+
+export interface AddCardResponse {
+  result: AddCardResultCode;
+  stampResult?: StampResultCode;
+  redirectTo: string;
+}
+
+export interface RedeemTokenRequest {
+  tenantSlug: string;
+}
+
+export interface StaffSwitchTenantRequest {
+  tenantId: string;
+}
+
+export interface StaffSwitchTenantResponse {
+  tenantId: string;
+  tenantSlug: string;
+}
 
 export const MERGE_RESULT_CODES = [
   'merged',
@@ -144,6 +257,83 @@ export interface CustomerBalanceView {
  * Postgres SECURITY DEFINER RPC function contracts (service_role only, except `is_staff`).
  */
 export interface RpcContracts {
+  /** Phase 11 tenant-aware functions (migrations 20261104*). Each staff action takes p_actor and checks membership in SQL. */
+  add_card: {
+    Args: { p_customer: string; p_tenant: string; p_consent_version?: string };
+    Returns: AddCardResultCode;
+  };
+  stamp_card_nfc: {
+    Args: { p_customer: string; p_tag: string; p_now?: string };
+    Returns: { result: StampResultCode; tenant_slug: string | null };
+  };
+  stamp_card_manual: {
+    Args: {
+      p_actor: string;
+      p_tenant: string;
+      p_customer: string;
+      p_reason: string;
+      p_now?: string;
+    };
+    Returns: Extract<
+      StampResultCode,
+      'stamped' | 'cooldown' | 'daily-limit' | 'no-card' | 'unauthorized' | 'tenant-unavailable'
+    >;
+  };
+  redeem_card_reward: {
+    Args: { p_actor: string; p_tenant: string; p_customer: string; p_nonce: string };
+    Returns: Extract<
+      RedeemResultCode,
+      | 'redeemed'
+      | 'insufficient-stamps'
+      | 'invalid-token'
+      | 'no-card'
+      | 'unauthorized'
+      | 'tenant-unavailable'
+    >;
+  };
+  claim_card_perk: {
+    Args: { p_actor: string; p_tenant: string; p_customer: string; p_perk: Perk };
+    Returns: Extract<
+      RedeemResultCode,
+      | 'redeemed'
+      | 'already-claimed'
+      | 'invalid-perk'
+      | 'no-card'
+      | 'unauthorized'
+      | 'tenant-unavailable'
+    >;
+  };
+  create_tag: {
+    Args: { p_actor: string; p_tenant: string; p_tag_id: string; p_label?: string | null };
+    Returns: 'created' | 'duplicate' | 'invalid-tag-id' | 'unauthorized';
+  };
+  deactivate_tag: {
+    Args: { p_actor: string; p_tenant: string; p_tag_id: string };
+    Returns: 'deactivated' | 'not-found' | 'unauthorized';
+  };
+  rotate_tag: {
+    Args: {
+      p_actor: string;
+      p_tenant: string;
+      p_old_tag_id: string;
+      p_new_tag_id: string;
+      p_label?: string | null;
+    };
+    Returns: 'rotated' | 'not-found' | 'duplicate' | 'invalid-tag-id' | 'unauthorized';
+  };
+  remove_card: {
+    Args: { p_customer: string; p_tenant: string };
+    Returns: boolean;
+  };
+  delete_wallet: {
+    Args: { p_customer: string };
+    Returns: boolean;
+  };
+  merge_wallets: {
+    Args: { p_source: string; p_target: string };
+    Returns: { result: MergeResultCode; cards_moved: number; cards_combined: number };
+  };
+  /** @deprecated Legacy single-tenant check; middleware stops using it in Phase 12 and the contract migration drops it. */
   is_staff: {
     Args: Record<string, never>;
     Returns: boolean;
@@ -154,6 +344,7 @@ export interface RpcContracts {
     };
     Returns: string; // customer uuid
   };
+  /** @deprecated Use stamp_card_nfc / stamp_card_manual. Dropped by the Phase 12 contract migration. */
   record_stamp: {
     Args: {
       p_customer: string;
@@ -165,6 +356,7 @@ export interface RpcContracts {
     };
     Returns: StampResultCode;
   };
+  /** @deprecated Use redeem_card_reward. Dropped by the Phase 12 contract migration. */
   redeem_reward: {
     Args: {
       p_customer: string;
@@ -173,6 +365,7 @@ export interface RpcContracts {
     };
     Returns: RedeemResultCode;
   };
+  /** @deprecated Use claim_card_perk. Dropped by the Phase 12 contract migration. */
   claim_instagram_upsize: {
     Args: {
       p_customer: string;
@@ -183,6 +376,7 @@ export interface RpcContracts {
       'redeemed' | 'already-claimed' | 'unauthorized' | 'invalid-token'
     >;
   };
+  /** @deprecated Use merge_wallets. Dropped by the Phase 12 contract migration. */
   merge_anonymous_customer: {
     Args: {
       p_source_customer: string;
@@ -190,6 +384,7 @@ export interface RpcContracts {
     };
     Returns: MergeResultCode;
   };
+  /** @deprecated Use delete_wallet. Dropped by the Phase 12 contract migration. */
   delete_customer_data: {
     Args: {
       p_customer: string;
@@ -208,6 +403,8 @@ export interface RpcContracts {
       p_action: string;
       p_target?: string | null;
       p_detail?: Record<string, unknown> | null;
+      /** Added by the Phase 12 contract migration; null = platform-level event. */
+      p_tenant?: string | null;
     };
     Returns: string;
   };
@@ -322,6 +519,7 @@ export interface StaffSession {
   userId: string;
   email: string | null;
   displayName: string;
+  /** Role in the active shop (Task 5 adds the active-shop fields). */
   role: StaffRole;
   active: true;
 }
@@ -488,8 +686,19 @@ export interface HealthCheckResponse {
  */
 export const ROUTES = Object.freeze({
   home: '/',
+  /** Redirector: one card → that shop; otherwise → wallet (host alias → that shop). */
   card: '/card',
+  /** @deprecated Use shopWithResult. Removed by the Phase 12 contract task. */
   cardWithResult: (result: StampResultCode) => `/card?r=${encodeURIComponent(result)}`,
+  wallet: '/wallet',
+  shop: (slug: string) => `/s/${encodeURIComponent(slug)}`,
+  shopWithResult: (slug: string, result: StampResultCode) =>
+    `/s/${encodeURIComponent(slug)}?r=${encodeURIComponent(result)}`,
+  /** Add-card (consent) screen; with a tag, the tap's stamp is claimed right after the card is added. */
+  shopAddCard: (slug: string, tagId?: string | null) =>
+    tagId
+      ? `/s/${encodeURIComponent(slug)}?t=${encodeURIComponent(tagId)}`
+      : `/s/${encodeURIComponent(slug)}`,
   start: '/start',
   startWithTag: (tagId: string) => `/start?t=${encodeURIComponent(tagId)}`,
   tap: (tagId: string) => `/t/${encodeURIComponent(tagId)}`,
@@ -511,10 +720,12 @@ export const ROUTES = Object.freeze({
     instagramUpsizeToken: '/api/perks/instagram-upsize',
     mergeIntent: '/api/customers/merge-intent',
     merge: '/api/customers/merge',
+    cards: '/api/cards',
     staff: {
       redeem: '/api/staff/redeem',
       stamp: '/api/staff/stamp',
       tags: '/api/staff/tags',
+      tenant: '/api/staff/tenant',
     },
   },
 });
