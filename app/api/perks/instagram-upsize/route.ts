@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAuthenticatedCustomerCardState } from '@/lib/auth/customer';
-import type { ApiResponse, IssuedRedeemToken } from '@/lib/contracts';
+import { TENANT_ONE_ID, type ApiResponse, type IssuedRedeemToken } from '@/lib/contracts';
 import { verifySameOriginRequest } from '@/lib/security/csrf';
 import { checkPublicEndpointRateLimit, getClientIp } from '@/lib/security/ratelimit';
 import { issueRedeemToken } from '@/lib/security/redeemToken';
@@ -90,7 +90,7 @@ export async function POST(
       );
     }
 
-    const issued = await issueRedeemToken(user.id, { kind: 'instagram-upsize' });
+    const issued = await issueRedeemToken(user.id, TENANT_ONE_ID, { kind: 'instagram-upsize' });
 
     return NextResponse.json<ApiResponse<IssuedRedeemToken>>(
       {

@@ -69,7 +69,7 @@ import { POST as upsizeTokenPost } from '@/app/api/perks/instagram-upsize/route'
 import { POST as staffRedeemPost } from '@/app/api/staff/redeem/route';
 import { InstagramUpsizePanel } from '@/components/card/InstagramUpsizePanel';
 import { SHOP_CONFIG } from '@/lib/config';
-import { ROUTES, type CustomerCardState } from '@/lib/contracts';
+import { ROUTES, TENANT_ONE_ID, type CustomerCardState } from '@/lib/contracts';
 
 const TEST_STAFF_ID = '99999999-9999-9999-9999-999999999999';
 const TEST_CUSTOMER_ID = '11111111-1111-1111-1111-111111111111';
@@ -127,31 +127,31 @@ describe('Instagram follow upsize perk', () => {
   });
 
   describe('signed token kinds', () => {
-    it('defaults to free-coffee with the original tcp1 prefix', async () => {
-      const issued = await issueRedeemToken(TEST_CUSTOMER_ID);
+    it('defaults to free-coffee with the v2 tcp2 prefix', async () => {
+      const issued = await issueRedeemToken(TEST_CUSTOMER_ID, TENANT_ONE_ID);
       expect(issued.kind).toBe('free-coffee');
-      expect(issued.token.startsWith('tcp1.')).toBe(true);
+      expect(issued.token.startsWith('tcp2.')).toBe(true);
       const verified = verifyRedeemToken(issued.token);
       expect(verified.valid && verified.kind).toBe('free-coffee');
     });
 
     it('issues and verifies instagram-upsize tokens with their own prefix', async () => {
-      const issued = await issueRedeemToken(TEST_CUSTOMER_ID, { kind: 'instagram-upsize' });
-      expect(issued.token.startsWith('tcpig1.')).toBe(true);
+      const issued = await issueRedeemToken(TEST_CUSTOMER_ID, TENANT_ONE_ID, { kind: 'instagram-upsize' });
+      expect(issued.token.startsWith('tcpig2.')).toBe(true);
       const verified = verifyRedeemToken(issued.token);
       expect(verified.valid).toBe(true);
       expect(verified.valid && verified.kind).toBe('instagram-upsize');
     });
 
     it('rejects an upsize token relabelled as a free-coffee token', async () => {
-      const issued = await issueRedeemToken(TEST_CUSTOMER_ID, { kind: 'instagram-upsize' });
-      const relabelled = issued.token.replace(/^tcpig1\./, 'tcp1.');
+      const issued = await issueRedeemToken(TEST_CUSTOMER_ID, TENANT_ONE_ID, { kind: 'instagram-upsize' });
+      const relabelled = issued.token.replace(/^tcpig2\./, 'tcp2.');
       expect(verifyRedeemToken(relabelled)).toEqual({ valid: false, reason: 'invalid-token' });
     });
 
     it('rejects unknown prefixes', async () => {
-      const issued = await issueRedeemToken(TEST_CUSTOMER_ID);
-      expect(verifyRedeemToken(issued.token.replace(/^tcp1\./, 'tcpx9.')).valid).toBe(false);
+      const issued = await issueRedeemToken(TEST_CUSTOMER_ID, TENANT_ONE_ID);
+      expect(verifyRedeemToken(issued.token.replace(/^tcp2\./, 'tcpx9.')).valid).toBe(false);
     });
   });
 
@@ -193,7 +193,7 @@ describe('Instagram follow upsize perk', () => {
 
     it('previews as eligible when the perk is unclaimed, regardless of stamps', async () => {
       tableData.customer_balances = { available_stamps: 0, total_stamps: 0, stamps_redeemed: 0 };
-      const { token } = await issueRedeemToken(TEST_CUSTOMER_ID, { kind: 'instagram-upsize' });
+      const { token } = await issueRedeemToken(TEST_CUSTOMER_ID, TENANT_ONE_ID, { kind: 'instagram-upsize' });
       const res = await staffRedeemPost(
         post(ROUTES.api.staff.redeem, { action: 'preview', token }),
       );
@@ -205,7 +205,7 @@ describe('Instagram follow upsize perk', () => {
 
     it('previews as not eligible when a perk claim already exists', async () => {
       tableData.perk_claims = { id: 'perk-claim-1' };
-      const { token } = await issueRedeemToken(TEST_CUSTOMER_ID, { kind: 'instagram-upsize' });
+      const { token } = await issueRedeemToken(TEST_CUSTOMER_ID, TENANT_ONE_ID, { kind: 'instagram-upsize' });
       const res = await staffRedeemPost(
         post(ROUTES.api.staff.redeem, { action: 'preview', token }),
       );
@@ -214,7 +214,7 @@ describe('Instagram follow upsize perk', () => {
     });
 
     it('confirms through claim_instagram_upsize and never touches redeem_reward', async () => {
-      const { token } = await issueRedeemToken(TEST_CUSTOMER_ID, { kind: 'instagram-upsize' });
+      const { token } = await issueRedeemToken(TEST_CUSTOMER_ID, TENANT_ONE_ID, { kind: 'instagram-upsize' });
       const res = await staffRedeemPost(
         post(ROUTES.api.staff.redeem, { action: 'confirm', token }),
       );
@@ -233,7 +233,7 @@ describe('Instagram follow upsize perk', () => {
 
     it('reports already-claimed from the database', async () => {
       mockAdminClient.rpc.mockResolvedValueOnce({ data: 'already-claimed', error: null });
-      const { token } = await issueRedeemToken(TEST_CUSTOMER_ID, { kind: 'instagram-upsize' });
+      const { token } = await issueRedeemToken(TEST_CUSTOMER_ID, TENANT_ONE_ID, { kind: 'instagram-upsize' });
       const res = await staffRedeemPost(
         post(ROUTES.api.staff.redeem, { action: 'confirm', token }),
       );
@@ -243,7 +243,7 @@ describe('Instagram follow upsize perk', () => {
     });
 
     it('still routes free-coffee tokens to redeem_reward', async () => {
-      const { token } = await issueRedeemToken(TEST_CUSTOMER_ID);
+      const { token } = await issueRedeemToken(TEST_CUSTOMER_ID, TENANT_ONE_ID);
       const res = await staffRedeemPost(
         post(ROUTES.api.staff.redeem, { action: 'confirm', token }),
       );

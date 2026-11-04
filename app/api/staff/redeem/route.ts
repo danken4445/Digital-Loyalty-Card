@@ -2,7 +2,12 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { logStaffAuditEvent, requireStaffSession } from '@/lib/auth/staff';
 import { STAMP_RULES } from '@/lib/config';
-import type { ApiResponse, RedeemResultCode, StaffRedeemResponse } from '@/lib/contracts';
+import {
+  TENANT_ONE_ID,
+  type ApiResponse,
+  type RedeemResultCode,
+  type StaffRedeemResponse,
+} from '@/lib/contracts';
 import { verifySameOriginRequest } from '@/lib/security/csrf';
 import { checkPublicEndpointRateLimit, getClientIp } from '@/lib/security/ratelimit';
 import { verifyRedeemToken } from '@/lib/security/redeemToken';
@@ -123,6 +128,33 @@ export async function POST(
               verification.reason === 'expired-token'
                 ? 'Redemption QR token has expired.'
                 : 'Invalid redemption QR token.',
+          },
+        },
+        { status: 200 },
+      );
+    }
+
+    // Interim (until the active-shop switch): only shop one's rewards are redeemable.
+    if (verification.payload.tenantId !== TENANT_ONE_ID) {
+      const wrongTenantMessage = 'This reward belongs to another shop.';
+      if (parsed.data.action === 'preview') {
+        return NextResponse.json<ApiResponse<StaffRedeemResponse>>(
+          { ok: false, error: 'invalid_input', message: wrongTenantMessage },
+          { status: 400 },
+        );
+      }
+
+      return NextResponse.json<ApiResponse<StaffRedeemResponse>>(
+        {
+          ok: true,
+          data: {
+            mode: 'confirm',
+            result: 'wrong-tenant',
+            rewardKind: verification.kind,
+            customerId: verification.payload.customerId,
+            displayCode: verification.displayCode,
+            availableStampsAfter: 0,
+            message: wrongTenantMessage,
           },
         },
         { status: 200 },

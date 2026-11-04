@@ -415,6 +415,8 @@ export interface RpcContracts {
  */
 export interface RedeemTokenPayload {
   customerId: string;
+  /** Phase 12 (token prefixes tcp2 / tcpig2): the shop the reward belongs to. Staff of another shop get 'wrong-tenant'. */
+  tenantId: string;
   iat: number; // Unix epoch seconds
   exp: number; // Unix epoch seconds (iat + 300)
   nonce: string;

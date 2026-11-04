@@ -125,6 +125,7 @@ import { getVerifiedUser } from '@/lib/supabase/server';
 import { checkPublicEndpointRateLimit } from '@/lib/security/ratelimit';
 import {
   ROUTES,
+  TENANT_ONE_ID,
   type AuditLogRow,
   type RedemptionRow,
   type StaffRow,
@@ -984,7 +985,7 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
     });
 
     it('rejects tampered or malformed HMAC token (400 on preview, 200 invalid-token on confirm)', async () => {
-      const issued = await issueRedeemToken(TEST_CUSTOMER_ID);
+      const issued = await issueRedeemToken(TEST_CUSTOMER_ID, TENANT_ONE_ID);
       const tamperedToken = `${issued.token.slice(0, -6)}XXXXXX`;
 
       // Preview: 400
@@ -1009,7 +1010,7 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
 
     it('rejects expired HMAC token (400 on preview, 200 expired-token on confirm)', async () => {
       // Issue token with valid structure (exp > iat) but in the past (iat = now - 400s, exp = now - 100s)
-      const expiredIssued = await issueRedeemToken(TEST_CUSTOMER_ID, {
+      const expiredIssued = await issueRedeemToken(TEST_CUSTOMER_ID, TENANT_ONE_ID, {
         nowMs: Date.now() - 400_000,
         ttlSeconds: 300,
       });
@@ -1035,7 +1036,7 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
     });
 
     it('enforces single-use token: rejects replayed token when audit_log contains staff_redeem_token_used for target=nonce', async () => {
-      const issued = await issueRedeemToken(TEST_CUSTOMER_ID);
+      const issued = await issueRedeemToken(TEST_CUSTOMER_ID, TENANT_ONE_ID);
 
       // Mock audit_log containing existing row for nonce
       tableQueryHandlers['audit_log'] = () =>
@@ -1062,7 +1063,7 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
     });
 
     it('succeeds on preview: returns canRedeem true when customer has 10 stamps', async () => {
-      const issued = await issueRedeemToken(TEST_CUSTOMER_ID);
+      const issued = await issueRedeemToken(TEST_CUSTOMER_ID, TENANT_ONE_ID);
 
       // audit_log: not used
       tableQueryHandlers['audit_log'] = () => createMockSupabaseQuery(null, null);
@@ -1095,7 +1096,7 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
     });
 
     it('succeeds on preview: returns canRedeem false when customer has 9 stamps', async () => {
-      const issued = await issueRedeemToken(TEST_CUSTOMER_ID);
+      const issued = await issueRedeemToken(TEST_CUSTOMER_ID, TENANT_ONE_ID);
 
       tableQueryHandlers['audit_log'] = () => createMockSupabaseQuery(null, null);
       tableQueryHandlers['customer_balances'] = () =>
@@ -1122,7 +1123,7 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
     });
 
     it('succeeds on confirm: calls redeem_reward RPC with customer and staff, records audit log, and returns result: redeemed', async () => {
-      const issued = await issueRedeemToken(TEST_CUSTOMER_ID);
+      const issued = await issueRedeemToken(TEST_CUSTOMER_ID, TENANT_ONE_ID);
 
       tableQueryHandlers['audit_log'] = () => createMockSupabaseQuery(null, null);
 
@@ -1162,7 +1163,7 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
     });
 
     it('handles confirm when redeem_reward returns insufficient-stamps', async () => {
-      const issued = await issueRedeemToken(TEST_CUSTOMER_ID);
+      const issued = await issueRedeemToken(TEST_CUSTOMER_ID, TENANT_ONE_ID);
 
       tableQueryHandlers['audit_log'] = () => createMockSupabaseQuery(null, null);
       tableQueryHandlers['customer_balances'] = () =>
@@ -1186,7 +1187,7 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
     });
 
     it('returns 500 when redeem_reward RPC fails', async () => {
-      const issued = await issueRedeemToken(TEST_CUSTOMER_ID);
+      const issued = await issueRedeemToken(TEST_CUSTOMER_ID, TENANT_ONE_ID);
 
       tableQueryHandlers['audit_log'] = () => createMockSupabaseQuery(null, null);
 

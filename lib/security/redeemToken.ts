@@ -16,8 +16,8 @@ import type {
  * re-labelled as another kind without invalidating the signature.
  */
 const TOKEN_PREFIXES: Record<RedeemTokenKind, string> = {
-  'free-coffee': 'tcp1',
-  'instagram-upsize': 'tcpig1',
+  'free-coffee': 'tcp2',
+  'instagram-upsize': 'tcpig2',
 };
 
 function kindForPrefix(prefix: string): RedeemTokenKind | null {
@@ -32,6 +32,7 @@ const CLOCK_SKEW_TOLERANCE_SECONDS = 30;
 
 const redeemTokenPayloadSchema = z.object({
   customerId: z.string().uuid(),
+  tenantId: z.string().uuid(),
   iat: z.number().int().nonnegative(),
   exp: z.number().int().nonnegative(),
   nonce: z.string().min(8).max(64),
@@ -79,14 +80,16 @@ export function deriveDisplayCode(signature: Buffer): string {
 }
 
 /**
- * Issues a short-lived (default 5-minute) HMAC-SHA256 signed redemption token
+ * Issues a short-lived (default 5-minute) HMAC-SHA256 signed redemption token, bound to a shop,
  * and generates a self-contained monochrome SVG QR code without external network calls.
  */
 export async function issueRedeemToken(
   customerId: string,
+  tenantId: string,
   options: IssueRedeemTokenOptions = {},
 ): Promise<IssuedRedeemToken> {
   const parsedCustomerId = z.string().uuid().parse(customerId);
+  const parsedTenantId = z.string().uuid().parse(tenantId);
   const kind = options.kind ?? 'free-coffee';
   const prefix = TOKEN_PREFIXES[kind];
   const secret = resolveSecret(options.secretOverride);
@@ -95,6 +98,7 @@ export async function issueRedeemToken(
 
   const payload: RedeemTokenPayload = {
     customerId: parsedCustomerId,
+    tenantId: parsedTenantId,
     iat: nowSeconds,
     exp: nowSeconds + ttlSeconds,
     nonce: options.nonceOverride ?? randomBytes(12).toString('base64url'),

@@ -163,13 +163,19 @@ vi.mock('@/lib/nfc/verifyTap', () => ({
 // Mock redeem token issuance
 vi.mock('@/lib/security/redeemToken', () => ({
   issueRedeemToken: vi.fn().mockResolvedValue({
-    redeemToken: 'tcp_redeem1.dummy.token',
+    redeemToken: 'tcp2.dummy.token',
     expiresAtIso: new Date(Date.now() + 60_000).toISOString(),
     displayCode: '123-456',
   }),
   verifyRedeemToken: vi.fn().mockReturnValue({
     valid: true,
-    payload: { customerId: 'customer-uuid-1', iat: 100, exp: 200, nonce: 'nonce-1' },
+    payload: {
+      customerId: 'customer-uuid-1',
+      tenantId: '7c1f0000-0000-4000-8000-000000000001',
+      iat: 100,
+      exp: 200,
+      nonce: 'nonce-1',
+    },
   }),
   deriveDisplayCode: vi.fn().mockReturnValue('123-456'),
 }));

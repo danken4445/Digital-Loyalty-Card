@@ -54,7 +54,7 @@ import { POST } from '@/app/api/redeem-token/route';
 import { getVerifiedUser } from '@/lib/supabase/server';
 import { getAuthenticatedCustomerCardState } from '@/lib/auth/customer';
 import { checkPublicEndpointRateLimit } from '@/lib/security/ratelimit';
-import { STAMP_RESULT_CODES, type CustomerCardState } from '@/lib/contracts';
+import { STAMP_RESULT_CODES, TENANT_ONE_ID, type CustomerCardState } from '@/lib/contracts';
 import { StampGrid } from '@/components/card/StampGrid';
 import { RedeemRewardPanel } from '@/components/card/RedeemRewardPanel';
 import { StripResultParam } from '@/components/card/StripResultParam';
@@ -97,10 +97,10 @@ describe('Phase 4 Customer Card UI & Signed Redemption Token Test Suite', () => 
   describe('lib/security/redeemToken.ts', () => {
     describe('Valid Issuance & Verification Roundtrip', () => {
       it('issues a valid 5-minute (300s) HMAC token and verifies successfully in roundtrip', async () => {
-        const issued = await issueRedeemToken(TEST_CUSTOMER_ID);
+        const issued = await issueRedeemToken(TEST_CUSTOMER_ID, TENANT_ONE_ID);
 
         expect(issued.token).toBeDefined();
-        expect(issued.token.startsWith('tcp1.')).toBe(true);
+        expect(issued.token.startsWith('tcp2.')).toBe(true);
         expect(issued.ttlSeconds).toBe(300);
         expect(issued.payload.customerId).toBe(TEST_CUSTOMER_ID);
         expect(issued.payload.exp - issued.payload.iat).toBe(300);
@@ -116,7 +116,7 @@ describe('Phase 4 Customer Card UI & Signed Redemption Token Test Suite', () => 
       });
 
       it('generates a valid, self-contained inline SVG QR code without external network calls or URLs', async () => {
-        const issued = await issueRedeemToken(TEST_CUSTOMER_ID);
+        const issued = await issueRedeemToken(TEST_CUSTOMER_ID, TENANT_ONE_ID);
 
         expect(issued.qrSvg).toContain('<svg');
         expect(issued.qrSvg).toContain('</svg>');
@@ -130,7 +130,7 @@ describe('Phase 4 Customer Card UI & Signed Redemption Token Test Suite', () => 
       });
 
       it('formats displayCode as an 8-character uppercase alphanumeric code (XXXX-XXXX)', async () => {
-        const issued = await issueRedeemToken(TEST_CUSTOMER_ID);
+        const issued = await issueRedeemToken(TEST_CUSTOMER_ID, TENANT_ONE_ID);
 
         expect(issued.displayCode).toMatch(
           /^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{4}-[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{4}$/,
@@ -161,7 +161,7 @@ describe('Phase 4 Customer Card UI & Signed Redemption Token Test Suite', () => 
       const expSeconds = iatSeconds + 300;
 
       it('remains valid at exactly exp * 1000 (300 seconds after iat)', async () => {
-        const issued = await issueRedeemToken(TEST_CUSTOMER_ID, {
+        const issued = await issueRedeemToken(TEST_CUSTOMER_ID, TENANT_ONE_ID, {
           nowMs: fixedNowMs,
           ttlSeconds: 300,
         });
@@ -174,7 +174,7 @@ describe('Phase 4 Customer Card UI & Signed Redemption Token Test Suite', () => 
       });
 
       it('remains valid at (exp - 1) * 1000 (299 seconds after iat)', async () => {
-        const issued = await issueRedeemToken(TEST_CUSTOMER_ID, {
+        const issued = await issueRedeemToken(TEST_CUSTOMER_ID, TENANT_ONE_ID, {
           nowMs: fixedNowMs,
           ttlSeconds: 300,
         });
@@ -185,7 +185,7 @@ describe('Phase 4 Customer Card UI & Signed Redemption Token Test Suite', () => 
       });
 
       it('expires at exactly (exp + 1) * 1000 (301 seconds after iat)', async () => {
-        const issued = await issueRedeemToken(TEST_CUSTOMER_ID, {
+        const issued = await issueRedeemToken(TEST_CUSTOMER_ID, TENANT_ONE_ID, {
           nowMs: fixedNowMs,
           ttlSeconds: 300,
         });
@@ -200,7 +200,7 @@ describe('Phase 4 Customer Card UI & Signed Redemption Token Test Suite', () => 
 
       it('allows clock skew when iat is up to 30 seconds in the future', async () => {
         const futureIatMs = fixedNowMs + 30_000; // +30s
-        const issued = await issueRedeemToken(TEST_CUSTOMER_ID, {
+        const issued = await issueRedeemToken(TEST_CUSTOMER_ID, TENANT_ONE_ID, {
           nowMs: futureIatMs,
           ttlSeconds: 300,
         });
@@ -211,7 +211,7 @@ describe('Phase 4 Customer Card UI & Signed Redemption Token Test Suite', () => 
 
       it('rejects token when iat exceeds future clock skew tolerance (> 30 seconds ahead)', async () => {
         const farFutureIatMs = fixedNowMs + 31_000; // +31s
-        const issued = await issueRedeemToken(TEST_CUSTOMER_ID, {
+        const issued = await issueRedeemToken(TEST_CUSTOMER_ID, TENANT_ONE_ID, {
           nowMs: farFutureIatMs,
           ttlSeconds: 300,
         });
@@ -226,7 +226,7 @@ describe('Phase 4 Customer Card UI & Signed Redemption Token Test Suite', () => 
 
     describe('Tampering & Cryptographic Negative Verification', () => {
       it('rejects token when customerId in payload is tampered with', async () => {
-        const issued = await issueRedeemToken(TEST_CUSTOMER_ID);
+        const issued = await issueRedeemToken(TEST_CUSTOMER_ID, TENANT_ONE_ID);
         const parts = issued.token.split('.');
         const prefix = parts[0]!;
         const payloadB64 = parts[1]!;
@@ -247,7 +247,7 @@ describe('Phase 4 Customer Card UI & Signed Redemption Token Test Suite', () => 
       });
 
       it('rejects token when expiration timestamp in payload is extended', async () => {
-        const issued = await issueRedeemToken(TEST_CUSTOMER_ID);
+        const issued = await issueRedeemToken(TEST_CUSTOMER_ID, TENANT_ONE_ID);
         const parts = issued.token.split('.');
         const prefix = parts[0]!;
         const payloadB64 = parts[1]!;
@@ -268,7 +268,7 @@ describe('Phase 4 Customer Card UI & Signed Redemption Token Test Suite', () => 
       });
 
       it('rejects token when signature byte is altered or corrupted', async () => {
-        const issued = await issueRedeemToken(TEST_CUSTOMER_ID);
+        const issued = await issueRedeemToken(TEST_CUSTOMER_ID, TENANT_ONE_ID);
         const parts = issued.token.split('.');
         const prefix = parts[0]!;
         const payloadB64 = parts[1]!;
@@ -287,7 +287,7 @@ describe('Phase 4 Customer Card UI & Signed Redemption Token Test Suite', () => 
       it('rejects token when verified with a different secret', async () => {
         const secretA = '1'.repeat(32);
         const secretB = '2'.repeat(32);
-        const issued = await issueRedeemToken(TEST_CUSTOMER_ID, { secretOverride: secretA });
+        const issued = await issueRedeemToken(TEST_CUSTOMER_ID, TENANT_ONE_ID, { secretOverride: secretA });
 
         const result = verifyRedeemToken(issued.token, { secretOverride: secretB });
         expect(result).toEqual({
@@ -298,12 +298,12 @@ describe('Phase 4 Customer Card UI & Signed Redemption Token Test Suite', () => 
 
       it('throws on issueRedeemToken if secret is shorter than 32 characters', async () => {
         await expect(
-          issueRedeemToken(TEST_CUSTOMER_ID, { secretOverride: 'short-secret' }),
+          issueRedeemToken(TEST_CUSTOMER_ID, TENANT_ONE_ID, { secretOverride: 'short-secret' }),
         ).rejects.toThrow(/REDEEM_TOKEN_SECRET must be at least 32 characters/);
       });
 
       it('returns invalid-token on verifyRedeemToken if secret is shorter than 32 characters', async () => {
-        const issued = await issueRedeemToken(TEST_CUSTOMER_ID);
+        const issued = await issueRedeemToken(TEST_CUSTOMER_ID, TENANT_ONE_ID);
         const result = verifyRedeemToken(issued.token, { secretOverride: 'short-secret' });
 
         expect(result).toEqual({
@@ -315,13 +315,14 @@ describe('Phase 4 Customer Card UI & Signed Redemption Token Test Suite', () => 
       it('rejects token with non-UUID customerId', async () => {
         const payload = {
           customerId: 'not-a-valid-uuid',
+          tenantId: TENANT_ONE_ID,
           iat: 1_700_000_000,
           exp: 1_700_000_300,
           nonce: 'testnonce123',
         };
         const payloadB64 = Buffer.from(JSON.stringify(payload)).toString('base64url');
         const sig = Buffer.from('test-signature-fake-bytes-32chars!!').toString('base64url');
-        const malformedToken = `tcp1.${payloadB64}.${sig}`;
+        const malformedToken = `tcp2.${payloadB64}.${sig}`;
 
         const result = verifyRedeemToken(malformedToken);
         expect(result).toEqual({
@@ -332,6 +333,7 @@ describe('Phase 4 Customer Card UI & Signed Redemption Token Test Suite', () => 
 
       it('rejects token where exp <= iat', async () => {
         const payload = {
+          tenantId: TENANT_ONE_ID,
           customerId: TEST_CUSTOMER_ID,
           iat: 1_700_000_300,
           exp: 1_700_000_100, // exp before iat
@@ -339,7 +341,7 @@ describe('Phase 4 Customer Card UI & Signed Redemption Token Test Suite', () => 
         };
         const payloadB64 = Buffer.from(JSON.stringify(payload)).toString('base64url');
         const sig = Buffer.from('test-signature-fake-bytes-32chars!!').toString('base64url');
-        const malformedToken = `tcp1.${payloadB64}.${sig}`;
+        const malformedToken = `tcp2.${payloadB64}.${sig}`;
 
         const result = verifyRedeemToken(malformedToken);
         expect(result).toEqual({
@@ -353,11 +355,11 @@ describe('Phase 4 Customer Card UI & Signed Redemption Token Test Suite', () => 
           '',
           '   ',
           'tcp2.payload.signature',
-          'tcp1.payload',
-          'tcp1.payload.signature.extra',
+          'tcp2.payload',
+          'tcp2.payload.signature.extra',
           'notatoken',
-          'tcp1..signature',
-          'tcp1.invalid_base64_json!@#.sig',
+          'tcp2..signature',
+          'tcp2.invalid_base64_json!@#.sig',
           null as any,
           undefined as any,
           12345 as any,
@@ -655,7 +657,7 @@ describe('Phase 4 Customer Card UI & Signed Redemption Token Test Suite', () => 
 
     describe('RedeemRewardPanel (components/card/RedeemRewardPanel.tsx)', () => {
       it('renders active token with QR role="img", displayCode, refresh button, and copy button', async () => {
-        const token = await issueRedeemToken(TEST_CUSTOMER_ID);
+        const token = await issueRedeemToken(TEST_CUSTOMER_ID, TENANT_ONE_ID);
 
         const html = renderToStaticMarkup(
           React.createElement(RedeemRewardPanel, {
@@ -677,7 +679,7 @@ describe('Phase 4 Customer Card UI & Signed Redemption Token Test Suite', () => 
 
       it('renders EXPIRED overlay and expired countdown badge when exp is in the past', async () => {
         const pastNowMs = Date.now() - 400_000; // 400s ago
-        const expiredToken = await issueRedeemToken(TEST_CUSTOMER_ID, {
+        const expiredToken = await issueRedeemToken(TEST_CUSTOMER_ID, TENANT_ONE_ID, {
           nowMs: pastNowMs,
           ttlSeconds: 300,
         });

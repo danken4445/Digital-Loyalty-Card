@@ -1,7 +1,12 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { BRAND_THEME, SHOP_CONFIG } from '@/lib/config';
-import { isStampResultCode, ROUTES, type IssuedRedeemToken } from '@/lib/contracts';
+import {
+  isStampResultCode,
+  ROUTES,
+  TENANT_ONE_ID,
+  type IssuedRedeemToken,
+} from '@/lib/contracts';
 import { getAuthenticatedCustomerCardState } from '@/lib/auth/customer';
 import {
   calculateCardsCompleted,
@@ -85,7 +90,7 @@ export default async function CardPage({ searchParams }: CardPageProps) {
   let initialRedeemToken: IssuedRedeemToken | null = null;
   if (progress.isRewardReady) {
     try {
-      initialRedeemToken = await issueRedeemToken(cardState.customerId);
+      initialRedeemToken = await issueRedeemToken(cardState.customerId, TENANT_ONE_ID);
     } catch {
       initialRedeemToken = null;
     }
