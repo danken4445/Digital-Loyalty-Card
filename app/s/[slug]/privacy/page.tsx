@@ -3,9 +3,9 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { BRAND_THEME, SECURITY_CONFIG } from '@/lib/config';
-import { ROUTES } from '@/lib/contracts';
+import { type CustomerCardState, ROUTES } from '@/lib/contracts';
 import { resolveCardTheme } from '@/lib/brand/contrast';
-import { getVerifiedUser } from '@/lib/supabase/server';
+import { getCustomerCardState } from '@/lib/auth/customer';
 import { getTenantBySlug } from '@/lib/tenants/context';
 import { DeleteCardButton } from '@/components/card/DeleteCardButton';
 
@@ -37,13 +37,14 @@ export default async function ShopPrivacyPage({ params }: ShopPrivacyPageProps) 
 
   const theme = resolveCardTheme(tenant.settings.brand);
 
-  let cardState: { customerId: string; isAnonymous: boolean } | null = null;
+  let cardState: CustomerCardState | null = null;
   try {
-    const user = await getVerifiedUser();
-    cardState = user ? { customerId: user.id, isAnonymous: Boolean(user.is_anonymous) } : null;
+    const state = await getCustomerCardState(tenant);
+    cardState = state && state !== 'no-card' ? state : null;
   } catch {
     cardState = null;
   }
+  const hasCard = Boolean(cardState);
 
   const logoSrc = theme.logoUrl || BRAND_THEME.assets.logoCircleDark;
 
@@ -65,8 +66,8 @@ export default async function ShopPrivacyPage({ params }: ShopPrivacyPageProps) 
 
       {/* Main Privacy Notice Shell */}
       <article
-        aria-label={`${tenant.name} Privacy Notice & Data Subject Rights`}
-        className="w-full max-w-[580px] bg-plug-surface/95 border border-plug-border rounded-2xl p-5 sm:p-8 shadow-[0_20px_50px_rgba(0,0,0,0.85)] backdrop-blur-md relative overflow-hidden space-y-8"
+        aria-label={`${tenant.name} Privacy Notice &amp; Data Subject Rights`}
+        className="w-full max-w-[580px] bg-plug-surface border border-plug-border rounded-2xl p-5 sm:p-8 relative overflow-hidden space-y-8"
         style={{
           borderColor: theme.cardBorder,
         }}
@@ -87,10 +88,19 @@ export default async function ShopPrivacyPage({ params }: ShopPrivacyPageProps) 
           </div>
         </div>
 
+        {/* Counsel Review Draft Notice Banner */}
+        <div
+          role="note"
+          aria-label="Legal counsel review pending"
+          className="w-full rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-center text-xs font-mono text-amber-200"
+        >
+          DRAFT &mdash; this notice is pending review by Philippine legal counsel and is not final.
+        </div>
+
         {/* Header & Brand Identity */}
         <header className="flex flex-col items-center text-center">
           <div
-            className="relative w-16 h-16 rounded-full p-1 bg-plug-elevated border border-plug-border shadow-inner flex items-center justify-center overflow-hidden"
+            className="relative w-16 h-16 rounded-full p-1 bg-plug-elevated border border-plug-border flex items-center justify-center overflow-hidden"
             style={{ borderColor: theme.cardBorder }}
           >
             <Image
@@ -117,7 +127,7 @@ export default async function ShopPrivacyPage({ params }: ShopPrivacyPageProps) 
 
           {/* Active Card Status Badge */}
           <div className="mt-4">
-            {cardState ? (
+            {hasCard && cardState ? (
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-plug-elevated border border-plug-border text-xs font-mono text-neutral-200">
                 <span className="w-2 h-2 rounded-full bg-emerald-400" aria-hidden="true" />
                 <span>
@@ -128,7 +138,7 @@ export default async function ShopPrivacyPage({ params }: ShopPrivacyPageProps) 
             ) : (
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-plug-elevated border border-plug-border text-xs font-mono text-plug-muted">
                 <span className="w-2 h-2 rounded-full bg-neutral-500" aria-hidden="true" />
-                <span>NO ACTIVE CARD SESSION ON THIS DEVICE</span>
+                <span>NO ACTIVE CARD FOR THIS SHOP ON THIS DEVICE</span>
               </div>
             )}
           </div>
@@ -153,12 +163,12 @@ export default async function ShopPrivacyPage({ params }: ShopPrivacyPageProps) 
           <div className="space-y-2.5 text-xs sm:text-sm text-neutral-300 leading-relaxed pl-4 border-l border-plug-border">
             <p>
               Under Philippines Republic Act No. 10173 (Data Privacy Act of 2012),{' '}
-              <strong className="text-white">{tenant.name}</strong> operates as the independent{' '}
-              <strong className="text-white">Data Controller</strong> for this loyalty card, its stamp ledger, reward redemptions, and shop visit records.
+              <strong className="text-white">{tenant.name}</strong> is intended to act as the independent{' '}
+              <strong className="text-white">Data Controller</strong> for this loyalty card, its stamp ledger, reward redemptions, and shop visit records, subject to counsel review.
             </p>
             <p>
-              The DigitalLoyalty platform operator provides cloud infrastructure and acts as a secure{' '}
-              <strong className="text-white">Data Processor</strong> on behalf of {tenant.name}.
+              The DigitalLoyalty platform operator provides cloud infrastructure and is intended to act as a secure{' '}
+              <strong className="text-white">Data Processor</strong> on behalf of {tenant.name}, subject to counsel review.
             </p>
           </div>
         </section>
@@ -259,10 +269,9 @@ export default async function ShopPrivacyPage({ params }: ShopPrivacyPageProps) 
 
           <div className="space-y-2.5 text-xs sm:text-sm text-neutral-300 leading-relaxed pl-4 border-l border-plug-border">
             <p>
-              In strict adherence to the storage limitation principle of RA 10173, anonymous cards
+              In strict adherence to the storage limitation principle of RA 10173, anonymous accounts across the platform
               with <strong className="text-white">0 stamps</strong> that remain inactive for more
-              than <strong className="text-white">30 days</strong> (
-              {SECURITY_CONFIG.staleAnonRetentionDays} days) are automatically purged from the {tenant.name} ledger.
+              than <strong className="text-white">{SECURITY_CONFIG.staleAnonRetentionDays} days</strong> are automatically purged platform-wide.
             </p>
             <p>
               Cards with active stamps or linked backup accounts remain active so you can redeem your rewards anytime you visit {tenant.name}.
@@ -290,10 +299,19 @@ export default async function ShopPrivacyPage({ params }: ShopPrivacyPageProps) 
             <p>
               Under Philippine law, you maintain comprehensive data subject rights over your personal data:
             </p>
-            <div className="space-y-2">
+            <div className="space-y-2.5">
               <div>
                 <strong className="text-white block font-mono text-xs uppercase tracking-wider">
-                  Right to Be Informed &amp; Right to Access:
+                  Right to Be Informed:
+                </strong>
+                <p className="mt-0.5">
+                  You have the right to know whether personal data pertaining to you is being processed, including data sources and collection purposes.
+                </p>
+              </div>
+
+              <div>
+                <strong className="text-white block font-mono text-xs uppercase tracking-wider">
+                  Right to Access:
                 </strong>
                 <p className="mt-0.5">
                   View your current stamps, redemptions, and member details anytime on{' '}
@@ -309,11 +327,64 @@ export default async function ShopPrivacyPage({ params }: ShopPrivacyPageProps) 
 
               <div>
                 <strong className="text-white block font-mono text-xs uppercase tracking-wider">
-                  Right to Withdraw Consent &amp; Right to Erasure / Blocking:
+                  Right to Object:
                 </strong>
                 <p className="mt-0.5">
-                  You can permanently remove this card from your wallet at any time using the action below.
-                  Removing this card deletes your stamp progress at {tenant.name} while leaving all other cards in your wallet untouched.
+                  You have the right to withhold or withdraw consent to card processing at any time.
+                </p>
+              </div>
+
+              <div>
+                <strong className="text-white block font-mono text-xs uppercase tracking-wider">
+                  Right to Rectification / Correction:
+                </strong>
+                <p className="mt-0.5">
+                  You have the right to dispute and request correction of any inaccurate or outdated records in your loyalty balance.
+                </p>
+              </div>
+
+              <div>
+                <strong className="text-white block font-mono text-xs uppercase tracking-wider">
+                  Right to Erasure / Blocking:
+                </strong>
+                <p className="mt-0.5">
+                  You can permanently remove this card from your wallet at any time. Removing this card deletes your stamp progress at {tenant.name} while leaving all other cards in your wallet untouched.
+                </p>
+              </div>
+
+              <div>
+                <strong className="text-white block font-mono text-xs uppercase tracking-wider">
+                  Right to Data Portability:
+                </strong>
+                <p className="mt-0.5">
+                  You have the right to request a copy of your personal data processed in an electronic or structured format.
+                </p>
+              </div>
+
+              <div>
+                <strong className="text-white block font-mono text-xs uppercase tracking-wider">
+                  Right to Damages:
+                </strong>
+                <p className="mt-0.5">
+                  You have the right to be indemnified for damages sustained due to inaccurate, false, unlawfully obtained, or unauthorized use of personal data.
+                </p>
+              </div>
+
+              <div>
+                <strong className="text-white block font-mono text-xs uppercase tracking-wider">
+                  Right to File a Complaint with the National Privacy Commission (NPC):
+                </strong>
+                <p className="mt-0.5">
+                  If you believe your rights under RA 10173 have been violated, you may lodge a complaint with the National Privacy Commission of the Philippines (https://privacy.gov.ph).
+                </p>
+              </div>
+
+              <div className="pt-2 border-t border-plug-border">
+                <strong className="text-white block font-mono text-xs uppercase tracking-wider">
+                  Data Protection Officer (DPO) Contact:
+                </strong>
+                <p className="mt-0.5 text-neutral-400">
+                  Data Controller: {tenant.name} &bull; Contact: [DPO contact for {tenant.name} to be confirmed by counsel]
                 </p>
               </div>
             </div>
@@ -323,7 +394,7 @@ export default async function ShopPrivacyPage({ params }: ShopPrivacyPageProps) 
         {/* Section 6: Scoped Card Removal Panel */}
         <section
           aria-labelledby="section-scoped-erasure"
-          className="rounded-2xl border-2 border-neutral-700 bg-plug-elevated/70 p-5 space-y-4 shadow-inner"
+          className="rounded-xl border border-neutral-700 bg-plug-elevated p-5 space-y-4"
         >
           <div className="text-center sm:text-left">
             <h2
@@ -332,21 +403,29 @@ export default async function ShopPrivacyPage({ params }: ShopPrivacyPageProps) 
             >
               6. Remove Card from Wallet
             </h2>
-            <p className="text-xs text-neutral-300 leading-relaxed mt-1">
-              Want to remove your {tenant.name} card? Exercise your Right to Erasure for this shop. This permanently
-              removes your card and stamps at {tenant.name}. Any other shop cards in your wallet remain completely safe and untouched.
-            </p>
+            {hasCard && cardState ? (
+              <p className="text-xs text-neutral-300 leading-relaxed mt-1">
+                Want to remove your {tenant.name} card? Exercise your Right to Erasure for this shop. This permanently
+                removes your card and stamps at {tenant.name}. Any other shop cards in your wallet remain completely safe and untouched.
+              </p>
+            ) : (
+              <p className="text-xs text-neutral-300 leading-relaxed mt-1">
+                No active {tenant.name} card was found in this wallet session. If you add this shop&apos;s card in the future, you will be able to remove it here at any time.
+              </p>
+            )}
           </div>
 
-          <div className="w-full pt-1">
-            <DeleteCardButton
-              customerId={cardState?.customerId ?? null}
-              variant="full"
-              scope="card"
-              tenantSlug={tenant.slug}
-              tenantName={tenant.name}
-            />
-          </div>
+          {hasCard && cardState && (
+            <div className="w-full pt-1">
+              <DeleteCardButton
+                customerId={cardState.customerId}
+                variant="full"
+                scope="card"
+                tenantSlug={tenant.slug}
+                tenantName={tenant.name}
+              />
+            </div>
+          )}
         </section>
 
         {/* Navigation Back to Shop */}

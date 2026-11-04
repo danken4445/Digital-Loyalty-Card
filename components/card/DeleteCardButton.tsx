@@ -15,7 +15,7 @@ export interface DeleteCardButtonProps {
   variant?: 'compact' | 'full';
   /**
    * 'wallet' (default) erases the whole wallet: every card and the account.
-   * 'card' removes only the card of `tenantSlug`; the customer's other cards stay.
+   * 'card' (or alias 'shop') removes only the card of `tenantSlug`; the customer's other cards stay.
    */
   scope?: 'wallet' | 'card' | 'shop';
   tenantSlug?: string;

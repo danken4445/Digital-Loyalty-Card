@@ -1,14 +1,15 @@
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
-import { BRAND_THEME, SECURITY_CONFIG, SHOP_CONFIG } from '@/lib/config';
+import { BRAND_THEME, SECURITY_CONFIG } from '@/lib/config';
 import { ROUTES } from '@/lib/contracts';
 import { getVerifiedUser } from '@/lib/supabase/server';
 import { DeleteCardButton } from '@/components/card/DeleteCardButton';
 
 export const metadata: Metadata = {
   title: 'Platform Privacy Notice & Data Rights (RA 10173)',
-  description: `Customer Platform Privacy Notice, Wallet Identity, and Data Subject Rights under Philippines Republic Act No. 10173 (Data Privacy Act of 2012) for ${SHOP_CONFIG.name} and partner shops.`,
+  description:
+    'Customer Platform Privacy Notice, Wallet Identity, and Data Subject Rights under Philippines Republic Act No. 10173 (Data Privacy Act of 2012) for the DigitalLoyalty platform and partner shops.',
 };
 
 export default async function PrivacyPage() {
@@ -38,8 +39,8 @@ export default async function PrivacyPage() {
 
       {/* Main Privacy Notice Shell */}
       <article
-        aria-label="Privacy Notice & Data Subject Rights"
-        className="w-full max-w-[580px] bg-plug-surface/95 border border-plug-border rounded-2xl p-5 sm:p-8 shadow-[0_20px_50px_rgba(0,0,0,0.85)] backdrop-blur-md relative overflow-hidden space-y-8"
+        aria-label="Privacy Notice &amp; Data Subject Rights"
+        className="w-full max-w-[580px] bg-plug-surface border border-plug-border rounded-2xl p-5 sm:p-8 relative overflow-hidden space-y-8"
       >
         {/* Subtle decorative corner tick */}
         <div
@@ -51,12 +52,21 @@ export default async function PrivacyPage() {
           </div>
         </div>
 
+        {/* Counsel Review Draft Notice Banner */}
+        <div
+          role="note"
+          aria-label="Legal counsel review pending"
+          className="w-full rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-center text-xs font-mono text-amber-200"
+        >
+          DRAFT &mdash; this notice is pending review by Philippine legal counsel and is not final.
+        </div>
+
         {/* Header & Brand Identity */}
         <header className="flex flex-col items-center text-center">
-          <div className="relative w-16 h-16 rounded-full p-1 bg-plug-elevated border border-plug-border shadow-inner">
+          <div className="relative w-16 h-16 rounded-full p-1 bg-plug-elevated border border-plug-border flex items-center justify-center overflow-hidden">
             <Image
               src={BRAND_THEME.assets.logoCircleDark}
-              alt={`${SHOP_CONFIG.name} circular logo`}
+              alt="DigitalLoyalty circular logo"
               width={60}
               height={60}
               priority
@@ -73,7 +83,7 @@ export default async function PrivacyPage() {
           </p>
 
           <p className="text-[10px] uppercase tracking-widest text-neutral-400 mt-0.5">
-            PLATFORM PRIVACY NOTICE &bull; DIGITAL WALLET IDENTITY
+            DIGITALLOYALTY PLATFORM &bull; DIGITAL WALLET IDENTITY
           </p>
 
           {/* Active Card / Wallet Status Badge */}
@@ -113,13 +123,13 @@ export default async function PrivacyPage() {
             </p>
             <ul className="list-disc list-inside space-y-1.5 text-neutral-300">
               <li>
-                <strong className="text-white">Wallet Identity &amp; Platform Controller</strong>: The Platform Operator acts as the{' '}
-                <strong className="text-white">Data Controller</strong> for your overall digital wallet account, credentials, and cross-shop pass collection.
+                <strong className="text-white">Wallet Identity &amp; Platform Controller</strong>: The Platform Operator is intended to act as the{' '}
+                <strong className="text-white">Data Controller</strong> for your overall digital wallet account, credentials, and cross-shop pass collection, subject to counsel review.
               </li>
               <li>
-                <strong className="text-white">Shop Data Processor &amp; Shop Controllers</strong>: For each partner shop whose card you collect, that specific merchant acts as the{' '}
-                <strong className="text-white">Data Controller</strong> for their own stamp ledger and reward rules, while the Platform Operator acts as their secure{' '}
-                <strong className="text-white">Data Processor</strong>.
+                <strong className="text-white">Shop Data Processor &amp; Shop Controllers</strong>: For each partner shop whose card you collect, that specific merchant is intended to act as the{' '}
+                <strong className="text-white">Data Controller</strong> for their own stamp ledger and reward rules, while the Platform Operator is intended to act as their secure{' '}
+                <strong className="text-white">Data Processor</strong>, subject to counsel review.
               </li>
             </ul>
           </div>
@@ -208,10 +218,10 @@ export default async function PrivacyPage() {
 
           <div className="space-y-2.5 text-xs sm:text-sm text-neutral-300 leading-relaxed pl-4 border-l border-plug-border">
             <p>
-              <strong className="text-white">Cross-Shop Isolation</strong>: Each partner shop operates within an isolated cryptographic partition. Shops <strong className="text-white">never see cards from other shops</strong>, stamps earned elsewhere, or other merchant visits in your wallet. Database-level multi-tenant Row-Level Security (RLS) strictly isolates merchant data access.
+              <strong className="text-white">Cross-Shop Isolation</strong>: Each partner shop operates within an isolated partition. Shops <strong className="text-white">never see cards from other shops</strong>, stamps earned elsewhere, or other merchant visits in your wallet. Database-level multi-tenant Row-Level Security (RLS) strictly isolates merchant data access.
             </p>
             <p>
-              <strong className="text-white">Hosting Region</strong>: All platform database records and cryptographic keys are hosted in the <strong className="text-white">AWS Singapore (<code className="font-mono text-xs">ap-southeast-1</code>)</strong> region, protected by TLS 1.3 encryption in transit and AES-256 encryption at rest.
+              <strong className="text-white">Hosting Region</strong>: All platform database records are hosted on Supabase in the <strong className="text-white">AWS ap-southeast-1 (Singapore)</strong> region.
             </p>
           </div>
         </section>
@@ -232,12 +242,11 @@ export default async function PrivacyPage() {
             <p>
               In strict adherence to the storage limitation principle of RA 10173, anonymous accounts
               with <strong className="text-white">0 stamps</strong> that remain inactive for more
-              than <strong className="text-white">30 days</strong> (
-              {SECURITY_CONFIG.staleAnonRetentionDays} days) are automatically purged from our
-              database.
+              than <strong className="text-white">{SECURITY_CONFIG.staleAnonRetentionDays} days</strong> are
+              automatically purged platform-wide.
             </p>
             <p>
-              Cards with active stamps or linked backup accounts remain securely stored so you can redeem
+              Accounts with active stamps or linked backup credentials remain securely stored so you can redeem
               your rewards anytime.
             </p>
           </div>
@@ -293,7 +302,7 @@ export default async function PrivacyPage() {
         {/* Section 7: Self-Service Data Erasure Panel */}
         <section
           aria-labelledby="section-self-service-erasure"
-          className="rounded-2xl border-2 border-neutral-700 bg-plug-elevated/70 p-5 space-y-4 shadow-inner"
+          className="rounded-xl border border-neutral-700 bg-plug-elevated p-5 space-y-4"
         >
           <div className="text-center sm:text-left">
             <h2
@@ -325,9 +334,9 @@ export default async function PrivacyPage() {
         </div>
       </article>
 
-      {/* Streetwear Footer */}
+      {/* Footer */}
       <footer className="w-full max-w-[580px] text-center text-[10px] font-mono tracking-widest text-plug-muted uppercase pt-4">
-        <span>{SHOP_CONFIG.name} PLATFORM &copy; 2026</span>
+        <span>DigitalLoyalty platform &copy; 2026</span>
       </footer>
     </main>
   );
