@@ -118,6 +118,8 @@ export interface WalletCardSummary {
   totalStamps: number;
   lastStampedAt: string | null;
   addedAt: string;
+  /** Phase 13: Total completed cards for this shop based on lifetime total stamps */
+  cardsCompleted?: number;
 }
 
 export interface StaffMembership {
@@ -176,6 +178,23 @@ export const MERGE_RESULT_CODES = [
   'target-not-found',
 ] as const;
 export type MergeResultCode = (typeof MERGE_RESULT_CODES)[number];
+
+export interface MergeWalletsOutcome {
+  result: MergeResultCode;
+  cards_moved: number;
+  cards_combined: number;
+}
+
+export function isMergeWalletsOutcome(value: unknown): value is MergeWalletsOutcome {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return (
+    typeof v.result === 'string' &&
+    (MERGE_RESULT_CODES as readonly string[]).includes(v.result) &&
+    typeof v.cards_moved === 'number' &&
+    typeof v.cards_combined === 'number'
+  );
+}
 
 export const API_ERROR_CODES = [
   'unauthenticated',
@@ -671,6 +690,8 @@ export const ROUTES = Object.freeze({
     tagId
       ? `/s/${encodeURIComponent(slug)}?t=${encodeURIComponent(tagId)}`
       : `/s/${encodeURIComponent(slug)}`,
+  /** Phase 13: Per-shop privacy notice generated from tenant settings */
+  shopPrivacy: (slug: string) => `/s/${encodeURIComponent(slug)}/privacy`,
   start: '/start',
   startWithTag: (tagId: string) => `/start?t=${encodeURIComponent(tagId)}`,
   tap: (tagId: string) => `/t/${encodeURIComponent(tagId)}`,
