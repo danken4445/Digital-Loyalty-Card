@@ -18,9 +18,6 @@ grant execute on all functions in schema extensions to anon, authenticated, serv
 
 select plan(17);
 
--- Additional tenants are blocked in production until Phase 12; tests opt in.
-select set_config('app.allow_multi_tenant', 'on', true);
-
 -- ------------------------------------------------------------------------------
 -- Shared fixtures: tenant A = tenant #1, tenant B = bean-there
 -- ------------------------------------------------------------------------------

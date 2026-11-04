@@ -5,7 +5,7 @@
 --   1. remove_card erases one tenant's card and ledger only
 --   2. delete_wallet erases everything, including the auth user
 --   3. merge_wallets moves distinct cards and combines same-tenant cards
---   4. Legacy delete_customer_data uses the shared customer lock (F-17)
+--   4. delete_wallet uses the shared customer lock (F-17) and erases redeemed-nonce audit rows
 -- ==============================================================================
 
 begin;
@@ -17,9 +17,6 @@ grant usage on schema extensions to anon, authenticated, service_role;
 grant execute on all functions in schema extensions to anon, authenticated, service_role;
 
 select plan(22);
-
--- Additional tenants are blocked in production until Phase 12; tests opt in.
-select set_config('app.allow_multi_tenant', 'on', true);
 
 -- ------------------------------------------------------------------------------
 -- Shared fixtures: tenant A = tenant #1, tenant B = bean-there
@@ -239,7 +236,7 @@ select is(
 );
 
 -- ==============================================================================
--- 3c/4. Noop merge, legacy lock fix, privileges (3 assertions)
+-- 3c/4. Noop merge, shared erasure lock, privileges (3 assertions)
 -- ==============================================================================
 
 select is(
@@ -249,26 +246,26 @@ select is(
 );
 
 select ok(
-    pg_get_functiondef('public.delete_customer_data(uuid)'::regprocedure) like '%hashtextextended(p_customer::text, 1001)%',
-    'legacy_delete_uses_shared_lock: delete_customer_data takes the same customer lock as stamping'
+    pg_get_functiondef('public.delete_wallet(uuid)'::regprocedure) like '%hashtextextended(p_customer::text, 1001)%',
+    'delete_uses_shared_lock: delete_wallet takes the same customer lock as stamping'
 );
 
--- The deployed app records redeemed QR nonces with the customer only in detail.customer_id
+-- Redeemed QR nonces are recorded with the customer only in detail.customer_id
 insert into public.audit_log (tenant_id, actor, action, target, detail)
 values (
     '7c1f0000-0000-4000-8000-000000000001',
     '5a000000-0000-4000-8000-00000000000a',
     'staff_redeem_token_used',
-    'nonce-legacy-erasure-0001',
+    'nonce-erasure-0001',
     jsonb_build_object('customer_id', 'ca000000-0000-4000-8000-00000000000a')
 );
 
-select public.delete_customer_data('ca000000-0000-4000-8000-00000000000a');
+select public.delete_wallet('ca000000-0000-4000-8000-00000000000a');
 
 select is(
     (select count(*) from public.audit_log where detail ->> 'customer_id' = 'ca000000-0000-4000-8000-00000000000a'),
     0::bigint,
-    'legacy_delete_erases_nonce_audit_rows: no audit detail still names the erased customer'
+    'delete_erases_nonce_audit_rows: no audit detail still names the erased customer'
 );
 
 set local role authenticated;

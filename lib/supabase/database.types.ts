@@ -87,13 +87,6 @@ export type Database = {
             foreignKeyName: 'customer_cards_customer_id_fkey';
             columns: ['customer_id'];
             isOneToOne: false;
-            referencedRelation: 'customer_balances';
-            referencedColumns: ['customer_id'];
-          },
-          {
-            foreignKeyName: 'customer_cards_customer_id_fkey';
-            columns: ['customer_id'];
-            isOneToOne: false;
             referencedRelation: 'customers';
             referencedColumns: ['id'];
           },
@@ -138,7 +131,7 @@ export type Database = {
           id?: string;
           perk: string;
           staff_id: string;
-          tenant_id?: string;
+          tenant_id: string;
         };
         Update: {
           created_at?: string;
@@ -150,11 +143,18 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: 'perk_claims_customer_id_fkey';
-            columns: ['customer_id'];
+            foreignKeyName: 'perk_claims_card_fkey';
+            columns: ['tenant_id', 'customer_id'];
             isOneToOne: false;
-            referencedRelation: 'customer_balances';
-            referencedColumns: ['customer_id'];
+            referencedRelation: 'card_balances';
+            referencedColumns: ['tenant_id', 'customer_id'];
+          },
+          {
+            foreignKeyName: 'perk_claims_card_fkey';
+            columns: ['tenant_id', 'customer_id'];
+            isOneToOne: false;
+            referencedRelation: 'customer_cards';
+            referencedColumns: ['tenant_id', 'customer_id'];
           },
           {
             foreignKeyName: 'perk_claims_customer_id_fkey';
@@ -188,7 +188,7 @@ export type Database = {
           id?: string;
           staff_id: string;
           stamps_used: number;
-          tenant_id?: string;
+          tenant_id: string;
         };
         Update: {
           created_at?: string;
@@ -200,11 +200,18 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: 'redemptions_customer_id_fkey';
-            columns: ['customer_id'];
+            foreignKeyName: 'redemptions_card_fkey';
+            columns: ['tenant_id', 'customer_id'];
             isOneToOne: false;
-            referencedRelation: 'customer_balances';
-            referencedColumns: ['customer_id'];
+            referencedRelation: 'card_balances';
+            referencedColumns: ['tenant_id', 'customer_id'];
+          },
+          {
+            foreignKeyName: 'redemptions_card_fkey';
+            columns: ['tenant_id', 'customer_id'];
+            isOneToOne: false;
+            referencedRelation: 'customer_cards';
+            referencedColumns: ['tenant_id', 'customer_id'];
           },
           {
             foreignKeyName: 'redemptions_customer_id_fkey';
@@ -221,31 +228,6 @@ export type Database = {
             referencedColumns: ['id'];
           },
         ];
-      };
-      staff: {
-        Row: {
-          active: boolean;
-          created_at: string;
-          display_name: string;
-          role: string;
-          user_id: string;
-        };
-        ComputedFields: never;
-        Insert: {
-          active?: boolean;
-          created_at?: string;
-          display_name: string;
-          role?: string;
-          user_id: string;
-        };
-        Update: {
-          active?: boolean;
-          created_at?: string;
-          display_name?: string;
-          role?: string;
-          user_id?: string;
-        };
-        Relationships: [];
       };
       stamps: {
         Row: {
@@ -267,7 +249,7 @@ export type Database = {
           source?: string;
           staff_id?: string | null;
           tag_id?: string | null;
-          tenant_id?: string;
+          tenant_id: string;
         };
         Update: {
           created_at?: string;
@@ -281,11 +263,18 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: 'stamps_customer_id_fkey';
-            columns: ['customer_id'];
+            foreignKeyName: 'stamps_card_fkey';
+            columns: ['tenant_id', 'customer_id'];
             isOneToOne: false;
-            referencedRelation: 'customer_balances';
-            referencedColumns: ['customer_id'];
+            referencedRelation: 'card_balances';
+            referencedColumns: ['tenant_id', 'customer_id'];
+          },
+          {
+            foreignKeyName: 'stamps_card_fkey';
+            columns: ['tenant_id', 'customer_id'];
+            isOneToOne: false;
+            referencedRelation: 'customer_cards';
+            referencedColumns: ['tenant_id', 'customer_id'];
           },
           {
             foreignKeyName: 'stamps_customer_id_fkey';
@@ -326,7 +315,7 @@ export type Database = {
           deactivated_at?: string | null;
           id: string;
           label?: string | null;
-          tenant_id?: string;
+          tenant_id: string;
         };
         Update: {
           active?: boolean;
@@ -499,13 +488,6 @@ export type Database = {
             foreignKeyName: 'customer_cards_customer_id_fkey';
             columns: ['customer_id'];
             isOneToOne: false;
-            referencedRelation: 'customer_balances';
-            referencedColumns: ['customer_id'];
-          },
-          {
-            foreignKeyName: 'customer_cards_customer_id_fkey';
-            columns: ['customer_id'];
-            isOneToOne: false;
             referencedRelation: 'customers';
             referencedColumns: ['id'];
           },
@@ -518,17 +500,6 @@ export type Database = {
           },
         ];
       };
-      customer_balances: {
-        Row: {
-          available_stamps: number | null;
-          customer_id: string;
-          last_stamped_at: string | null;
-          stamps_redeemed: number | null;
-          total_stamps: number | null;
-        };
-        ComputedFields: never;
-        Relationships: [];
-      };
     };
     Functions: {
       add_card: {
@@ -539,7 +510,6 @@ export type Database = {
         Args: { p_actor: string; p_customer: string; p_perk: string; p_tenant: string };
         Returns: string;
       };
-      claim_instagram_upsize: { Args: { p_customer: string; p_staff: string }; Returns: string };
       cleanup_stale_anonymous_customers: { Args: { p_older_than?: string }; Returns: number };
       create_tag: {
         Args: { p_actor: string; p_label?: string; p_tag_id: string; p_tenant: string };
@@ -549,37 +519,24 @@ export type Database = {
         Args: { p_actor: string; p_tag_id: string; p_tenant: string };
         Returns: string;
       };
-      delete_customer_data: { Args: { p_customer: string }; Returns: boolean };
       delete_wallet: { Args: { p_customer: string }; Returns: boolean };
       ensure_customer: { Args: { p_customer: string }; Returns: string };
-      is_staff: { Args: Record<PropertyKey, never>; Returns: boolean };
       log_audit_event: {
-        Args: { p_action: string; p_actor: string; p_detail?: Json; p_target?: string };
-        Returns: string;
-      };
-      merge_anonymous_customer: {
-        Args: { p_source_customer: string; p_target_customer: string };
-        Returns: string;
-      };
-      merge_wallets: { Args: { p_source: string; p_target: string }; Returns: Json };
-      record_stamp: {
         Args: {
-          p_customer: string;
-          p_now?: string;
-          p_reason?: string;
-          p_source?: string;
-          p_staff?: string;
-          p_tag?: string;
+          p_action: string;
+          p_actor: string;
+          p_detail?: Json;
+          p_target?: string;
+          p_tenant?: string;
         };
         Returns: string;
       };
+      merge_nonce_used: { Args: { p_nonce: string }; Returns: boolean };
+      merge_wallets: { Args: { p_source: string; p_target: string }; Returns: Json };
       redeem_card_reward: {
         Args: { p_actor: string; p_customer: string; p_nonce: string; p_tenant: string };
         Returns: string;
       };
-      redeem_reward:
-        | { Args: { p_customer: string; p_staff: string }; Returns: string }
-        | { Args: { p_customer: string; p_nonce: string; p_staff: string }; Returns: string };
       remove_card: { Args: { p_customer: string; p_tenant: string }; Returns: boolean };
       rotate_tag: {
         Args: {

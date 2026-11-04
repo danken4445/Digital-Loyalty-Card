@@ -19,9 +19,6 @@ grant execute on all functions in schema extensions to anon, authenticated, serv
 
 select plan(17);
 
--- Additional tenants are blocked in production until Phase 12; tests opt in.
-select set_config('app.allow_multi_tenant', 'on', true);
-
 -- ------------------------------------------------------------------------------
 -- Shared fixtures: tenant A = tenant #1, tenant B = bean-there (Asia/Tokyo)
 -- ------------------------------------------------------------------------------
@@ -52,14 +49,6 @@ values
     ('7c1f0000-0000-4000-8000-00000000000b', '5d000000-0000-4000-8000-00000000000d', 'staff', 'Dual Staff', true),
     ('7c1f0000-0000-4000-8000-000000000001', '5e000000-0000-4000-8000-00000000000a', 'manager', 'Manager A', true),
     ('7c1f0000-0000-4000-8000-000000000001', '5f000000-0000-4000-8000-00000000000a', 'staff', 'Inactive A', false);
-
--- Staff B is also a legacy staff row (is_staff() = true) but a member of tenant B only,
--- so these tests fail if any policy still trusts the global is_staff() check.
-insert into public.staff (user_id, display_name, role)
-values ('5b000000-0000-4000-8000-00000000000b', 'Staff B', 'staff');
-delete from public.tenant_members
-where tenant_id = '7c1f0000-0000-4000-8000-000000000001'
-  and user_id = '5b000000-0000-4000-8000-00000000000b';
 
 insert into public.customers (id)
 values
@@ -201,7 +190,7 @@ select is_empty(
 );
 
 -- Catalog-wide guard: SECURITY DEFINER functions are callable only by service_role,
--- except the two helpers RLS and the middleware need.
+-- except the helper RLS needs.
 select is_empty(
     $$select n.nspname || '.' || p.proname || ' -> ' || r.rolname
       from pg_catalog.pg_proc as p
@@ -211,8 +200,8 @@ select is_empty(
         and p.prosecdef
         and has_function_privilege(r.rolname, p.oid, 'execute')
         and not (r.rolname = 'authenticated'
-                 and (n.nspname, p.proname) in (('public', 'is_staff'), ('private', 'staff_tenant_ids')))$$,
-    'No SECURITY DEFINER function is executable by anon or authenticated beyond is_staff and staff_tenant_ids'
+                 and (n.nspname, p.proname) = ('private', 'staff_tenant_ids'))$$,
+    'No SECURITY DEFINER function is executable by anon or authenticated beyond staff_tenant_ids'
 );
 
 select * from finish();

@@ -65,37 +65,37 @@ exception
 end;
 $$;
 
--- 2. Corresponding row in public.staff
-insert into public.staff (
+-- 2. Owner membership of tenant #1 (The Caffeine Plug)
+insert into public.tenant_members (
+  tenant_id,
   user_id,
-  display_name,
   role,
-  active,
-  created_at
+  display_name,
+  active
 ) values (
+  '7c1f0000-0000-4000-8000-000000000001',
   '00000000-0000-0000-0000-000000000001',
-  'Dan (Owner)',
   'owner',
-  true,
-  now()
-) on conflict (user_id) do nothing;
+  'Dan (Owner)',
+  true
+) on conflict (tenant_id, user_id) do nothing;
 
 -- 3. Active demo NFC tag in public.tags
 insert into public.tags (
   id,
+  tenant_id,
   label,
   active,
   created_at
 ) values (
   'tcp_tag_demo_9x8k2m4p7q1w',
+  '7c1f0000-0000-4000-8000-000000000001',
   'Counter Main NTAG215',
   true,
   now()
 ) on conflict (id) do nothing;
 
--- 4. Second demo tenant (Phase 10/11 multi-tenant local testing only)
---    Production blocks extra tenants until Phase 12; the local seed opts in.
-select set_config('app.allow_multi_tenant', 'on', false);
+-- 4. Second demo tenant (multi-tenant local testing only)
 
 insert into public.tenants (id, slug, name, status)
 values ('7c1f0000-0000-4000-8000-0000000000d1', 'demo-roastery', 'Demo Roastery', 'active')

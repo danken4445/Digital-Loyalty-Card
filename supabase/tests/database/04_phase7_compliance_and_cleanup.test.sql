@@ -2,14 +2,14 @@
 -- 04_phase7_compliance_and_cleanup.test.sql
 -- pgTAP Test Suite for Phase 7 Hardening, Compliance, Erasure & Cleanup
 -- Tests:
---   1. Privilege hardening: anon & authenticated cannot execute delete_customer_data
+--   1. Privilege hardening: anon & authenticated cannot execute delete_wallet
 --      or cleanup_stale_anonymous_customers; service_role can execute both.
---   2. public.delete_customer_data (Right to Erasure / RA 10173):
+--   2. public.delete_wallet (Right to Erasure / RA 10173):
 --      - Null customer throws exception
 --      - Non-existent customer UUID returns false
 --      - Existing customer: returns true, cascades deletion of customer row,
 --        stamps, redemptions, auth.users row, removes customer-identifiable audit logs,
---        and writes anonymized customer_self_deleted audit log with md5(customer).
+--        and writes anonymized customer_wallet_deleted audit log with md5(customer).
 --   3. public.cleanup_stale_anonymous_customers (Storage limitation):
 --      - Deletes stale anonymous account (>30 days old, 0 stamps)
 --      - Preserves active anonymous account (>30 days old, >=1 stamp)
@@ -32,21 +32,21 @@ grant execute on all functions in schema extensions to anon, authenticated, serv
 
 select plan(25);
 
--- Pre-seed test staff in auth.users & public.staff
+-- Pre-seed test staff in auth.users & as a tenant #1 member
 insert into auth.users (id, aud, role, email, is_anonymous)
 values
     ('f7777777-7777-7777-7777-777777777777', 'authenticated', 'authenticated', 'phase7-staff@caffeineplug.ph', false)
 on conflict (id) do nothing;
 
-insert into public.staff (user_id, display_name, role, active)
+insert into public.tenant_members (tenant_id, user_id, role, display_name, active)
 values
-    ('f7777777-7777-7777-7777-777777777777', 'Phase 7 Staff Tester', 'staff', true)
-on conflict (user_id) do update set active = true;
+    ('7c1f0000-0000-4000-8000-000000000001', 'f7777777-7777-7777-7777-777777777777', 'staff', 'Phase 7 Staff Tester', true)
+on conflict (tenant_id, user_id) do update set active = true;
 
 -- Pre-seed test tag in public.tags
-insert into public.tags (id, label, active)
+insert into public.tags (id, label, active, tenant_id)
 values
-    ('tag_phase7_test_harness', 'Phase 7 Test Tag', true)
+    ('tag_phase7_test_harness', 'Phase 7 Test Tag', true, '7c1f0000-0000-4000-8000-000000000001')
 on conflict (id) do update set active = true;
 
 
@@ -54,25 +54,25 @@ on conflict (id) do update set active = true;
 -- 1. Privilege Hardening (6 assertions)
 -- ==============================================================================
 
--- 1.1 anon role must NOT have EXECUTE on delete_customer_data
+-- 1.1 anon role must NOT have EXECUTE on delete_wallet
 select is(
-    has_function_privilege('anon', 'public.delete_customer_data(uuid)', 'EXECUTE'),
+    has_function_privilege('anon', 'public.delete_wallet(uuid)', 'EXECUTE'),
     false,
-    'anon role cannot execute public.delete_customer_data(uuid)'
+    'anon role cannot execute public.delete_wallet(uuid)'
 );
 
--- 1.2 authenticated role must NOT have EXECUTE on delete_customer_data
+-- 1.2 authenticated role must NOT have EXECUTE on delete_wallet
 select is(
-    has_function_privilege('authenticated', 'public.delete_customer_data(uuid)', 'EXECUTE'),
+    has_function_privilege('authenticated', 'public.delete_wallet(uuid)', 'EXECUTE'),
     false,
-    'authenticated role cannot execute public.delete_customer_data(uuid)'
+    'authenticated role cannot execute public.delete_wallet(uuid)'
 );
 
--- 1.3 service_role must have EXECUTE on delete_customer_data
+-- 1.3 service_role must have EXECUTE on delete_wallet
 select is(
-    has_function_privilege('service_role', 'public.delete_customer_data(uuid)', 'EXECUTE'),
+    has_function_privilege('service_role', 'public.delete_wallet(uuid)', 'EXECUTE'),
     true,
-    'service_role can execute public.delete_customer_data(uuid)'
+    'service_role can execute public.delete_wallet(uuid)'
 );
 
 -- 1.4 anon role must NOT have EXECUTE on cleanup_stale_anonymous_customers
@@ -98,19 +98,19 @@ select is(
 
 
 -- ==============================================================================
--- 2. public.delete_customer_data (Right to Erasure / RA 10173) (11 assertions)
+-- 2. public.delete_wallet (Right to Erasure / RA 10173) (11 assertions)
 -- ==============================================================================
 
 -- 2.1 Null customer UUID throws exception
 select throws_ok(
-    $$ select public.delete_customer_data(null) $$,
+    $$ select public.delete_wallet(null) $$,
     'p_customer must not be null',
     'Null p_customer throws exception'
 );
 
 -- 2.2 Non-existent customer UUID returns false
 select is(
-    public.delete_customer_data('99999999-9999-9999-9999-999999999999'::uuid),
+    public.delete_wallet('99999999-9999-9999-9999-999999999999'::uuid),
     false,
     'Non-existent customer returns false'
 );
@@ -126,34 +126,38 @@ values
     ('e5555555-5555-5555-5555-555555555555')
 on conflict (id) do nothing;
 
+insert into public.customer_cards (tenant_id, customer_id)
+values
+    ('7c1f0000-0000-4000-8000-000000000001', 'e5555555-5555-5555-5555-555555555555');
+
 -- Pre-seed customer records: 1 NFC stamp, 1 manual stamp, 1 redemption
-insert into public.stamps (customer_id, tag_id, source, created_at)
+insert into public.stamps (tenant_id, customer_id, tag_id, source, created_at)
 values
-    ('e5555555-5555-5555-5555-555555555555', 'tag_phase7_test_harness', 'nfc', '2026-11-02 01:00:00+08');
+    ('7c1f0000-0000-4000-8000-000000000001', 'e5555555-5555-5555-5555-555555555555', 'tag_phase7_test_harness', 'nfc', '2026-11-02 01:00:00+08');
 
-insert into public.stamps (customer_id, source, staff_id, reason, created_at)
+insert into public.stamps (tenant_id, customer_id, source, staff_id, reason, created_at)
 values
-    ('e5555555-5555-5555-5555-555555555555', 'manual', 'f7777777-7777-7777-7777-777777777777', 'Customer goodwill stamp', '2026-11-02 02:00:00+08');
+    ('7c1f0000-0000-4000-8000-000000000001', 'e5555555-5555-5555-5555-555555555555', 'manual', 'f7777777-7777-7777-7777-777777777777', 'Customer goodwill stamp', '2026-11-02 02:00:00+08');
 
-insert into public.redemptions (customer_id, stamps_used, staff_id, created_at)
+insert into public.redemptions (tenant_id, customer_id, stamps_used, staff_id, created_at)
 values
-    ('e5555555-5555-5555-5555-555555555555', 1, 'f7777777-7777-7777-7777-777777777777', '2026-11-02 03:00:00+08');
+    ('7c1f0000-0000-4000-8000-000000000001', 'e5555555-5555-5555-5555-555555555555', 1, 'f7777777-7777-7777-7777-777777777777', '2026-11-02 03:00:00+08');
 
 -- Pre-seed audit log rows:
 -- Row 1: actor = customer
 -- Row 2: target = customer::text
 -- Row 3: unrelated staff audit log (must be preserved)
-insert into public.audit_log (actor, action, target, detail)
+insert into public.audit_log (tenant_id, actor, action, target, detail)
 values
-    ('e5555555-5555-5555-5555-555555555555', 'card_onboarded', 'initial_provision', '{"channel": "nfc"}'::jsonb),
-    (null, 'customer_token_issued', 'e5555555-5555-5555-5555-555555555555', '{"type": "redeem"}'::jsonb),
-    ('f7777777-7777-7777-7777-777777777777', 'staff_shift_start', 'counter_pos', '{"terminal": 1}'::jsonb);
+    ('7c1f0000-0000-4000-8000-000000000001', 'e5555555-5555-5555-5555-555555555555', 'card_onboarded', 'initial_provision', '{"channel": "nfc"}'::jsonb),
+    ('7c1f0000-0000-4000-8000-000000000001', null, 'customer_token_issued', 'e5555555-5555-5555-5555-555555555555', '{"type": "redeem"}'::jsonb),
+    ('7c1f0000-0000-4000-8000-000000000001', 'f7777777-7777-7777-7777-777777777777', 'staff_shift_start', 'counter_pos', '{"terminal": 1}'::jsonb);
 
--- 2.3 Execute delete_customer_data
+-- 2.3 Execute delete_wallet
 select is(
-    public.delete_customer_data('e5555555-5555-5555-5555-555555555555'::uuid),
+    public.delete_wallet('e5555555-5555-5555-5555-555555555555'::uuid),
     true,
-    'delete_customer_data returns true on successful erasure'
+    'delete_wallet returns true on successful erasure'
 );
 
 -- 2.4 Customer row deleted from public.customers
@@ -200,14 +204,14 @@ select is(
 
 -- 2.10 Anonymized compliance audit log entry exists with target = md5(p_customer::text)
 select is(
-    (select count(*)::int from public.audit_log where action = 'customer_self_deleted' and target = pg_catalog.md5('e5555555-5555-5555-5555-555555555555')),
+    (select count(*)::int from public.audit_log where action = 'customer_wallet_deleted' and target = pg_catalog.md5('e5555555-5555-5555-5555-555555555555')),
     1,
-    'Anonymized customer_self_deleted audit log row created with target = md5(customer_id)'
+    'Anonymized customer_wallet_deleted audit log row created with target = md5(customer_id)'
 );
 
 -- 2.11 Anonymized compliance audit log records RA_10173_erasure and actor is null
 select is(
-    (select detail->>'compliance' from public.audit_log where action = 'customer_self_deleted' and target = pg_catalog.md5('e5555555-5555-5555-5555-555555555555') limit 1),
+    (select detail->>'compliance' from public.audit_log where action = 'customer_wallet_deleted' and target = pg_catalog.md5('e5555555-5555-5555-5555-555555555555') limit 1),
     'RA_10173_erasure',
     'Anonymized audit log detail specifies compliance RA_10173_erasure'
 );
@@ -240,9 +244,13 @@ values
     ('b2222222-2222-2222-2222-222222222222', pg_catalog.now() - interval '35 days')
 on conflict (id) do nothing;
 
-insert into public.stamps (customer_id, tag_id, source, created_at)
+insert into public.customer_cards (tenant_id, customer_id)
 values
-    ('b2222222-2222-2222-2222-222222222222', 'tag_phase7_test_harness', 'nfc', pg_catalog.now() - interval '34 days');
+    ('7c1f0000-0000-4000-8000-000000000001', 'b2222222-2222-2222-2222-222222222222');
+
+insert into public.stamps (tenant_id, customer_id, tag_id, source, created_at)
+values
+    ('7c1f0000-0000-4000-8000-000000000001', 'b2222222-2222-2222-2222-222222222222', 'tag_phase7_test_harness', 'nfc', pg_catalog.now() - interval '34 days');
 
 -- Account C: Non-anonymous (backed up) customer (>30 days old, 0 stamps) -> MUST BE PRESERVED
 insert into auth.users (id, aud, role, email, is_anonymous, created_at)
