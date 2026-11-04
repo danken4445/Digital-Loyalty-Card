@@ -4,8 +4,8 @@
 --              claim_instagram_upsize, merge_anonymous_customer, delete_customer_data, is_staff, the
 --              customer_balances view and the staff table. It also locks the ledgers to wallet cards
 --              (composite foreign keys), removes the tenant #1 column defaults, reclassifies platform
---              audit rows, gives log_audit_event a tenant argument, fixes the stale anonymous cleanup,
---              and adds merge_nonce_used so the app never reads audit_log with the service role.
+--              audit rows, gives log_audit_event a tenant argument and fixes the stale anonymous cleanup.
+--              merge_nonce_used lives in 20261104080000 (additive), so the app can deploy before this file.
 
 -- -----------------------------------------------------------------------------
 -- 1. FINAL BACKFILL (insert-only), THEN RETIRE THE BACKFILL FUNCTION
@@ -225,26 +225,3 @@ $$;
 
 revoke all on function public.cleanup_stale_anonymous_customers(interval) from public, anon, authenticated;
 grant execute on function public.cleanup_stale_anonymous_customers(interval) to service_role;
-
--- -----------------------------------------------------------------------------
--- 10. SINGLE-USE MERGE NONCE LOOKUP (replaces a service-role audit_log read)
--- -----------------------------------------------------------------------------
-
-create or replace function public.merge_nonce_used(
-  p_nonce text
-) returns boolean
-language sql
-stable
-security definer
-set search_path = ''
-as $$
-  select exists (
-    select 1
-    from public.audit_log as a
-    where a.action = 'customer_merge_token_used'
-      and a.target = p_nonce
-  );
-$$;
-
-revoke all on function public.merge_nonce_used(text) from public, anon, authenticated;
-grant execute on function public.merge_nonce_used(text) to service_role;

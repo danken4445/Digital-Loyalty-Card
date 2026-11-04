@@ -1,6 +1,5 @@
 import { GetCardButton } from '@/components/card/GetCardButton';
 import { OnboardingCard } from '@/components/card/OnboardingCard';
-import { SHOP_CONFIG } from '@/lib/config';
 
 interface StartPageProps {
   searchParams: Promise<{ t?: string | string[] | undefined }>;
@@ -15,12 +14,13 @@ export default async function StartPage({ searchParams }: StartPageProps) {
   // Arrived from an NFC tap: the stamp is waiting. Arrived directly: just make the card.
   return (
     <OnboardingCard
-      pageLabel={`${SHOP_CONFIG.name} Onboarding`}
+      pageLabel="Loyalty card onboarding"
+      instagramHandle={null}
       title={tagId !== null ? 'Claim your first stamp' : 'Get your loyalty card'}
       lines={
         tagId !== null
-          ? ['Your tap worked.', 'Make your card and the stamp goes straight on it.']
-          : ['No app download. No form.', 'Collect 10 stamps for a free coffee.']
+          ? ['Your tap worked.', 'Make your card to add the shop and claim your stamp.']
+          : ['No app download. No form.', 'Collect stamps and earn rewards at your favourite shops.']
       }
     >
       <GetCardButton mode="start" tagId={tagId} />

@@ -20,6 +20,15 @@ export interface RedeemRewardFormProps {
   instagramHandle?: string;
 }
 
+/** Shown on the redeem preview when the customer cannot redeem yet. */
+export function ineligibleRedeemMessage(
+  availableStamps: number,
+  rewardThreshold: number,
+  rewardLabel: string,
+): string {
+  return `Customer has ${availableStamps} stamps. ${rewardThreshold} stamps are required to redeem: ${rewardLabel}.`;
+}
+
 export function RedeemRewardForm({
   rewardThreshold = STAMP_RULES.rewardThreshold,
   rewardLabel = 'FREE COFFEE',
@@ -294,9 +303,7 @@ export function RedeemRewardForm({
               </button>
             ) : (
               <div className="rounded-xl border border-plug-border bg-plug-black p-4 text-center text-xs text-plug-muted">
-                Customer has {preview.availableStamps} stamps. {rewardThreshold} stamps are required
-                to redeem:
-                {rewardLabel}.
+                {ineligibleRedeemMessage(preview.availableStamps, rewardThreshold, rewardLabel)}
               </div>
             )}
           </div>

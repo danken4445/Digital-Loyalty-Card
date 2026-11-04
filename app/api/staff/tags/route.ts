@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { decorateTagWithUrls, generateRandomTagId, requireStaffSession } from '@/lib/auth/staff';
+import {
+  decorateTagWithUrls,
+  generateRandomTagId,
+  getTenantAliasHost,
+  requireStaffSession,
+} from '@/lib/auth/staff';
 import {
   TAG_MANAGER_ROLES,
   type ApiResponse,
@@ -87,7 +92,8 @@ export async function GET(request?: Request): Promise<NextResponse<ApiResponse<T
       );
     }
 
-    const tagsWithUrls = ((data ?? []) as TagRow[]).map(decorateTagWithUrls);
+    const aliasHost = await getTenantAliasHost(auth.staff.tenantId);
+    const tagsWithUrls = ((data ?? []) as TagRow[]).map((tag) => decorateTagWithUrls(tag, aliasHost));
 
     return NextResponse.json<ApiResponse<TagWithUrls[]>>({
       ok: true,
@@ -257,7 +263,7 @@ export async function POST(
           ok: true,
           data: {
             action: 'create',
-            tag: decorateTagWithUrls(inserted),
+            tag: decorateTagWithUrls(inserted, await getTenantAliasHost(auth.staff.tenantId)),
           },
         },
         { status: 200 },
@@ -294,7 +300,7 @@ export async function POST(
           ok: true,
           data: {
             action: 'deactivate',
-            tag: decorateTagWithUrls(updated),
+            tag: decorateTagWithUrls(updated, await getTenantAliasHost(auth.staff.tenantId)),
             deactivatedTagId: parsed.data.tagId,
           },
         },
@@ -346,7 +352,7 @@ export async function POST(
         ok: true,
         data: {
           action: 'rotate',
-          tag: decorateTagWithUrls(newTag),
+          tag: decorateTagWithUrls(newTag, await getTenantAliasHost(auth.staff.tenantId)),
           deactivatedTagId: parsed.data.tagId,
         },
       },

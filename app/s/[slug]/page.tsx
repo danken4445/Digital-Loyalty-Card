@@ -70,8 +70,9 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
     return (
       <OnboardingCard
         pageLabel={`${tenant.name} Digital Loyalty Card`}
-        title={`Get your ${tenant.name} card`}
+        title={`Get a loyalty card at ${tenant.name}`}
         shopName={tenant.name}
+        originalShop={tenant.id === TENANT_ONE_ID}
         instagramHandle={instagramHandle ?? null}
         lines={[
           'No app download. No form. Instant digital stamp card.',
@@ -101,6 +102,7 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
         pageLabel={`${tenant.name} Digital Loyalty Card`}
         title={`${tenant.name} loyalty card`}
         shopName={tenant.name}
+        originalShop={tenant.id === TENANT_ONE_ID}
         instagramHandle={instagramHandle ?? null}
         lines={[`Collect ${rewardThreshold} stamps, get ${settings.rewardLabel}.`]}
       >
@@ -314,7 +316,13 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
               Privacy &amp; Data Rights (RA 10173)
             </Link>
 
-            <DeleteCardButton customerId={cardState.customerId} variant="compact" />
+            <DeleteCardButton
+              customerId={cardState.customerId}
+              variant="compact"
+              scope="card"
+              tenantSlug={tenant.slug}
+              tenantName={tenant.name}
+            />
           </div>
         </div>
       </section>

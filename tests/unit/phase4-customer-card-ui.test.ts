@@ -862,7 +862,7 @@ describe('Phase 4 Customer Card UI & Signed Redemption Token Test Suite', () => 
         });
         const html = renderToStaticMarkup(pageElement);
 
-        expect(html).toContain('Get your The Caffeine Plug card');
+        expect(html).toContain('Get a loyalty card at The Caffeine Plug');
         expect(html).toContain('No app download. No form.');
         expect(html).toContain('GET MY CARD');
         expect(html).not.toContain('ACTIVE WALLET');

@@ -141,6 +141,18 @@ export async function POST(
       );
     }
 
+    if (!isStampResultCode(stampResult)) {
+      // Never report an unknown or null RPC result as a successful stamp.
+      return NextResponse.json<ApiResponse<StaffManualStampResponse>>(
+        {
+          ok: false,
+          error: 'internal_error',
+          message: 'Unable to record manual stamp.',
+        },
+        { status: 500 },
+      );
+    }
+
     const supabase = await createSupabaseServerClient();
     const { data: bal } = await supabase
       .from('card_balances')
@@ -149,7 +161,7 @@ export async function POST(
       .eq('customer_id', parsed.data.customerId)
       .maybeSingle<{ available_stamps: number | null }>();
 
-    const result: StampResultCode = isStampResultCode(stampResult) ? stampResult : 'stamped';
+    const result: StampResultCode = stampResult;
 
     return NextResponse.json<ApiResponse<StaffManualStampResponse>>(
       {

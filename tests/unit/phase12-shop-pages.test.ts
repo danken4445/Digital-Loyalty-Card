@@ -221,7 +221,7 @@ describe('shop card page (/s/[slug])', () => {
     const html = renderToStaticMarkup(
       await ShopPage({ params: params('tokyo-roast'), searchParams: Promise.resolve({ t: 'tag-1' }) }),
     );
-    expect(html).toContain('Get your Tokyo Roast card');
+    expect(html).toContain('Get a loyalty card at Tokyo Roast');
     expect(html).toContain('GET MY CARD');
     expect(html).not.toContain('ACTIVE WALLET');
   });
@@ -254,7 +254,7 @@ describe('shop card page (/s/[slug])', () => {
     expect(html).not.toContain('PHT');
     expect(html).not.toContain('Follow us, size up');
     expect(html).not.toContain('thecaffeineplug8400');
-    expect(html).not.toContain('THE CAFFEINE PLUG');
+    expect(html).not.toMatch(/caffeine plug/i);
   });
 
   it('active card: shows the Instagram perk using the shop handle when configured', async () => {
@@ -539,5 +539,59 @@ describe('components', () => {
     expect(html).toContain('FREE PASTRY');
     expect(html).not.toContain('50% OFF');
     expect(html).not.toContain('Stamp 9 of');
+  });
+});
+
+describe('Phase 12 final fixes: shop-neutral onboarding', () => {
+  const params = (slug: string) => Promise.resolve({ slug });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('other shop signed out: no 50% OFF preview, no Caffeine Plug mascot, natural title', async () => {
+    vi.mocked(getTenantBySlug).mockResolvedValue(makeTenant());
+    vi.mocked(customerModule.getCustomerCardState).mockResolvedValue(null);
+    const html = renderToStaticMarkup(
+      await ShopPage({ params: params('tokyo-roast'), searchParams: Promise.resolve({}) }),
+    );
+    expect(html).not.toContain('50%');
+    expect(html).not.toContain('mascot');
+    expect(html).toContain('Get a loyalty card at Tokyo Roast');
+    expect(html).not.toContain('Get your Tokyo Roast');
+  });
+
+  it('other shop with no card yet: no 50% OFF preview or mascot', async () => {
+    vi.mocked(getTenantBySlug).mockResolvedValue(makeTenant());
+    vi.mocked(customerModule.getCustomerCardState).mockResolvedValue('no-card');
+    const html = renderToStaticMarkup(
+      await ShopPage({ params: params('tokyo-roast'), searchParams: Promise.resolve({}) }),
+    );
+    expect(html).not.toContain('50%');
+    expect(html).not.toContain('mascot');
+  });
+
+  it('original shop keeps its mascot and 50% OFF preview', async () => {
+    vi.mocked(getTenantBySlug).mockResolvedValue(
+      makeTenant({ id: TENANT_ONE_ID, slug: 'caffeine-plug', name: 'The Caffeine Plug' }),
+    );
+    vi.mocked(customerModule.getCustomerCardState).mockResolvedValue(null);
+    const html = renderToStaticMarkup(
+      await ShopPage({ params: params('caffeine-plug'), searchParams: Promise.resolve({}) }),
+    );
+    expect(html).toContain('50%');
+    expect(html).toContain('The Caffeine Plug mascot');
+    expect(html).toContain('Get a loyalty card at The Caffeine Plug');
+  });
+
+  it('/start is shop-neutral', async () => {
+    const StartPage = (await import('@/app/start/page')).default;
+    for (const search of [{}, { t: 'tag-1' }]) {
+      const html = renderToStaticMarkup(await StartPage({ searchParams: Promise.resolve(search) }));
+      expect(html).not.toMatch(/caffeine/i);
+      expect(html).not.toMatch(/coffee/i);
+      expect(html).not.toContain('50%');
+      expect(html).not.toContain('mascot');
+    }
   });
 });

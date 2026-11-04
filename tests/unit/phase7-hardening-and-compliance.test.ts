@@ -933,7 +933,7 @@ describe('Phase 7: Hardening, Compliance, and Security Test Suite', () => {
           }),
         );
 
-        expect(html).toContain('DELETE MY CARD &amp; DATA');
+        expect(html).toContain('Delete my wallet &amp; data');
         expect(html).toContain('w-full py-3 px-4');
         expect(html).toContain('bg-plug-elevated');
       });
@@ -946,7 +946,7 @@ describe('Phase 7: Hardening, Compliance, and Security Test Suite', () => {
           }),
         );
 
-        expect(html).toContain('DELETE MY CARD &amp; DATA');
+        expect(html).toContain('Delete my wallet &amp; data');
         expect(html).toContain('text-[10px]');
         expect(html).toContain('hover:underline');
       });
@@ -989,7 +989,7 @@ describe('Phase 7: Hardening, Compliance, and Security Test Suite', () => {
 
         // Section 5: Self-service erasure panel with DeleteCardButton
         expect(html).toContain('5. Self-Service Data Erasure Panel');
-        expect(html).toContain('DELETE MY CARD &amp; DATA');
+        expect(html).toContain('Delete my wallet &amp; data');
       });
 
       it('renders backed up pass indicator when authenticated user has linked email', async () => {
@@ -1004,7 +1004,7 @@ describe('Phase 7: Hardening, Compliance, and Security Test Suite', () => {
 
         expect(html).toContain('CONNECTED CARD #B2C3D4E5');
         expect(html).toContain('BACKED UP PASS');
-        expect(html).toContain('DELETE MY CARD &amp; DATA');
+        expect(html).toContain('Delete my wallet &amp; data');
       });
 
       it('renders unauthenticated state with NO ACTIVE CARD SESSION badge and accessible erasure button', async () => {
@@ -1017,7 +1017,7 @@ describe('Phase 7: Hardening, Compliance, and Security Test Suite', () => {
         expect(html).toContain('PHILIPPINES REPUBLIC ACT NO. 10173');
         expect(html).toContain('100% anonymous');
         expect(html).toContain('30 days');
-        expect(html).toContain('DELETE MY CARD &amp; DATA');
+        expect(html).toContain('Delete my wallet &amp; data');
       });
     });
 
@@ -1035,7 +1035,7 @@ describe('Phase 7: Hardening, Compliance, and Security Test Suite', () => {
         expect(html).toContain('Your card and all associated data have been permanently erased.');
         expect(html).toContain('role="status"');
         expect(html).toContain('aria-live="polite"');
-        expect(html).toContain('Get your The Caffeine Plug card');
+        expect(html).toContain('Get a loyalty card at The Caffeine Plug');
       });
 
       it('does NOT render deleted confirmation banner when /card is loaded without deleted=1 param', async () => {
@@ -1051,7 +1051,7 @@ describe('Phase 7: Hardening, Compliance, and Security Test Suite', () => {
         expect(html).not.toContain(
           'Your card and all associated data have been permanently erased.',
         );
-        expect(html).toContain('Get your The Caffeine Plug card');
+        expect(html).toContain('Get a loyalty card at The Caffeine Plug');
       });
     });
   });

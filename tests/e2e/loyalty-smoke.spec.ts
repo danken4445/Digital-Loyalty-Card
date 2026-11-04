@@ -35,7 +35,7 @@ test.describe('Caffeine Plug NFC Loyalty - End-to-End Smoke Tests', () => {
 
     // Verify brand identity & onboarding copy
     const heading = page.getByRole('heading', {
-      name: /Get your The Caffeine Plug card/i,
+      name: /Get a loyalty card at The Caffeine Plug/i,
       level: 1,
     });
     await expect(heading).toBeVisible();

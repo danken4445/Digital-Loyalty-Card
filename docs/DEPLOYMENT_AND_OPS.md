@@ -58,8 +58,8 @@ Follow these numbered steps to set up your hosted Supabase database:
        3. Repeat for all 5 files in exact order.
      - **Option B (Supabase CLI):**
        1. Link your local project: `npx supabase link --project-ref <your-project-ref>`
-       2. Push all migrations: `npx supabase db push`
-   - The `20261104*` (Phases 10-11, multi-tenant) and `20261105000000_phase12_contract.sql` (Phase 12, removes the legacy single-shop objects) migrations follow the five above. Apply them in order too (`npx supabase db push` does). Apply the Phase 12 migration only after the Phase 12 app is deployed (see section 9).
+       2. Push the migrations: `npx supabase db push`. **On a fresh project with no live app, this applies everything and is safe. On an existing production project, do not run a plain `db push` from the Phase 12 branch**: it would also apply `20261105000000_phase12_contract.sql`, which drops functions the live app still calls. Follow the ordered sequence in section 9 instead.
+   - The `20261104*` migrations (Phases 10-11 multi-tenant, plus `20261104080000_merge_nonce_used.sql`) are additive and follow the five above. `20261105000000_phase12_contract.sql` (Phase 12, removes the legacy single-shop objects) is destructive and is applied last, after the Phase 12 app is live (see section 9).
    - _CRITICAL WARNING:_ Never run `supabase/seed.sql` on your production database. `seed.sql` is strictly for local Docker development and contains mock testing accounts.
 
 3. **Enable Anonymous Sign-Ins:**
@@ -324,7 +324,27 @@ Rolling back the Worker doesn't undo SQL migrations. The Phase 10–11 multi-ten
 
 The database and the app are multi-tenant (decision D-012 and D-013 in `DECISIONS.md`). The Caffeine Plug is tenant #1 (`caffeine-plug`, id `7c1f0000-0000-4000-8000-000000000001`). Until the Phase 14 console exists, shops and staff are managed with SQL in the Supabase SQL Editor.
 
-**Deploy order for the Phase 12 contract:** deploy the Phase 12 app first (it only calls tenant-aware functions), confirm a tap, a redemption and `/wallet` work, then apply `20261105000000_phase12_contract.sql`. The migration drops `public.staff`, `public.is_staff()`, `public.customer_balances`, the single-shop stamp, redeem, merge, perk and erasure functions and every `tenant_id` column default, and adds the composite foreign key from stamps, redemptions and perk claims to `customer_cards`. Until it is applied, wallet-merge links fail closed (the app calls `merge_nonce_used`, which the migration creates), so apply it promptly after the deploy.
+### Deploying Phase 12 to an existing production project
+
+Follow these steps in this exact order. The contract migration (`20261105000000_phase12_contract.sql`) drops `public.staff`, `public.is_staff()`, `public.customer_balances`, the single-shop stamp, redeem, merge, perk and erasure functions and every `tenant_id` column default, and adds the composite foreign key from stamps, redemptions and perk claims to `customer_cards`. The old app cannot run after it, and the new app cannot run before the additive migrations.
+
+1. **Apply the additive migrations only: the Phase 10-11 files (`20261104000000` to `20261104070000`) and `20261104080000_merge_nonce_used.sql`.**
+   - **Warning:** a plain `npx supabase db push` from the Phase 12 branch also applies `20261105000000_phase12_contract.sql` and takes production down while the old app is still serving. Do not use it as-is.
+   - Safe way with the CLI: move the contract file out of the repository for the push, then put it back.
+     ```bash
+     mv supabase/migrations/20261105000000_phase12_contract.sql ../phase12_contract.sql.hold
+     npx supabase db push --dry-run   # the list must NOT contain 20261105000000
+     npx supabase db push
+     mv ../phase12_contract.sql.hold supabase/migrations/20261105000000_phase12_contract.sql
+     ```
+   - Alternative: paste each file into the SQL Editor in order, then record it so a later `db push` does not re-run it: `npx supabase migration repair --status applied <version>` for each version.
+   - If production already has `20261104*` applied and `main` later gains an older-dated hotfix migration (for example `20261103010000`), `db push` refuses it; use `npx supabase db push --include-all`, still with the contract file held out until step 5.
+2. **Backfill cards for customers created by the old app:** in the SQL Editor run `select private.backfill_tenant1();`. Run it immediately before step 3. Customers who signed up after the Phase 10 backfill have no wallet card yet; without this they see an empty `/wallet`, their taps return `no-card`, and staff stamps and redemptions fail until they press "Add card". It is safe to run more than once.
+3. **Deploy the Phase 12 app and enable CAPTCHA together.** Deploy the Worker (`npm run deploy:cf`) and, in the same window, turn on Supabase **Authentication -> Attack Protection -> CAPTCHA protection -> Turnstile** (section 5.1, step 10). The order matters in both directions: with CAPTCHA on and the old app live, the old customer route re-verifies a consumed token and rejects every new customer; with the new app live and CAPTCHA off, anonymous sign-up is unprotected. Supabase CAPTCHA also covers staff password and magic-link sign-in and the email "recover" sign-in; the Phase 12 forms send the Turnstile token for all of them.
+4. **Smoke-check:** tap a tag (the stamp lands), redeem a reward (QR to staff), open `/wallet`, and sign in at `/staff/login` (password and magic link). If anything fails, `npx wrangler rollback` is still safe because the contract has not run.
+5. **Apply the contract migration:** `20261105000000_phase12_contract.sql` (SQL Editor, or `npx supabase db push` now that the file is back). After it, roll back only to a Phase 12 (or later) Worker version.
+
+NFC tag URLs shown in `/staff/tags` use the shop's alias host from `public.tenant_domains` when it has one, otherwise `NEXT_PUBLIC_SITE_URL`. Set the platform origin in `wrangler.jsonc` (or add the alias row) before writing tags onto physical NFC cards; a written tag URL is permanent.
 
 ### Adding a shop
 
@@ -362,5 +382,5 @@ Owners and managers register and rotate NFC tags in `/staff/tags` for the active
 ### Customer data
 
 - A customer's wallet holds one card per shop; stamps, redemptions and perk claims belong to a (shop, customer) card.
-- Erasing from `/privacy` deletes the whole wallet; removing a single card deletes only that shop's ledger.
+- "Remove this card" on a shop's page deletes only that shop's card and ledger (`DELETE /api/cards`). "Delete my wallet & data" on `/wallet` and `/privacy` erases every card and the account (`DELETE /api/customers`).
 - Platform-level audit rows (wallet erasure, stale-account cleanup, wallet merges) have a null `tenant_id` and are not visible to any shop's staff.

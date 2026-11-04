@@ -103,8 +103,10 @@ import {
   decorateTagWithUrls,
   detectActivityAnomalies,
   generateRandomTagId,
+  getTenantAliasHost,
   requireStaffSession,
 } from '@/lib/auth/staff';
+import { ineligibleRedeemMessage } from '@/components/staff/RedeemRewardForm';
 import { TagManagerClient } from '@/components/staff/TagManagerClient';
 import { issueRedeemToken } from '@/lib/security/redeemToken';
 import { getTenantById } from '@/lib/tenants/context';
@@ -633,5 +635,78 @@ describe('Phase 12: tag manager UI by role', () => {
     expect(html).toContain('Provision NTAG215 Hardware Tag');
     expect(html).toContain('Rotate Tag');
     expect(html).toContain('Deactivate Tag');
+  });
+});
+
+describe('Phase 12 final fixes', () => {
+  const TAG = {
+    id: 'tcp_tag_abc',
+    label: null,
+    active: true,
+    created_at: '2026-11-04T00:00:00Z',
+    deactivated_at: null,
+  };
+
+  it('tag_url_uses_alias_host_when_the_shop_has_one', () => {
+    const decorated = decorateTagWithUrls(TAG, 'card.beanthere.example');
+    expect(decorated.productionTapUrl).toBe('https://card.beanthere.example/t/tcp_tag_abc');
+    // local URL is never an alias
+    expect(decorated.localTapUrl).toBe('http://localhost:3000/t/tcp_tag_abc');
+  });
+
+  it('tag_url_falls_back_to_site_url_without_alias', () => {
+    expect(decorateTagWithUrls(TAG, null).productionTapUrl).toBe('http://localhost:3000/t/tcp_tag_abc');
+    expect(decorateTagWithUrls(TAG).productionTapUrl).toBe('http://localhost:3000/t/tcp_tag_abc');
+  });
+
+  it('getTenantAliasHost reads tenant_domains with the session client for that shop', async () => {
+    tableResults['tenant_domains'] = { data: { host: 'card.beanthere.example' }, error: null };
+    await expect(getTenantAliasHost(SHOP_B_ID)).resolves.toBe('card.beanthere.example');
+    expect(eqsFor('tenant_domains')).toEqual([['tenant_id', SHOP_B_ID]]);
+    expect(mockAdminClient.from).not.toHaveBeenCalled();
+
+    tableResults['tenant_domains'] = { data: null, error: null };
+    await expect(getTenantAliasHost(SHOP_B_ID)).resolves.toBeNull();
+    tableResults['tenant_domains'] = { data: null, error: { message: 'rls' } };
+    await expect(getTenantAliasHost(SHOP_B_ID)).resolves.toBeNull();
+  });
+
+  it('tags_post_returns_alias_url_for_a_shop_with_alias', async () => {
+    useStaff('manager');
+    tableResults['tenant_domains'] = { data: { host: 'card.beanthere.example' }, error: null };
+    mockAdminClient.rpc.mockResolvedValue({ data: 'created', error: null });
+    tableResults['tags'] = {
+      data: { id: 'tcp_tag_x', label: 'Door', active: true, created_at: 'x', deactivated_at: null },
+      error: null,
+    };
+    const res = await staffTagsPost(
+      jsonRequest('/api/staff/tags', { action: 'create', label: 'Door' }),
+    );
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.data.tag.productionTapUrl).toBe('https://card.beanthere.example/t/tcp_tag_x');
+  });
+
+  it.each([null, 'weird-result', 42])(
+    'manual_stamp_unknown_rpc_result_is_500_not_stamped (%s)',
+    async (rpcResult) => {
+      mockAdminClient.rpc.mockResolvedValue({ data: rpcResult, error: null });
+      tableResults['card_balances'] = { data: { available_stamps: 4 }, error: null };
+
+      const res = await staffStampPost(
+        jsonRequest('/api/staff/stamp', { customerId: CUSTOMER_ID, reason: 'NFC antenna broken' }),
+      );
+
+      expect(res.status).toBe(500);
+      const json = await res.json();
+      expect(json.ok).toBe(false);
+      expect(json.error).toBe('internal_error');
+    },
+  );
+
+  it('redeem_ineligible_message_has_a_space_before_the_reward_label', () => {
+    const text = ineligibleRedeemMessage(4, 10, 'FREE COFFEE');
+    expect(text).toBe('Customer has 4 stamps. 10 stamps are required to redeem: FREE COFFEE.');
+    expect(text).not.toMatch(/redeem:[^ ]/);
   });
 });

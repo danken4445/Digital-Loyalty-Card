@@ -3,6 +3,7 @@ import { listWalletCards } from '@/lib/auth/customer';
 import { isStampResultCode, ROUTES } from '@/lib/contracts';
 import { OnboardingCard } from '@/components/card/OnboardingCard';
 import { StripResultParam } from '@/components/card/StripResultParam';
+import { DeleteCardButton } from '@/components/card/DeleteCardButton';
 
 interface WalletPageProps {
   searchParams: Promise<{
@@ -99,6 +100,10 @@ export default async function WalletPage({ searchParams }: WalletPageProps) {
         >
           Privacy &amp; Data Rights (RA 10173)
         </Link>
+
+        <div className="mt-3 pt-3 border-t border-plug-border/60 w-full flex flex-col items-center">
+          <DeleteCardButton variant="compact" scope="wallet" />
+        </div>
       </section>
     </main>
   );

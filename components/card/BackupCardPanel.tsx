@@ -4,6 +4,8 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { ROUTES } from '@/lib/contracts';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+import { TurnstileWidget } from '@/components/auth/TurnstileWidget';
+import { signInWithEmailLink } from '@/lib/auth/captchaSignIn';
 
 export interface BackupCardPanelProps {
   customerId: string;
@@ -50,6 +52,9 @@ export function BackupCardPanel({
   const [consentChecked, setConsentChecked] = useState<boolean>(false);
   const [emailInput, setEmailInput] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  // Turnstile tokens are single-use: bump the key to remount the widget for a fresh one.
+  const [widgetKey, setWidgetKey] = useState<number>(0);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -227,9 +232,11 @@ export function BackupCardPanel({
 
   const handleEmailRecover = async () => {
     const cleanEmail = emailInput.trim();
-    if (isSubmitting || !cleanEmail) {
+    if (isSubmitting || !cleanEmail || !captchaToken) {
       return;
     }
+    const token = captchaToken;
+    setCaptchaToken(null);
 
     setIsSubmitting(true);
     setErrorMessage(null);
@@ -238,11 +245,10 @@ export function BackupCardPanel({
     try {
       await prepareMergeIntent();
       const supabase = createSupabaseBrowserClient();
-      const { error } = await supabase.auth.signInWithOtp({
+      const { error } = await signInWithEmailLink(supabase, {
         email: cleanEmail,
-        options: {
-          emailRedirectTo: getCallbackUrl(),
-        },
+        emailRedirectTo: getCallbackUrl(),
+        captchaToken: token,
       });
 
       if (error) {
@@ -257,6 +263,7 @@ export function BackupCardPanel({
       );
     } finally {
       setIsSubmitting(false);
+      setWidgetKey((k) => k + 1);
     }
   };
 
@@ -453,9 +460,18 @@ export function BackupCardPanel({
               onChange={(e) => setEmailInput(e.target.value)}
               className="w-full rounded-xl border border-plug-border bg-plug-black px-3.5 py-2.5 text-xs font-mono text-white placeholder-neutral-600 transition-colors focus-visible:border-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
             />
+            <TurnstileWidget
+              key={widgetKey}
+              onVerify={(token) => setCaptchaToken(token)}
+              onExpire={() => setCaptchaToken(null)}
+              onError={() => {
+                setCaptchaToken(null);
+                setErrorMessage('Security check failed. Please refresh the page and try again.');
+              }}
+            />
             <button
               type="button"
-              disabled={isSubmitting || !emailInput.trim()}
+              disabled={isSubmitting || !emailInput.trim() || !captchaToken}
               onClick={handleEmailRecover}
               className="w-full py-2.5 px-4 bg-plug-surface text-white font-mono font-bold text-xs tracking-wider uppercase border border-plug-border hover:bg-zinc-800 hover:border-zinc-500 transition-all select-none flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer active:scale-[0.99] rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black"
             >

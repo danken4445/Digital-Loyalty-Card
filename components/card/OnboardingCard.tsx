@@ -14,6 +14,11 @@ export interface OnboardingCardProps {
   notice?: ReactNode;
   /** Shop name for the mascot alt text; defaults to the platform's original shop. */
   shopName?: string;
+  /**
+   * True only for the original shop (tenant #1): shows its mascot and the 50% OFF milestone
+   * preview. Other shops (and shop-neutral pages) get neither until they have their own branding.
+   */
+  originalShop?: boolean;
   /** Instagram handle shown under the card; null hides it, undefined uses the original shop's. */
   instagramHandle?: string | null;
   /** The call to action, usually <GetCardButton /> */
@@ -63,6 +68,7 @@ export function OnboardingCard({
   lines,
   notice,
   shopName = SHOP_CONFIG.name,
+  originalShop = false,
   instagramHandle = SHOP_CONFIG.instagramHandle,
   children,
 }: OnboardingCardProps) {
@@ -74,14 +80,16 @@ export function OnboardingCard({
       {notice}
 
       <section className="w-full max-w-[390px] bg-plug-surface/95 border border-plug-border rounded-3xl px-5 pb-6 pt-8 shadow-[0_24px_60px_rgba(0,0,0,0.8)] backdrop-blur-md flex flex-col items-center text-center">
-        <Image
-          src={BRAND_THEME.assets.mascotFull}
-          alt={`${shopName} mascot`}
-          width={144}
-          height={144}
-          priority
-          className="h-36 w-36 object-contain mix-blend-lighten"
-        />
+        {originalShop && (
+          <Image
+            src={BRAND_THEME.assets.mascotFull}
+            alt={`${shopName} mascot`}
+            width={144}
+            height={144}
+            priority
+            className="h-36 w-36 object-contain mix-blend-lighten"
+          />
+        )}
 
         <h1 className="mt-4 font-display text-4xl font-bold uppercase leading-[0.95] tracking-wide text-white">
           {title}
@@ -95,9 +103,11 @@ export function OnboardingCard({
           ))}
         </div>
 
-        <div className="mt-6">
-          <StampRowPreview />
-        </div>
+        {originalShop && (
+          <div className="mt-6">
+            <StampRowPreview />
+          </div>
+        )}
 
         <div className="w-full mt-6">{children}</div>
 

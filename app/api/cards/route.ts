@@ -5,6 +5,7 @@ import {
   type AddCardResponse,
   type AddCardResultCode,
   type ApiResponse,
+  type DeleteCardResponse,
   type StampResultCode,
 } from '@/lib/contracts';
 import { parseStampCardPayload } from '@/lib/nfc/stampOutcome';
@@ -28,6 +29,10 @@ function fail(
 ): NextResponse<ApiResponse<AddCardResponse>> {
   return NextResponse.json<ApiResponse<AddCardResponse>>({ ok: false, error, message }, { status });
 }
+
+const deleteCardBodySchema = z.object({
+  tenantSlug: z.string().trim().min(3).max(40),
+});
 
 function isAddCardResult(value: unknown): value is AddCardResultCode {
   return value === 'added' || value === 'already-added' || value === 'tenant-unavailable';
@@ -126,5 +131,69 @@ export async function POST(
     });
   } catch {
     return fail(500, 'internal_error', 'Unable to add this card.');
+  }
+}
+
+/** Removes only the caller's card at one shop (and its stamps). Other shops' cards are untouched. */
+export async function DELETE(
+  request: Request,
+): Promise<NextResponse<ApiResponse<DeleteCardResponse>>> {
+  const failDelete = (
+    status: number,
+    error: Extract<ApiResponse<DeleteCardResponse>, { ok: false }>['error'],
+    message: string,
+  ) => NextResponse.json<ApiResponse<DeleteCardResponse>>({ ok: false, error, message }, { status });
+
+  const csrf = verifySameOriginRequest(request);
+  if (!csrf.allowed) {
+    return failDelete(403, 'forbidden', 'Cross-origin request blocked.');
+  }
+
+  const user = await getVerifiedUser();
+  if (!user) {
+    return failDelete(401, 'unauthenticated', 'Active session required to remove a card.');
+  }
+
+  const rl = await checkPublicEndpointRateLimit({
+    endpoint: 'cards',
+    ip: getClientIp(request),
+    customerId: user.id,
+  });
+  if (!rl.allowed) {
+    return failDelete(429, 'rate_limited', 'Too many requests. Please wait a moment.');
+  }
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return failDelete(400, 'invalid_input', 'Invalid request payload.');
+  }
+  const parsed = deleteCardBodySchema.safeParse(body);
+  if (!parsed.success) {
+    return failDelete(400, 'invalid_input', 'Invalid request payload.');
+  }
+
+  try {
+    const tenant = await getTenantBySlug(parsed.data.tenantSlug);
+    if (!tenant) {
+      return failDelete(404, 'invalid_input', 'Shop not found.');
+    }
+
+    const admin = createSupabaseAdminClient();
+    const { data, error } = await admin.rpc('remove_card', {
+      p_customer: user.id,
+      p_tenant: tenant.id,
+    });
+    if (error) {
+      return failDelete(500, 'internal_error', 'Unable to remove this card.');
+    }
+
+    return NextResponse.json<ApiResponse<DeleteCardResponse>>(
+      { ok: true, data: { removed: data === true, redirectTo: ROUTES.wallet } },
+      { headers: { 'Cache-Control': 'no-store' } },
+    );
+  } catch {
+    return failDelete(500, 'internal_error', 'Unable to remove this card.');
   }
 }

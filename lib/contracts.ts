@@ -146,6 +146,16 @@ export interface AddCardResponse {
   redirectTo: string;
 }
 
+export interface DeleteCardRequest {
+  tenantSlug: string;
+}
+
+export interface DeleteCardResponse {
+  /** False when the customer had no card at that shop (idempotent). */
+  removed: boolean;
+  redirectTo: string;
+}
+
 export interface RedeemTokenRequest {
   tenantSlug: string;
 }

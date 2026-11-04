@@ -173,11 +173,36 @@ export function generateRandomTagId(): string {
 }
 
 /**
- * Decorates a TagRow with the exact URLs to write into NFC Tools / NXP TagWriter.
- * Both are built from NEXT_PUBLIC_SITE_URL (the platform's public origin); tags are shop-neutral
- * URLs because SQL resolves the shop from the tag.
+ * The active shop's alias host from tenant_domains (readable by the session client), or null.
+ * Never throws: tag URLs fall back to the platform origin.
  */
-export function decorateTagWithUrls(tag: TagRow): TagWithUrls {
+export async function getTenantAliasHost(tenantId: string): Promise<string | null> {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase
+      .from('tenant_domains')
+      .select('host')
+      .eq('tenant_id', tenantId)
+      .order('host', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (error) {
+      return null;
+    }
+    const host = (data as { host?: string } | null)?.host;
+    return typeof host === 'string' && host.length > 0 ? host : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Decorates a TagRow with the exact URLs to write into NFC Tools / NXP TagWriter.
+ * Tags are shop-neutral URLs because SQL resolves the shop from the tag. The production URL uses the
+ * shop's own alias host (tenant_domains) when it has one, otherwise NEXT_PUBLIC_SITE_URL (the
+ * platform's public origin). The local URL always uses NEXT_PUBLIC_SITE_URL.
+ */
+export function decorateTagWithUrls(tag: TagRow, aliasHost?: string | null): TagWithUrls {
   const encodedId = encodeURIComponent(tag.id);
   const configuredSiteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000').replace(
     /\/+$/,
@@ -186,7 +211,9 @@ export function decorateTagWithUrls(tag: TagRow): TagWithUrls {
 
   return {
     ...tag,
-    productionTapUrl: `${configuredSiteUrl}/t/${encodedId}`,
+    productionTapUrl: aliasHost
+      ? `https://${aliasHost}/t/${encodedId}`
+      : `${configuredSiteUrl}/t/${encodedId}`,
     localTapUrl: `${configuredSiteUrl}/t/${encodedId}`,
   };
 }
@@ -402,5 +429,6 @@ export async function getStaffTagsList(): Promise<TagWithUrls[]> {
     throw new Error(`Failed to fetch tags list: ${error.message}`);
   }
 
-  return ((data ?? []) as TagRow[]).map(decorateTagWithUrls);
+  const aliasHost = await getTenantAliasHost(staff.tenantId);
+  return ((data ?? []) as TagRow[]).map((tag) => decorateTagWithUrls(tag, aliasHost));
 }

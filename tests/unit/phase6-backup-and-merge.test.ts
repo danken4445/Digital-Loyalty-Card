@@ -1213,7 +1213,7 @@ describe('Phase 6: Customer Backup, Recovery & Merge Test Suite', () => {
         const pageElement = await ShopPage({ params: SHOP_PARAMS, searchParams: Promise.resolve({}) });
         const html = renderToStaticMarkup(pageElement);
 
-        expect(html).toContain('Get your The Caffeine Plug card');
+        expect(html).toContain('Get a loyalty card at The Caffeine Plug');
         expect(html).toContain('No app download. No form. Instant digital stamp card.');
         expect(html).toContain('Collect 10 stamps');
 

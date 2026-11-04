@@ -6,6 +6,8 @@ import { useState } from 'react';
 import { BRAND_THEME, SHOP_CONFIG } from '@/lib/config';
 import { ROUTES } from '@/lib/contracts';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+import { TurnstileWidget } from '@/components/auth/TurnstileWidget';
+import { signInStaffWithPassword, signInWithEmailLink } from '@/lib/auth/captchaSignIn';
 
 export interface StaffLoginFormProps {
   nextPath?: string;
@@ -20,6 +22,9 @@ export function StaffLoginForm({ nextPath, initialError }: StaffLoginFormProps) 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  // Turnstile tokens are single-use: bump the key to remount the widget for a fresh one.
+  const [widgetKey, setWidgetKey] = useState(0);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(
     initialError === 'forbidden'
@@ -48,6 +53,11 @@ export function StaffLoginForm({ nextPath, initialError }: StaffLoginFormProps) 
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (!captchaToken) {
+      return;
+    }
+    const token = captchaToken;
+    setCaptchaToken(null);
     setLoading(true);
     setErrorMessage(null);
     setStatusMessage(null);
@@ -57,9 +67,10 @@ export function StaffLoginForm({ nextPath, initialError }: StaffLoginFormProps) 
 
     try {
       if (mode === 'password') {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { error } = await signInStaffWithPassword(supabase, {
           email: cleanEmail,
           password,
+          captchaToken: token,
         });
 
         if (error) {
@@ -76,11 +87,10 @@ export function StaffLoginForm({ nextPath, initialError }: StaffLoginFormProps) 
 
         const emailRedirectTo = `${configuredSiteUrl}${destination}`;
 
-        const { error } = await supabase.auth.signInWithOtp({
+        const { error } = await signInWithEmailLink(supabase, {
           email: cleanEmail,
-          options: {
-            emailRedirectTo,
-          },
+          emailRedirectTo,
+          captchaToken: token,
         });
 
         if (error) {
@@ -98,6 +108,8 @@ export function StaffLoginForm({ nextPath, initialError }: StaffLoginFormProps) 
       );
     } finally {
       setLoading(false);
+      // The token was consumed by this attempt (success or failure); request a new one.
+      setWidgetKey((k) => k + 1);
     }
   }
 
@@ -226,9 +238,19 @@ export function StaffLoginForm({ nextPath, initialError }: StaffLoginFormProps) 
           </div>
         )}
 
+        <TurnstileWidget
+          key={widgetKey}
+          onVerify={(token) => setCaptchaToken(token)}
+          onExpire={() => setCaptchaToken(null)}
+          onError={() => {
+            setCaptchaToken(null);
+            setErrorMessage('Security check failed. Please refresh the page and try again.');
+          }}
+        />
+
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || !captchaToken}
           aria-busy={loading}
           className="mt-2 w-full inline-flex min-h-12 items-center justify-center rounded-xl border border-white bg-white px-4 py-2.5 text-sm font-bold text-plug-black transition-transform active:scale-[0.99] hover:bg-neutral-200 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-plug-black"
         >
