@@ -1,7 +1,18 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('server-only', () => ({}));
+vi.mock('@/lib/supabase/admin', () => ({
+  createSupabaseAdminClient: () => ({
+    rpc: vi.fn().mockResolvedValue({
+      data: { lastRunAt: new Date().toISOString(), stale: false },
+      error: null,
+    }),
+  }),
+}));
+
 import { GET } from '@/app/api/health/route';
 import { SHOP_CONFIG } from '@/lib/config';
 import type { ApiResponse, HealthCheckResponse } from '@/lib/contracts';

@@ -5,7 +5,7 @@ import type { ApiResponse, HealthCheckResponse } from '@/lib/contracts';
 export async function GET(): Promise<NextResponse<ApiResponse<HealthCheckResponse>>> {
   let cleanup = {
     lastRunAt: null as string | null,
-    stale: false,
+    stale: true,
   };
 
   try {
@@ -18,9 +18,17 @@ export async function GET(): Promise<NextResponse<ApiResponse<HealthCheckRespons
         lastRunAt: payload.lastRunAt ?? null,
         stale: Boolean(payload.stale),
       };
+    } else {
+      cleanup = {
+        lastRunAt: null,
+        stale: true,
+      };
     }
   } catch {
-    // Fallback if admin client or DB is temporarily unavailable
+    cleanup = {
+      lastRunAt: null,
+      stale: true,
+    };
   }
 
   const status: 'ok' | 'degraded' = cleanup.stale ? 'degraded' : 'ok';

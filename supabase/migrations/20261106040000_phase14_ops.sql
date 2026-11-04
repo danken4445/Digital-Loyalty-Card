@@ -46,7 +46,8 @@ begin
   into v_last_run_at
   from cron.job_run_details as d
   join cron.job as j on j.jobid = d.jobid
-  where j.jobname = 'weekly-stale-anonymous-cleanup';
+  where j.jobname = 'weekly-stale-anonymous-cleanup'
+    and d.status = 'succeeded';
 
   v_stale := (v_last_run_at is null or v_last_run_at < (pg_catalog.now() - interval '8 days'));
 
@@ -122,6 +123,7 @@ begin
     left join tag_stamps as ts on ts.tag_id = t.id
     left join tag_rejections as tr on tr.tag_id = t.id
     where t.tenant_id = p_tenant
+      and t.active = true
       and (coalesce(ts.distinct_customers, 0) > 8 or coalesce(tr.throttle_rejections, 0) > 25)
   )
   select coalesce(

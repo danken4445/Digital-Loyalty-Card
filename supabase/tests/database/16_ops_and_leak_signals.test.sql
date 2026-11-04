@@ -16,7 +16,7 @@ set search_path to extensions, public;
 grant usage on schema extensions to anon, authenticated, service_role;
 grant execute on all functions in schema extensions to anon, authenticated, service_role;
 
-select plan(18);
+select plan(21);
 
 -- ------------------------------------------------------------------------------
 -- Fixtures: owners, managers, staff, customers, two tenants, tags
@@ -166,6 +166,23 @@ select is(
     'ops_cleanup_status_flags_stale_after_8_days: stale when last run was 9 days ago'
 );
 
+-- Record a failed run 1 day ago; it should NOT clear the stale status
+do $$
+declare
+  v_jobid bigint;
+begin
+  select jobid into v_jobid from cron.job where jobname = 'weekly-stale-anonymous-cleanup' limit 1;
+  insert into cron.job_run_details (jobid, runid, database, username, command, status, start_time, end_time)
+  values (v_jobid, 999903, current_database(), current_user, 'select 1;', 'failed', now() - interval '1 day', now() - interval '1 day');
+end;
+$$;
+
+select is(
+    (public.ops_cleanup_status()->>'stale')::boolean,
+    true,
+    'ops_cleanup_status_flags_stale_after_8_days: failed run 1 day ago does not clear stale'
+);
+
 -- ------------------------------------------------------------------------------
 -- 3. tag_leak_signals_scoped_to_tenant
 -- ------------------------------------------------------------------------------
@@ -292,6 +309,25 @@ select ok(
         where "tagId" = 'tcp_tag_shop_a_eight'
     ),
     'tag_leak_signals_thresholds: border eight tag is not flagged'
+);
+
+-- Deactivate leak1 tag (e.g. after operator rotates the tag)
+update public.tags
+set active = false, deactivated_at = now()
+where id = 'tcp_tag_shop_a_leak1';
+
+select is(
+    (select count(*)::integer from jsonb_to_recordset(public.tag_leak_signals('16000000-0000-4000-8000-000000000001', '16111111-0000-4000-8000-000000000001')) as x("tagId" text, "distinctCustomers" int, "throttleRejections" int)),
+    1,
+    'tag_leak_signals_thresholds: deactivated tag is excluded from leak signals'
+);
+
+select ok(
+    not exists (
+        select 1 from jsonb_to_recordset(public.tag_leak_signals('16000000-0000-4000-8000-000000000001', '16111111-0000-4000-8000-000000000001')) as x("tagId" text)
+        where "tagId" = 'tcp_tag_shop_a_leak1'
+    ),
+    'tag_leak_signals_thresholds: deactivated leak1 tag no longer appears in signals'
 );
 
 -- Finish pgTAP

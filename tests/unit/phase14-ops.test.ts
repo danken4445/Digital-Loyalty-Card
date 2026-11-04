@@ -136,6 +136,49 @@ describe('Phase 14 Ops (Task 8)', () => {
         stale: false,
       });
     });
+
+    it('returns degraded status when ops_cleanup_status RPC returns an error', async () => {
+      mockRpc.mockResolvedValueOnce({
+        data: null,
+        error: { message: 'Database connection failed' },
+      });
+
+      const response = await GET();
+      expect(response.status).toBe(200);
+
+      const body = (await response.json()) as ApiResponse<{
+        status: string;
+        service: string;
+        cleanup: { lastRunAt: string | null; stale: boolean };
+      }>;
+
+      expect(body.ok).toBe(true);
+      if (!body.ok) {
+        throw new Error('Expected ok: true');
+      }
+      expect(body.data.status).toBe('degraded');
+      expect(body.data.cleanup.stale).toBe(true);
+    });
+
+    it('returns degraded status when ops_cleanup_status RPC throws an exception', async () => {
+      mockRpc.mockRejectedValueOnce(new Error('Network timeout connecting to database'));
+
+      const response = await GET();
+      expect(response.status).toBe(200);
+
+      const body = (await response.json()) as ApiResponse<{
+        status: string;
+        service: string;
+        cleanup: { lastRunAt: string | null; stale: boolean };
+      }>;
+
+      expect(body.ok).toBe(true);
+      if (!body.ok) {
+        throw new Error('Expected ok: true');
+      }
+      expect(body.data.status).toBe('degraded');
+      expect(body.data.cleanup.stale).toBe(true);
+    });
   });
 
   describe('4. leak_banner_rotates_with_generated_tag_id', () => {
