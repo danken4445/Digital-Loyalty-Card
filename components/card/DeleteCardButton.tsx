@@ -17,7 +17,7 @@ export interface DeleteCardButtonProps {
    * 'wallet' (default) erases the whole wallet: every card and the account.
    * 'card' removes only the card of `tenantSlug`; the customer's other cards stay.
    */
-  scope?: 'wallet' | 'card';
+  scope?: 'wallet' | 'card' | 'shop';
   tenantSlug?: string;
   tenantName?: string;
 }
@@ -36,7 +36,7 @@ export function DeleteCardButton({
   tenantSlug,
   tenantName,
 }: DeleteCardButtonProps) {
-  const isCardScope = scope === 'card' && Boolean(tenantSlug);
+  const isCardScope = (scope === 'card' || scope === 'shop') && Boolean(tenantSlug);
   const buttonLabel = isCardScope ? REMOVE_CARD_LABEL : DELETE_WALLET_LABEL;
   const router = useRouter();
   const [isConfirming, setIsConfirming] = useState<boolean>(false);

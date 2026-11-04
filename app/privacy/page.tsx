@@ -7,8 +7,8 @@ import { getVerifiedUser } from '@/lib/supabase/server';
 import { DeleteCardButton } from '@/components/card/DeleteCardButton';
 
 export const metadata: Metadata = {
-  title: 'Privacy Notice & Data Rights (RA 10173)',
-  description: `Customer Privacy Notice and Data Subject Rights under Philippines Republic Act No. 10173 (Data Privacy Act of 2012) for ${SHOP_CONFIG.name}.`,
+  title: 'Platform Privacy Notice & Data Rights (RA 10173)',
+  description: `Customer Platform Privacy Notice, Wallet Identity, and Data Subject Rights under Philippines Republic Act No. 10173 (Data Privacy Act of 2012) for ${SHOP_CONFIG.name} and partner shops.`,
 };
 
 export default async function PrivacyPage() {
@@ -22,16 +22,16 @@ export default async function PrivacyPage() {
 
   return (
     <main
-      aria-label={`${SHOP_CONFIG.name} Privacy Notice and Data Subject Rights`}
+      aria-label="Platform Privacy Notice and Data Subject Rights"
       className="min-h-dvh w-full bg-topo-pattern bg-street-grid flex flex-col items-center justify-between px-4 py-6 sm:py-10"
     >
       {/* Top Navigation Bar */}
       <div className="w-full max-w-[580px] flex items-center justify-between text-[10px] font-mono tracking-widest text-plug-muted uppercase px-1 pb-3">
         <Link
-          href={ROUTES.card}
+          href={ROUTES.wallet}
           className="hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white rounded inline-flex items-center gap-1.5"
         >
-          &larr; BACK TO MY LOYALTY CARD
+          &larr; BACK TO MY WALLET
         </Link>
         <span>RA 10173 COMPLIANCE</span>
       </div>
@@ -73,10 +73,10 @@ export default async function PrivacyPage() {
           </p>
 
           <p className="text-[10px] uppercase tracking-widest text-neutral-400 mt-0.5">
-            {SHOP_CONFIG.name} &bull; {SHOP_CONFIG.tagline}
+            PLATFORM PRIVACY NOTICE &bull; DIGITAL WALLET IDENTITY
           </p>
 
-          {/* Active Card Status Badge */}
+          {/* Active Card / Wallet Status Badge */}
           <div className="mt-4">
             {cardState ? (
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-plug-elevated border border-plug-border text-xs font-mono text-neutral-200">
@@ -95,7 +95,37 @@ export default async function PrivacyPage() {
           </div>
         </header>
 
-        {/* Section 1: What We Collect (Data Minimization) */}
+        {/* Section 1: Platform Roles & Data Controllers */}
+        <section aria-labelledby="section-platform-roles" className="space-y-3">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 bg-white rounded-full" aria-hidden="true" />
+            <h2
+              id="section-platform-roles"
+              className="font-display text-base sm:text-lg font-black uppercase tracking-wider text-white"
+            >
+              1. Platform Operator &amp; Controller Roles
+            </h2>
+          </div>
+
+          <div className="space-y-2.5 text-xs sm:text-sm text-neutral-300 leading-relaxed pl-4 border-l border-plug-border">
+            <p>
+              Under Philippines Republic Act No. 10173 (Data Privacy Act of 2012):
+            </p>
+            <ul className="list-disc list-inside space-y-1.5 text-neutral-300">
+              <li>
+                <strong className="text-white">Wallet Identity &amp; Platform Controller</strong>: The Platform Operator acts as the{' '}
+                <strong className="text-white">Data Controller</strong> for your overall digital wallet account, credentials, and cross-shop pass collection.
+              </li>
+              <li>
+                <strong className="text-white">Shop Data Processor &amp; Shop Controllers</strong>: For each partner shop whose card you collect, that specific merchant acts as the{' '}
+                <strong className="text-white">Data Controller</strong> for their own stamp ledger and reward rules, while the Platform Operator acts as their secure{' '}
+                <strong className="text-white">Data Processor</strong>.
+              </li>
+            </ul>
+          </div>
+        </section>
+
+        {/* Section 2: What We Collect (Data Minimization) */}
         <section aria-labelledby="section-what-we-collect" className="space-y-3">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 bg-white rounded-full" aria-hidden="true" />
@@ -103,32 +133,31 @@ export default async function PrivacyPage() {
               id="section-what-we-collect"
               className="font-display text-base sm:text-lg font-black uppercase tracking-wider text-white"
             >
-              1. What We Collect (Data Minimization)
+              2. What We Collect (Data Minimization)
             </h2>
           </div>
 
           <div className="space-y-2.5 text-xs sm:text-sm text-neutral-300 leading-relaxed pl-4 border-l border-plug-border">
             <p>
-              By default, your digital stamp card is{' '}
+              By default, your digital stamp card and wallet are{' '}
               <strong className="text-white">100% anonymous</strong>. We generate a random UUID
               stored in an{' '}
               <code className="bg-neutral-800 text-neutral-200 px-1 py-0.5 rounded text-xs font-mono">
                 HttpOnly
               </code>{' '}
               browser cookie and record only the timestamps of your stamps, reward redemptions, and
-              whether your card has used its Instagram upsize. We never see or store your Instagram
-              account. We never ask for your name, phone number, or personal details to start
-              earning coffee stamps.
+              shop cards. We never see or store your social accounts. We never ask for your name, phone number, or personal details to start
+              earning stamps at any partner café.
             </p>
             <p>
               <strong className="text-white">Optional Card Backup</strong>: Only if you explicitly
-              check the consent box and choose to back up your card do we link your Google account
-              or email address via Supabase Auth so you can recover your stamps on a new phone.
+              choose to back up your wallet do we link your Google account
+              or email address via Supabase Auth so you can recover all your cards and stamps on a new device.
             </p>
           </div>
         </section>
 
-        {/* Section 2: What We Never Do */}
+        {/* Section 3: What We Never Do */}
         <section aria-labelledby="section-what-we-never-do" className="space-y-3">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 bg-white rounded-full" aria-hidden="true" />
@@ -136,22 +165,21 @@ export default async function PrivacyPage() {
               id="section-what-we-never-do"
               className="font-display text-base sm:text-lg font-black uppercase tracking-wider text-white"
             >
-              2. What We Never Do
+              3. What We Never Do
             </h2>
           </div>
 
           <div className="space-y-2.5 text-xs sm:text-sm text-neutral-300 leading-relaxed pl-4 border-l border-plug-border">
             <p>
-              We treat your digital privacy with the same uncompromising standards we roast our
-              coffee:
+              We treat your digital privacy with strict technical guardrails:
             </p>
             <ul className="list-disc list-inside space-y-1.5 text-neutral-300">
               <li>
                 <strong className="text-white">No background location tracking</strong>: We only
-                verify tag taps when you physically interact with the NFC counter tag.
+                verify tag taps when you physically interact with a shop counter tag.
               </li>
               <li>
-                <strong className="text-white">No contact-list access</strong> or device sensor
+                <strong className="text-white">No contact-list access</strong> or intrusive device sensor
                 permissions.
               </li>
               <li>
@@ -166,7 +194,29 @@ export default async function PrivacyPage() {
           </div>
         </section>
 
-        {/* Section 3: Data Retention & Automatic Cleanup */}
+        {/* Section 4: Cross-Shop Data Isolation & Singapore Hosting */}
+        <section aria-labelledby="section-isolation-hosting" className="space-y-3">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 bg-white rounded-full" aria-hidden="true" />
+            <h2
+              id="section-isolation-hosting"
+              className="font-display text-base sm:text-lg font-black uppercase tracking-wider text-white"
+            >
+              4. Cross-Shop Data Isolation &amp; Infrastructure
+            </h2>
+          </div>
+
+          <div className="space-y-2.5 text-xs sm:text-sm text-neutral-300 leading-relaxed pl-4 border-l border-plug-border">
+            <p>
+              <strong className="text-white">Cross-Shop Isolation</strong>: Each partner shop operates within an isolated cryptographic partition. Shops <strong className="text-white">never see cards from other shops</strong>, stamps earned elsewhere, or other merchant visits in your wallet. Database-level multi-tenant Row-Level Security (RLS) strictly isolates merchant data access.
+            </p>
+            <p>
+              <strong className="text-white">Hosting Region</strong>: All platform database records and cryptographic keys are hosted in the <strong className="text-white">AWS Singapore (<code className="font-mono text-xs">ap-southeast-1</code>)</strong> region, protected by TLS 1.3 encryption in transit and AES-256 encryption at rest.
+            </p>
+          </div>
+        </section>
+
+        {/* Section 5: Data Retention & Automatic Cleanup */}
         <section aria-labelledby="section-data-retention" className="space-y-3">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 bg-white rounded-full" aria-hidden="true" />
@@ -174,26 +224,26 @@ export default async function PrivacyPage() {
               id="section-data-retention"
               className="font-display text-base sm:text-lg font-black uppercase tracking-wider text-white"
             >
-              3. Data Retention &amp; Automatic Cleanup
+              5. Data Retention &amp; Automatic Cleanup
             </h2>
           </div>
 
           <div className="space-y-2.5 text-xs sm:text-sm text-neutral-300 leading-relaxed pl-4 border-l border-plug-border">
             <p>
-              In strict adherence to the storage limitation principle of RA 10173, anonymous cards
+              In strict adherence to the storage limitation principle of RA 10173, anonymous accounts
               with <strong className="text-white">0 stamps</strong> that remain inactive for more
               than <strong className="text-white">30 days</strong> (
               {SECURITY_CONFIG.staleAnonRetentionDays} days) are automatically purged from our
               database.
             </p>
             <p>
-              Cards with active stamps or linked backup accounts remain active so you can redeem
+              Cards with active stamps or linked backup accounts remain securely stored so you can redeem
               your rewards anytime.
             </p>
           </div>
         </section>
 
-        {/* Section 4: Your Rights Under Republic Act No. 10173 */}
+        {/* Section 6: Your Rights Under Republic Act No. 10173 */}
         <section aria-labelledby="section-your-rights" className="space-y-3">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 bg-white rounded-full" aria-hidden="true" />
@@ -201,7 +251,7 @@ export default async function PrivacyPage() {
               id="section-your-rights"
               className="font-display text-base sm:text-lg font-black uppercase tracking-wider text-white"
             >
-              4. Your Rights Under Republic Act No. 10173 (Data Privacy Act of 2012)
+              6. Your Rights Under Republic Act No. 10173 (Data Privacy Act of 2012)
             </h2>
           </div>
 
@@ -216,12 +266,12 @@ export default async function PrivacyPage() {
                   Right to Be Informed &amp; Right to Access:
                 </strong>
                 <p className="mt-0.5">
-                  View your exact stamp count, redemption total, and backup status anytime on{' '}
+                  View your active cards, stamp counts, and wallet collection anytime on{' '}
                   <Link
-                    href={ROUTES.card}
+                    href={ROUTES.wallet}
                     className="underline text-white hover:text-neutral-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white rounded"
                   >
-                    /card
+                    /wallet
                   </Link>
                   .
                 </p>
@@ -232,15 +282,15 @@ export default async function PrivacyPage() {
                   Right to Withdraw Consent &amp; Right to Erasure / Blocking:
                 </strong>
                 <p className="mt-0.5">
-                  You can permanently delete your loyalty card, all stamps, redemptions, and linked
-                  account data at any time with zero staff intervention using the button below.
+                  You can permanently delete your entire wallet, all shop cards, stamps, redemptions, and linked
+                  account data at any time with zero staff intervention using the panel below. If you only wish to remove a single shop&apos;s card, visit that shop&apos;s specific privacy notice or use the card removal action on the shop&apos;s card screen.
                 </p>
               </div>
             </div>
           </div>
         </section>
 
-        {/* Section 5: Self-Service Data Erasure Panel */}
+        {/* Section 7: Self-Service Data Erasure Panel */}
         <section
           aria-labelledby="section-self-service-erasure"
           className="rounded-2xl border-2 border-neutral-700 bg-plug-elevated/70 p-5 space-y-4 shadow-inner"
@@ -254,30 +304,30 @@ export default async function PrivacyPage() {
             </h2>
             <p className="text-xs text-neutral-300 leading-relaxed mt-1">
               Need your record removed? Exercise your Right to Erasure immediately. This permanently
-              purges your loyalty card, stamp transactions, redemption history, and linked
+              purges your entire digital wallet, every shop card, stamp transactions, redemption history, and linked
               authentication credentials.
             </p>
           </div>
 
           <div className="w-full pt-1">
-            <DeleteCardButton customerId={cardState?.customerId ?? null} variant="full" />
+            <DeleteCardButton customerId={cardState?.customerId ?? null} variant="full" scope="wallet" />
           </div>
         </section>
 
-        {/* Section 6: Navigation Back to Card */}
+        {/* Section 8: Navigation Back to Wallet */}
         <div className="pt-4 border-t border-plug-border flex justify-center">
           <Link
-            href={ROUTES.card}
+            href={ROUTES.wallet}
             className="text-xs font-mono font-bold tracking-widest text-neutral-300 hover:text-white uppercase transition-colors underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white rounded py-1 px-2 inline-flex items-center gap-1.5"
           >
-            &larr; BACK TO MY LOYALTY CARD
+            &larr; BACK TO MY WALLET
           </Link>
         </div>
       </article>
 
       {/* Streetwear Footer */}
       <footer className="w-full max-w-[580px] text-center text-[10px] font-mono tracking-widest text-plug-muted uppercase pt-4">
-        <span>THE CAFFEINE PLUG &copy; 2026</span>
+        <span>{SHOP_CONFIG.name} PLATFORM &copy; 2026</span>
       </footer>
     </main>
   );
