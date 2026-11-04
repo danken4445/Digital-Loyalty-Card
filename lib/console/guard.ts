@@ -26,6 +26,15 @@ export class ConsoleAccessError extends Error {
   }
 }
 
+export function isNotFoundError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const anyErr = err as { message?: string; digest?: string };
+  return (
+    anyErr.message === 'NEXT_NOT_FOUND' ||
+    (typeof anyErr.digest === 'string' && anyErr.digest.includes('NEXT_NOT_FOUND'))
+  );
+}
+
 /**
  * Authoritatively verifies whether the current request has console access to a specific tenant slug.
  *

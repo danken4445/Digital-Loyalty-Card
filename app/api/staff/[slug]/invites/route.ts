@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { requireConsoleAccess, ConsoleAccessError } from '@/lib/console/guard';
+import { requireConsoleAccess, ConsoleAccessError, isNotFoundError } from '@/lib/console/guard';
 import {
   STAFF_ROLES,
   type ApiErrorCode,
@@ -60,13 +60,23 @@ export async function POST(
         { status: err.status, headers: NO_STORE_HEADERS },
       );
     }
+    if (isNotFoundError(err)) {
+      return NextResponse.json<ApiResponse<{ result: 'invited' }>>(
+        {
+          ok: false,
+          error: 'invalid_input',
+          message: 'Tenant not found.',
+        },
+        { status: 404, headers: NO_STORE_HEADERS },
+      );
+    }
     return NextResponse.json<ApiResponse<{ result: 'invited' }>>(
       {
         ok: false,
-        error: 'invalid_input',
-        message: 'Tenant not found.',
+        error: 'internal_error',
+        message: 'Internal server error.',
       },
-      { status: 404, headers: NO_STORE_HEADERS },
+      { status: 500, headers: NO_STORE_HEADERS },
     );
   }
 

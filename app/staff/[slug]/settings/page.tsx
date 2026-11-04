@@ -19,7 +19,7 @@ interface TenantSettingsRow {
 
 export default async function RulesSettingsPage({ params }: RulesSettingsPageProps) {
   const { slug } = await params;
-  const { staff, tenantId } = await enforceConsolePageAccess(slug, 'staff');
+  const { staff, tenantId } = await enforceConsolePageAccess(slug, 'manager');
 
   const supabase = await createSupabaseServerClient();
   const { data: rawSettings, error } = await supabase

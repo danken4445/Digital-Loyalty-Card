@@ -448,5 +448,54 @@ describe('Phase 14 Task 6: Owner Console Shell, Rules, Staff, Invites', () => {
       params: Promise.resolve({ slug: 'shop-a' }),
     });
     expect(staffPageJsx).toBeDefined();
+
+    // Staff role cannot access RulesSettingsPage (requires manager)
+    queryResults['tenant_members'] = {
+      data: [
+        {
+          tenant_id: SHOP_A.id,
+          role: 'staff',
+          display_name: 'Shop A Barista',
+          tenants: SHOP_A,
+        },
+      ],
+      error: null,
+    };
+    await expect(
+      RulesSettingsPageDefault({ params: Promise.resolve({ slug: 'shop-a' }) }),
+    ).rejects.toThrow(`NEXT_REDIRECT: ${ROUTES.staff.login}?error=forbidden`);
+  });
+
+  it('routes_return_500_on_unexpected_guard_exceptions', async () => {
+    setupStandardUserMemberships();
+
+    // Force an unexpected exception (e.g. database error in requireStaffSession query)
+    queryResults['tenant_members'] = {
+      data: null,
+      error: { message: 'DB connection failure' },
+    };
+
+    const req = new Request('http://localhost:3000/api/staff/shop-a/rules', {
+      method: 'PATCH',
+      headers: {
+        'content-type': 'application/json',
+        origin: 'http://localhost:3000',
+      },
+      body: JSON.stringify({ reward_threshold: 10 }),
+    });
+
+    // When requireStaffSession encounters DB error, auth.authorized is false (forbidden)
+    // Now test unexpected runtime exception in requireConsoleAccess
+    const consoleGuardMod = await import('@/lib/console/guard');
+    const spy = vi.spyOn(consoleGuardMod, 'requireConsoleAccess').mockRejectedValueOnce(
+      new Error('Unexpected disk read error'),
+    );
+
+    const res = await rulesPatch(req, { params: Promise.resolve({ slug: 'shop-a' }) });
+    expect(res.status).toBe(500);
+    const body = await res.json();
+    expect(body.ok).toBe(false);
+    expect(body.error).toBe('internal_error');
+    spy.mockRestore();
   });
 });
