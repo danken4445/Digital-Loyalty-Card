@@ -374,6 +374,48 @@ export type Database = {
           },
         ];
       };
+      support_sessions: {
+        Row: {
+          admin_id: string;
+          ended_at: string | null;
+          expires_at: string;
+          id: string;
+          mode: string;
+          reason: string;
+          started_at: string;
+          tenant_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          admin_id: string;
+          ended_at?: string | null;
+          expires_at?: string;
+          id?: string;
+          mode?: string;
+          reason: string;
+          started_at?: string;
+          tenant_id: string;
+        };
+        Update: {
+          admin_id?: string;
+          ended_at?: string | null;
+          expires_at?: string;
+          id?: string;
+          mode?: string;
+          reason?: string;
+          started_at?: string;
+          tenant_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'support_sessions_tenant_id_fkey';
+            columns: ['tenant_id'];
+            isOneToOne: false;
+            referencedRelation: 'tenants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       tags: {
         Row: {
           active: boolean;
@@ -679,6 +721,7 @@ export type Database = {
         Returns: string;
       };
       delete_wallet: { Args: { p_customer: string }; Returns: boolean };
+      end_support_session: { Args: { p_admin: string; p_session: string }; Returns: string };
       ensure_customer: { Args: { p_customer: string }; Returns: string };
       invite_member: {
         Args: { p_actor: string; p_email: string; p_role: string; p_tenant: string };
@@ -770,6 +813,15 @@ export type Database = {
       };
       stamp_card_nfc: {
         Args: { p_customer: string; p_now?: string; p_tag: string };
+        Returns: Json;
+      };
+      start_support_session: {
+        Args: { p_admin: string; p_reason: string; p_tenant: string };
+        Returns: Json;
+      };
+      support_get_tenant_overview: { Args: { p_admin: string; p_session: string }; Returns: Json };
+      support_list_recent_activity: {
+        Args: { p_admin: string; p_limit?: number; p_session: string };
         Returns: Json;
       };
       update_location: {
