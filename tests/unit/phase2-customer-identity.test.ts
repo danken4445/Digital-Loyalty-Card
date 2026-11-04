@@ -6,7 +6,6 @@ import type { User } from '@supabase/supabase-js';
 // Stub 'server-only' for Node/Vitest test environment
 vi.mock('server-only', () => ({}));
 
-import { verifyTurnstileToken } from '@/lib/security/turnstile';
 import { ensureCustomerRecord, getCustomerCardState } from '@/lib/auth/customer';
 import type { TenantContext } from '@/lib/contracts';
 import { POST } from '@/app/api/customers/route';
@@ -82,62 +81,6 @@ describe('Phase 2 Customer Identity & Card Provisioning Test Suite', () => {
       select: mockSelect,
     });
     vi.mocked(createSupabaseServerClient).mockResolvedValue(mockServerClient as any);
-  });
-
-  describe('Turnstile Verification (verifyTurnstileToken)', () => {
-    const originalSecret = process.env.TURNSTILE_SECRET_KEY;
-
-    beforeEach(() => {
-      // Ensure dummy secret mode
-      delete process.env.TURNSTILE_SECRET_KEY;
-    });
-
-    afterEach(() => {
-      if (originalSecret !== undefined) {
-        process.env.TURNSTILE_SECRET_KEY = originalSecret;
-      } else {
-        delete process.env.TURNSTILE_SECRET_KEY;
-      }
-    });
-
-    it('rejects empty and whitespace-only tokens', async () => {
-      const emptyResult = await verifyTurnstileToken('');
-      expect(emptyResult.success).toBe(false);
-      expect(emptyResult.errorCodes).toContain('missing-or-invalid-input-response');
-
-      const whitespaceResult = await verifyTurnstileToken('    ');
-      expect(whitespaceResult.success).toBe(false);
-      expect(whitespaceResult.errorCodes).toContain('missing-or-invalid-input-response');
-    });
-
-    it('rejects tokens exceeding maximum allowed length of 2048 characters', async () => {
-      const longToken = 'a'.repeat(2049);
-      const result = await verifyTurnstileToken(longToken);
-      expect(result.success).toBe(false);
-      expect(result.errorCodes).toContain('missing-or-invalid-input-response');
-    });
-
-    it('rejects FAIL_TOKEN in dummy-secret test mode', async () => {
-      const result = await verifyTurnstileToken('FAIL_TOKEN');
-      expect(result.success).toBe(false);
-      expect(result.errorCodes).toContain('invalid-input-response');
-    });
-
-    it('accepts valid tokens deterministically in dummy-secret mode', async () => {
-      const result = await verifyTurnstileToken('dummy-valid-token-xyz');
-      expect(result.success).toBe(true);
-      expect(result.errorCodes).toEqual([]);
-    });
-
-    it('trims leading and trailing whitespace from input tokens', async () => {
-      const result = await verifyTurnstileToken('   dummy-valid-token-xyz   ');
-      expect(result.success).toBe(true);
-      expect(result.errorCodes).toEqual([]);
-
-      const failTrimmed = await verifyTurnstileToken('   FAIL_TOKEN   ');
-      expect(failTrimmed.success).toBe(false);
-      expect(failTrimmed.errorCodes).toContain('invalid-input-response');
-    });
   });
 
   describe('Customer Identity Helpers (lib/auth/customer.ts)', () => {

@@ -191,14 +191,17 @@ describe('lib/rules/display - formatDateTimeInZone memoization', () => {
   });
 
   it('caps cache size to prevent unbounded memory growth', () => {
+    formatterCache.clear();
     const timestamp = new Date('2026-11-04T12:00:00Z');
+    const timezones = Intl.supportedValuesOf('timeZone').slice(0, 105);
 
-    // Simulate requesting multiple zones
-    for (let i = 0; i < 120; i++) {
-      // Use standard UTC with offset or valid mock zones if needed, or UTC
-      formatDateTimeInZone(timestamp, 'UTC');
+    for (const tz of timezones) {
+      formatDateTimeInZone(timestamp, tz);
     }
 
-    expect(formatterCache.size).toBeLessThanOrEqual(100);
+    expect(formatterCache.size).toBe(100);
+    expect(formatterCache.has(timezones[0]!)).toBe(false);
+    expect(formatterCache.has(timezones[104]!)).toBe(true);
   });
 });
+

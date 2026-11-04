@@ -76,15 +76,11 @@ vi.mock('@/lib/auth/customer', () => ({
   ensureCustomerRecord: vi.fn().mockResolvedValue('ok'),
   listWalletCards: vi.fn(),
 }));
-vi.mock('@/lib/security/turnstile', () => ({
-  verifyTurnstileToken: vi.fn().mockResolvedValue({ success: true }),
-}));
 
 import { GET as authCallbackGet } from '@/app/auth/callback/route';
 import { POST as mergePost } from '@/app/api/customers/merge/route';
 import { DELETE as customersDelete, POST as customersPost } from '@/app/api/customers/route';
 import { issueMergeIntentToken } from '@/lib/security/mergeToken';
-import { verifyTurnstileToken } from '@/lib/security/turnstile';
 import { listWalletCards } from '@/lib/auth/customer';
 import { getVerifiedUser } from '@/lib/supabase/server';
 
@@ -243,7 +239,6 @@ describe('Phase 12: wallet merge, deletion and Turnstile dedupe', () => {
     );
 
     expect(res.status).toBe(200);
-    expect(verifyTurnstileToken).not.toHaveBeenCalled();
     expect(fetchSpy).not.toHaveBeenCalledWith(
       expect.stringContaining('siteverify'),
       expect.anything(),

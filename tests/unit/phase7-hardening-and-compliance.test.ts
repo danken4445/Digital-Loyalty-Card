@@ -154,11 +154,6 @@ vi.mock('@/lib/auth/staff', () => ({
   })),
 }));
 
-// Mock Turnstile captcha verification
-vi.mock('@/lib/security/turnstile', () => ({
-  verifyTurnstileToken: vi.fn().mockResolvedValue({ success: true }),
-}));
-
 // Mock NFC tap verification
 vi.mock('@/lib/nfc/verifyTap', () => ({
   verifyTap: vi.fn().mockResolvedValue({

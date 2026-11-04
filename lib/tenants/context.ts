@@ -84,12 +84,37 @@ export async function getTenantById(id: string): Promise<TenantContext | null> {
   return data ? mapTenantRow(data as unknown as TenantRow) : null;
 }
 
-/** Resolves a custom domain (port ignored, case-insensitive) to its tenant slug, or null. */
-export async function getTenantSlugForHost(host: string | null): Promise<string | null> {
+/**
+ * Normalizes a host string by stripping any port while safely preserving bracketed IPv6 addresses
+ * (e.g. `[::1]:3000` -> `[::1]`, `127.0.0.1:3000` -> `127.0.0.1`, `example.com:443` -> `example.com`).
+ */
+export function normalizeHost(host: string | null): string | null {
   if (!host) {
     return null;
   }
-  const normalizedHost = host.split(':')[0]?.trim().toLowerCase();
+  const trimmed = host.trim();
+  if (!trimmed) {
+    return null;
+  }
+  try {
+    const parsed = new URL(`http://${trimmed}`);
+    return parsed.hostname.toLowerCase() || null;
+  } catch {
+    const bracketMatch = trimmed.match(/^(\[[^\]]+\])/);
+    if (bracketMatch && bracketMatch[1]) {
+      return bracketMatch[1].toLowerCase();
+    }
+    const hostPortMatch = trimmed.match(/^([^:]+)/);
+    if (hostPortMatch && hostPortMatch[1]) {
+      return hostPortMatch[1].trim().toLowerCase() || null;
+    }
+    return trimmed.toLowerCase();
+  }
+}
+
+/** Resolves a custom domain (port ignored, case-insensitive) to its tenant slug, or null. */
+export async function getTenantSlugForHost(host: string | null): Promise<string | null> {
+  const normalizedHost = normalizeHost(host);
   if (!normalizedHost) {
     return null;
   }

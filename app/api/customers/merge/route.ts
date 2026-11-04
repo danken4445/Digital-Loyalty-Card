@@ -4,9 +4,9 @@ import { z } from 'zod';
 import { ensureCustomerRecord, listWalletCards } from '@/lib/auth/customer';
 import {
   MERGE_INTENT_COOKIE_NAME,
+  isMergeWalletsOutcome,
   type ApiResponse,
   type MergeCustomerResponse,
-  type RpcContracts,
 } from '@/lib/contracts';
 import { verifySameOriginRequest } from '@/lib/security/csrf';
 import { isMergeNonceUsed } from '@/lib/security/mergeNonce';
@@ -160,9 +160,8 @@ export async function POST(
       p_source: verification.payload.sourceCustomerId,
       p_target: targetUser.id,
     });
-    const mergeOutcome = rpcResult as RpcContracts['merge_wallets']['Returns'] | null;
 
-    if (rpcError || !mergeOutcome) {
+    if (rpcError || !isMergeWalletsOutcome(rpcResult)) {
       return NextResponse.json<ApiResponse<MergeCustomerResponse>>(
         {
           ok: false,
@@ -172,6 +171,8 @@ export async function POST(
         { status: 500 },
       );
     }
+
+    const mergeOutcome = rpcResult;
 
     const mergeResultCode = mergeOutcome.result;
 
