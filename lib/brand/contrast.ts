@@ -15,7 +15,7 @@ export const DEFAULT_SURFACE_DARK = '#141414';
 export const DEFAULT_SURFACE_LIGHT = '#F4F4F5';
 export const DEFAULT_BORDER_DARK = '#262626';
 export const DEFAULT_BORDER_LIGHT = '#E4E4E7';
-export const DEFAULT_LOGO_URL = '/images/brand/circle-logo-dark.png';
+export const DEFAULT_LOGO_URL = '/brand/logo-circle-dark.png';
 
 export const FALLBACK_DARK_TEXT = '#0A0A0A';
 export const FALLBACK_LIGHT_TEXT = '#FFFFFF';

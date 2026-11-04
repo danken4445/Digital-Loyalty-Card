@@ -73,7 +73,7 @@ describe('lib/brand/contrast', () => {
         subtextColor: '#A1A1AA',
         surfaceBg: '#141414',
         cardBorder: '#262626',
-        logoUrl: '/images/brand/circle-logo-dark.png',
+        logoUrl: DEFAULT_LOGO_URL,
         cardArtUrl: null,
         tagline: null,
         passesAA: true,

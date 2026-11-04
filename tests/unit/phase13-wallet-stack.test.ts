@@ -290,7 +290,7 @@ describe('Phase 13 Task 4: Collectible /wallet Stack & Wallet-Level Backup', () 
       );
 
       // Restored mascot illustration
-      expect(html).toContain('/images/brand/kaws-standing-clean.png');
+      expect(html).toContain('/brand/mascot-full.png');
 
       // Friendly zero-state copy
       expect(html).toContain('Your loyalty wallet');
@@ -310,7 +310,7 @@ describe('Phase 13 Task 4: Collectible /wallet Stack & Wallet-Level Backup', () 
       );
 
       // Restored mascot illustration
-      expect(html).toContain('/images/brand/kaws-standing-clean.png');
+      expect(html).toContain('/brand/mascot-full.png');
 
       // Friendly zero-state copy
       expect(html).toMatch(/No cards/i);
@@ -361,13 +361,14 @@ describe('Phase 13 Task 4: Collectible /wallet Stack & Wallet-Level Backup', () 
       expect(html).toContain('Back up all your cards with Google or Email');
     });
 
-    it('WalletBackupModal renders backup trigger and privacy consent linking to /privacy', () => {
+    it('WalletBackupModal renders backup trigger and privacy consent linking to /privacy in card and modal', () => {
       const html = renderToStaticMarkup(
         React.createElement(WalletBackupModal, {
           customerId: 'cust-anon-1',
           isAnonymous: true,
           email: null,
           totalCards: 3,
+          isOpen: true,
         }),
       );
 
@@ -375,6 +376,40 @@ describe('Phase 13 Task 4: Collectible /wallet Stack & Wallet-Level Backup', () 
       expect(html).toContain('Back up all your cards with Google or Email');
       // Privacy consent link to RA 10173 policy
       expect(html).toContain(`href="${ROUTES.privacy}"`);
+      // Consent checkbox rendered inside modal as well
+      expect(html).toContain('id="wallet-backup-modal-consent"');
+    });
+
+    it('WalletPage renders protected backup status for authenticated customer', async () => {
+      vi.mocked(getVerifiedUser).mockResolvedValue({
+        id: 'cust-authed-1',
+        is_anonymous: false,
+        email: 'authed.customer@example.com',
+      } as User);
+
+      tableData.customer_cards = [
+        {
+          tenant_id: 'shop-1',
+          added_at: '2026-10-01T00:00:00Z',
+          tenants: {
+            id: 'shop-1',
+            slug: 'shop-1',
+            name: 'Shop 1',
+            status: 'active',
+            tenant_settings: { reward_threshold: 10, reward_label: 'Coffee', brand: {} },
+          },
+        },
+      ];
+      tableData.card_balances = [
+        { tenant_id: 'shop-1', total_stamps: 3, available_stamps: 3, last_stamped_at: null },
+      ];
+
+      const html = renderToStaticMarkup(
+        await WalletPage({ searchParams: Promise.resolve({}) }),
+      );
+
+      expect(html).toContain('WALLET BACKED UP • PROTECTED');
+      expect(html).toContain('Linked to authed.customer@example.com');
     });
 
     it('anonymous customer with 3 shop cards connects Google/email at wallet level and preserves all 3 cards in /wallet', async () => {

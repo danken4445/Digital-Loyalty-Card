@@ -372,6 +372,27 @@ export function WalletBackupModal({
             <div className="mt-5 flex flex-col gap-3">
               {mode === 'backup' ? (
                 <>
+                  {/* Privacy Consent Checkbox inside modal */}
+                  <label className="flex items-start gap-2.5 text-xs text-neutral-400 cursor-pointer select-none mb-1">
+                    <input
+                      type="checkbox"
+                      id="wallet-backup-modal-consent"
+                      checked={consentChecked}
+                      onChange={(e) => setConsentChecked(e.target.checked)}
+                      className="mt-0.5 h-4 w-4 rounded border-plug-border bg-plug-surface text-white focus:ring-white"
+                    />
+                    <span>
+                      I agree to back up my card data in accordance with the{' '}
+                      <Link
+                        href={ROUTES.privacy}
+                        className="text-white underline underline-offset-2 hover:text-neutral-200"
+                      >
+                        Privacy Policy
+                      </Link>{' '}
+                      (RA 10173).
+                    </span>
+                  </label>
+
                   <button
                     type="button"
                     onClick={handleGoogleBackup}

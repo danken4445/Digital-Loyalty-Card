@@ -55,7 +55,7 @@ export default async function WalletPage({ searchParams }: WalletPageProps) {
           </h1>
 
           <Image
-            src="/images/brand/kaws-standing-clean.png"
+            src="/brand/mascot-full.png"
             alt="Loyalty wallet mascot"
             width={144}
             height={144}
@@ -102,7 +102,7 @@ export default async function WalletPage({ searchParams }: WalletPageProps) {
         {cards.length === 0 ? (
           <div className="flex flex-col items-center text-center my-4 w-full">
             <Image
-              src="/images/brand/kaws-standing-clean.png"
+              src="/brand/mascot-full.png"
               alt="Loyalty wallet mascot"
               width={144}
               height={144}
@@ -121,11 +121,11 @@ export default async function WalletPage({ searchParams }: WalletPageProps) {
           <WalletCardStack cards={cards} />
         )}
 
-        {/* Wallet-level backup prompt for anonymous users */}
-        {user && user.is_anonymous && (
+        {/* Wallet-level backup prompt for anonymous users, or protected badge for authenticated users */}
+        {user && (
           <WalletBackupModal
             customerId={user.id}
-            isAnonymous={true}
+            isAnonymous={user.is_anonymous ?? false}
             email={user.email}
             totalCards={cards.length}
           />
