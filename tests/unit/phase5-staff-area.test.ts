@@ -33,6 +33,19 @@ vi.mock('next/navigation', () => ({
   }),
 }));
 
+// Mock next/headers cookies (the active-shop cookie is read by requireStaffSession)
+const cookieJar = new Map<string, string>();
+vi.mock('next/headers', () => ({
+  cookies: vi.fn(async () => ({
+    get: (name: string) => {
+      const value = cookieJar.get(name);
+      return value === undefined ? undefined : { name, value };
+    },
+    getAll: () => [...cookieJar.entries()].map(([name, value]) => ({ name, value })),
+    set: vi.fn(),
+  })),
+}));
+
 // Mock rate limiting
 vi.mock('@/lib/security/ratelimit', () => ({
   getClientIp: (request: Request) =>
@@ -126,9 +139,9 @@ import { checkPublicEndpointRateLimit } from '@/lib/security/ratelimit';
 import {
   ROUTES,
   TENANT_ONE_ID,
+  TENANT_ONE_SLUG,
   type AuditLogRow,
   type RedemptionRow,
-  type StaffRow,
   type StaffSession,
   type StampRow,
   type TagRow,
@@ -155,6 +168,23 @@ const TEST_STAFF_ID = '99999999-9999-9999-9999-999999999999';
 const TEST_CUSTOMER_ID = '11111111-1111-1111-1111-111111111111';
 const TEST_CUSTOMER_ID_2 = '22222222-2222-2222-2222-222222222222';
 
+function membershipRow(
+  role: 'staff' | 'owner' | 'manager' = 'staff',
+  overrides: { status?: string; displayName?: string } = {},
+) {
+  return {
+    tenant_id: TENANT_ONE_ID,
+    role,
+    display_name: overrides.displayName ?? 'Maria Barista',
+    tenants: {
+      id: TENANT_ONE_ID,
+      slug: TENANT_ONE_SLUG,
+      name: 'The Caffeine Plug',
+      status: overrides.status ?? 'active',
+    },
+  };
+}
+
 function mockActiveStaff(role: 'staff' | 'owner' = 'staff') {
   vi.mocked(getVerifiedUser).mockResolvedValue({
     id: TEST_STAFF_ID,
@@ -166,19 +196,7 @@ function mockActiveStaff(role: 'staff' | 'owner' = 'staff') {
     created_at: new Date().toISOString(),
   } as User);
 
-  mockServerClient.rpc.mockResolvedValue({
-    data: true,
-    error: null,
-  });
-
-  const staffRow: StaffRow = {
-    user_id: TEST_STAFF_ID,
-    display_name: 'Maria Barista',
-    role,
-    active: true,
-  };
-
-  tableQueryHandlers['staff'] = () => createMockSupabaseQuery(staffRow, null);
+  tableQueryHandlers['tenant_members'] = () => createMockSupabaseQuery([membershipRow(role)], null);
 }
 
 function mockUnauthenticated() {
@@ -207,12 +225,7 @@ function mockNonStaffUser() {
     created_at: new Date().toISOString(),
   } as User);
 
-  mockServerClient.rpc.mockResolvedValue({
-    data: false,
-    error: null,
-  });
-
-  tableQueryHandlers['staff'] = () => createMockSupabaseQuery(null, null);
+  tableQueryHandlers['tenant_members'] = () => createMockSupabaseQuery([], null);
 }
 
 describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
@@ -220,6 +233,7 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
     vi.clearAllMocks();
     process.env.REDEEM_TOKEN_SECRET = TEST_SECRET;
     tableQueryHandlers = {};
+    cookieJar.clear();
 
     vi.mocked(checkPublicEndpointRateLimit).mockResolvedValue({
       allowed: true,
@@ -272,7 +286,7 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
         });
       });
 
-      it('returns forbidden when is_staff RPC returns false', async () => {
+      it('returns forbidden when the user has no active tenant memberships', async () => {
         mockNonStaffUser();
         const result = await requireStaffSession();
         expect(result).toEqual({
@@ -281,17 +295,15 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
         });
       });
 
-      it('returns forbidden when is_staff RPC encounters a database error', async () => {
+      it('returns forbidden when the tenant_members query encounters a database error', async () => {
         vi.mocked(getVerifiedUser).mockResolvedValue({
           id: TEST_STAFF_ID,
           email: 'barista@thecaffeineplug.ph',
           is_anonymous: false,
         } as User);
 
-        mockServerClient.rpc.mockResolvedValue({
-          data: null,
-          error: { message: 'RPC execution failed' },
-        });
+        tableQueryHandlers['tenant_members'] = () =>
+          createMockSupabaseQuery(null, { message: 'query execution failed' });
 
         const result = await requireStaffSession();
         expect(result).toEqual({
@@ -300,46 +312,33 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
         });
       });
 
-      it('returns forbidden when is_staff is true but public.staff row does not exist', async () => {
-        vi.mocked(getVerifiedUser).mockResolvedValue({
-          id: TEST_STAFF_ID,
-          email: 'barista@thecaffeineplug.ph',
-          is_anonymous: false,
-        } as User);
-
-        mockServerClient.rpc.mockResolvedValue({
-          data: true,
-          error: null,
-        });
-
-        tableQueryHandlers['staff'] = () => createMockSupabaseQuery(null, null);
-
-        const result = await requireStaffSession();
-        expect(result).toEqual({
-          authorized: false,
-          reason: 'forbidden',
-        });
+      it('no longer consults the legacy is_staff RPC or public.staff table', async () => {
+        mockActiveStaff('staff');
+        await requireStaffSession();
+        expect(mockServerClient.rpc).not.toHaveBeenCalled();
+        expect(mockServerClient.from).not.toHaveBeenCalledWith('staff');
       });
 
-      it('returns forbidden when public.staff row exists but active is false', async () => {
+      it('only queries active memberships of the signed-in user', async () => {
+        mockActiveStaff('staff');
+        const query = createMockSupabaseQuery([membershipRow('staff')], null);
+        tableQueryHandlers['tenant_members'] = () => query;
+
+        await requireStaffSession();
+
+        expect(query.eq).toHaveBeenCalledWith('user_id', TEST_STAFF_ID);
+        expect(query.eq).toHaveBeenCalledWith('active', true);
+      });
+
+      it('returns forbidden when the only membership belongs to a closed shop', async () => {
         vi.mocked(getVerifiedUser).mockResolvedValue({
           id: TEST_STAFF_ID,
           email: 'barista@thecaffeineplug.ph',
           is_anonymous: false,
         } as User);
 
-        mockServerClient.rpc.mockResolvedValue({
-          data: true,
-          error: null,
-        });
-
-        const inactiveRow: StaffRow = {
-          user_id: TEST_STAFF_ID,
-          display_name: 'Maria Barista',
-          role: 'staff',
-          active: false,
-        };
-        tableQueryHandlers['staff'] = () => createMockSupabaseQuery(inactiveRow, null);
+        tableQueryHandlers['tenant_members'] = () =>
+          createMockSupabaseQuery([membershipRow('staff', { status: 'closed' })], null);
 
         const result = await requireStaffSession();
         expect(result).toEqual({
@@ -360,6 +359,17 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
             displayName: 'Maria Barista',
             role: 'staff',
             active: true,
+            tenantId: TENANT_ONE_ID,
+            tenantSlug: TENANT_ONE_SLUG,
+            tenantName: 'The Caffeine Plug',
+            memberships: [
+              {
+                tenantId: TENANT_ONE_ID,
+                tenantSlug: TENANT_ONE_SLUG,
+                tenantName: 'The Caffeine Plug',
+                role: 'staff',
+              },
+            ],
           });
         }
       });
@@ -371,21 +381,8 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
           is_anonymous: false,
         } as User);
 
-        mockServerClient.rpc.mockResolvedValue({
-          data: true,
-          error: null,
-        });
-
-        tableQueryHandlers['staff'] = () =>
-          createMockSupabaseQuery(
-            {
-              user_id: TEST_STAFF_ID,
-              display_name: 'Owner Bob',
-              role: 'owner',
-              active: true,
-            },
-            null,
-          );
+        tableQueryHandlers['tenant_members'] = () =>
+          createMockSupabaseQuery([membershipRow('owner', { displayName: 'Owner Bob' })], null);
 
         const result = await requireStaffSession();
         expect(result.authorized).toBe(true);
@@ -1714,6 +1711,17 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
       displayName: 'Maria Santos',
       role: 'staff',
       active: true,
+      tenantId: TENANT_ONE_ID,
+      tenantSlug: TENANT_ONE_SLUG,
+      tenantName: 'The Caffeine Plug',
+      memberships: [
+        {
+          tenantId: TENANT_ONE_ID,
+          tenantSlug: TENANT_ONE_SLUG,
+          tenantName: 'The Caffeine Plug',
+          role: 'staff',
+        },
+      ],
     };
 
     describe('StaffNav (components/staff/StaffNav.tsx)', () => {

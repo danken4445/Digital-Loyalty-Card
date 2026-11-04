@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { BRAND_THEME } from '@/lib/config';
 import { ROUTES, type StaffSession } from '@/lib/contracts';
+import { StaffTenantSwitcher } from '@/components/staff/StaffTenantSwitcher';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 
 export interface StaffNavProps {
@@ -65,6 +66,12 @@ export function StaffNav({ staff, currentPath }: StaffNavProps) {
         </Link>
 
         <div className="flex shrink-0 items-center gap-2">
+          {staff.memberships.length > 1 ? (
+            <StaffTenantSwitcher
+              memberships={staff.memberships}
+              activeTenantId={staff.tenantId}
+            />
+          ) : null}
           <div
             className="hidden items-center gap-2 text-sm sm:flex"
             aria-label={`Logged in as ${staff.displayName}, ${staff.role}`}

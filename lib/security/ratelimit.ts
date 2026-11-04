@@ -13,6 +13,7 @@ export interface RateLimitCheckInput {
     | 'staff-redeem'
     | 'staff-stamp'
     | 'staff-tags'
+    | 'staff-tenant'
     | 'merge-intent'
     | 'merge'
     | 'delete-customer';
@@ -52,6 +53,7 @@ const LIMITS: Record<RateLimitCheckInput['endpoint'], { perIp: number; perCustom
   'staff-redeem': { perIp: 60, perCustomer: 30 },
   'staff-stamp': { perIp: 60, perCustomer: 30 },
   'staff-tags': { perIp: 30, perCustomer: 20 },
+  'staff-tenant': { perIp: 30, perCustomer: 20 },
   'merge-intent': { perIp: 20, perCustomer: 10 },
   merge: { perIp: 20, perCustomer: 10 },
   'delete-customer': { perIp: 10, perCustomer: 5 },

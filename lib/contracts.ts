@@ -529,6 +529,12 @@ export interface StaffSession {
   /** Role in the active shop (Task 5 adds the active-shop fields). */
   role: StaffRole;
   active: true;
+  /** The active shop: the STAFF_TENANT_COOKIE_NAME membership if valid, else the first membership by shop name. */
+  tenantId: string;
+  tenantSlug: string;
+  tenantName: string;
+  /** Every active membership, for the shop switcher. */
+  memberships: StaffMembership[];
 }
 
 export type StaffAuthResult =

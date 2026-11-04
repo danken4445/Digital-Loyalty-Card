@@ -15,6 +15,14 @@ process.env.REDEEM_TOKEN_SECRET = TEST_SECRET;
 
 vi.mock('server-only', () => ({}));
 
+vi.mock('next/headers', () => ({
+  cookies: vi.fn(async () => ({
+    get: () => undefined,
+    getAll: () => [],
+    set: vi.fn(),
+  })),
+}));
+
 vi.mock('@/lib/security/ratelimit', () => ({
   getClientIp: (request: Request) =>
     request.headers.get('cf-connecting-ip') ??
@@ -33,6 +41,8 @@ function createMockSupabaseQuery(customData: any = null) {
     select: vi.fn(() => query),
     eq: vi.fn(() => query),
     maybeSingle: vi.fn().mockResolvedValue({ data: customData, error: null }),
+    then: (resolve: (value: unknown) => unknown, reject: (reason: unknown) => unknown) =>
+      Promise.resolve({ data: customData, error: null }).then(resolve, reject),
   };
   return query;
 }
@@ -129,13 +139,19 @@ function mockActiveStaff() {
     user_metadata: {},
     created_at: new Date().toISOString(),
   } as User);
-  mockServerClient.rpc.mockResolvedValue({ data: true, error: null });
-  tableData.staff = {
-    user_id: TEST_STAFF_ID,
-    display_name: 'Maria Barista',
-    role: 'staff',
-    active: true,
-  };
+  tableData.tenant_members = [
+    {
+      tenant_id: TEST_TENANT.id,
+      role: 'staff',
+      display_name: 'Maria Barista',
+      tenants: {
+        id: TEST_TENANT.id,
+        slug: TEST_TENANT.slug,
+        name: TEST_TENANT.name,
+        status: 'active',
+      },
+    },
+  ];
 }
 
 function post(url: string, body?: unknown) {

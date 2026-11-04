@@ -45,7 +45,7 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
   const { pathname } = request.nextUrl;
 
   // First-layer protection for /staff/* routes (except /staff/login).
-  // Individual staff pages, route handlers, and server actions ALSO enforce getVerifiedUser() + is_staff().
+  // Individual staff pages, route handlers, and server actions ALSO enforce getVerifiedUser() + an active tenant_members row.
   if (pathname.startsWith(ROUTES.staff.root) && pathname !== ROUTES.staff.login) {
     if (!user || user.is_anonymous) {
       const loginUrl = request.nextUrl.clone();
@@ -54,8 +54,13 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
       return NextResponse.redirect(loginUrl, 303);
     }
 
-    const { data: isStaff, error: staffError } = await supabase.rpc('is_staff');
-    if (staffError || !isStaff) {
+    const { data: memberships, error: membershipError } = await supabase
+      .from('tenant_members')
+      .select('tenant_id')
+      .eq('user_id', user.id)
+      .eq('active', true)
+      .limit(1);
+    if (membershipError || !memberships || memberships.length === 0) {
       const loginUrl = request.nextUrl.clone();
       loginUrl.pathname = ROUTES.staff.login;
       loginUrl.searchParams.set('error', 'forbidden');

@@ -53,6 +53,9 @@ export function StaffPageShell({
               Overview
             </Link>
           )}
+          <p className="mb-2 text-sm font-semibold uppercase tracking-wide text-plug-muted">
+            {staff.tenantName}
+          </p>
           <h1 className="font-display text-4xl font-bold uppercase leading-none tracking-wide sm:text-5xl">
             {title}
           </h1>

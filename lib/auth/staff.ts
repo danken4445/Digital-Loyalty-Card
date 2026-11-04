@@ -1,16 +1,20 @@
 import 'server-only';
 
 import { randomBytes } from 'node:crypto';
+import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { SHOP_CONFIG } from '@/lib/config';
 import {
   ROUTES,
+  STAFF_ROLES,
+  STAFF_TENANT_COOKIE_NAME,
   type ActivityAnomalyFlag,
   type AuditLogRow,
   type RedemptionRow,
   type StaffActivityDashboardData,
   type StaffAuthResult,
-  type StaffRow,
+  type StaffMembership,
+  type StaffRole,
   type StaffSession,
   type StampRow,
   type TagRow,
@@ -21,12 +25,29 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import type { Json } from '@/lib/supabase/database.types';
 import { createSupabaseServerClient, getVerifiedUser } from '@/lib/supabase/server';
 
+interface MembershipRow {
+  tenant_id: string;
+  role: string;
+  display_name: string;
+  tenants:
+    | { id: string; slug: string; name: string; status: string }
+    | { id: string; slug: string; name: string; status: string }[]
+    | null;
+}
+
+function isStaffRole(value: string): value is StaffRole {
+  return (STAFF_ROLES as readonly string[]).includes(value);
+}
+
 /**
  * Authoritatively verifies whether the current request is authenticated as an active staff member.
  *
- * 1. Calls getVerifiedUser() (supabase.auth.getUser()) — never getSession().
+ * 1. Calls getVerifiedUser() (supabase.auth.getUser()) - never getSession().
  * 2. Rejects unauthenticated or anonymous sessions.
- * 3. Calls public.is_staff() AND verifies an active row in public.staff.
+ * 3. Reads the caller's active public.tenant_members rows (joined to their non-closed shop) through
+ *    the session client, so RLS only ever returns the caller's own memberships.
+ * 4. The active shop is the STAFF_TENANT_COOKIE_NAME membership if still valid, else the first
+ *    membership by shop name. Role and display name come from that membership.
  */
 export async function requireStaffSession(): Promise<StaffAuthResult> {
   const user = await getVerifiedUser();
@@ -38,36 +59,59 @@ export async function requireStaffSession(): Promise<StaffAuthResult> {
   }
 
   const supabase = await createSupabaseServerClient();
-  const { data: isStaffFlag, error: rpcError } = await supabase.rpc('is_staff');
-  if (rpcError || !isStaffFlag) {
-    return {
-      authorized: false,
-      reason: 'forbidden',
-    };
-  }
-
-  const { data: staffRow, error: rowError } = await supabase
-    .from('staff')
-    .select('user_id, display_name, role, active')
+  const { data, error } = await supabase
+    .from('tenant_members')
+    .select('tenant_id, role, display_name, tenants(id, slug, name, status)')
     .eq('user_id', user.id)
-    .eq('active', true)
-    .maybeSingle<StaffRow>();
+    .eq('active', true);
 
-  if (rowError || !staffRow || !staffRow.active) {
+  if (error || !data) {
     return {
       authorized: false,
       reason: 'forbidden',
     };
   }
+
+  const entries: Array<{ membership: StaffMembership; displayName: string }> = [];
+  for (const row of data as unknown as MembershipRow[]) {
+    const tenant = Array.isArray(row.tenants) ? row.tenants[0] : row.tenants;
+    if (!tenant || tenant.status === 'closed' || !isStaffRole(row.role)) continue;
+    entries.push({
+      membership: {
+        tenantId: tenant.id,
+        tenantSlug: tenant.slug,
+        tenantName: tenant.name,
+        role: row.role,
+      },
+      displayName: row.display_name,
+    });
+  }
+  entries.sort((a, b) => a.membership.tenantName.localeCompare(b.membership.tenantName));
+
+  const first = entries[0];
+  if (!first) {
+    return {
+      authorized: false,
+      reason: 'forbidden',
+    };
+  }
+
+  const cookieStore = await cookies();
+  const cookieTenantId = cookieStore.get(STAFF_TENANT_COOKIE_NAME)?.value;
+  const active = entries.find((entry) => entry.membership.tenantId === cookieTenantId) ?? first;
 
   return {
     authorized: true,
     staff: {
-      userId: staffRow.user_id,
+      userId: user.id,
       email: user.email ?? null,
-      displayName: staffRow.display_name,
-      role: staffRow.role,
+      displayName: active.displayName,
+      role: active.membership.role,
       active: true,
+      tenantId: active.membership.tenantId,
+      tenantSlug: active.membership.tenantSlug,
+      tenantName: active.membership.tenantName,
+      memberships: entries.map((entry) => entry.membership),
     },
   };
 }
