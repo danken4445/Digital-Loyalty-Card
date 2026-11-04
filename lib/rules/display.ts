@@ -57,18 +57,34 @@ export function formatManilaDate(timestamp: Date | string | number): string {
   return manilaDateFormatter.format(date);
 }
 
+const MAX_FORMATTER_CACHE_SIZE = 100;
+
+export const formatterCache = new Map<string, Intl.DateTimeFormat>();
+
 /**
  * Formats a timestamp into a medium date and short time string (e.g. 'Nov 2, 2026, 3:30 PM')
  * in the given IANA timezone.
  * Pure function: timestamp is passed explicitly.
+ * Memoizes Intl.DateTimeFormat instances by timezone up to MAX_FORMATTER_CACHE_SIZE to prevent leaks.
  */
 export function formatDateTimeInZone(timestamp: Date | string | number, timeZone: string): string {
   const date = timestamp instanceof Date ? timestamp : new Date(timestamp);
-  return new Intl.DateTimeFormat('en-PH', {
-    timeZone,
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(date);
+  let formatter = formatterCache.get(timeZone);
+  if (!formatter) {
+    if (formatterCache.size >= MAX_FORMATTER_CACHE_SIZE) {
+      const oldestKey = formatterCache.keys().next().value;
+      if (oldestKey) {
+        formatterCache.delete(oldestKey);
+      }
+    }
+    formatter = new Intl.DateTimeFormat('en-PH', {
+      timeZone,
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    });
+    formatterCache.set(timeZone, formatter);
+  }
+  return formatter.format(date);
 }
 
 /**
