@@ -1,7 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import type { ApiResponse, SupportActivityRow, SupportTenantOverview } from '@/lib/contracts';
+import {
+  ROUTES,
+  type ApiResponse,
+  type SupportActivityRow,
+  type SupportTenantOverview,
+} from '@/lib/contracts';
 
 interface SupportDashboardProps {
   slug: string;
@@ -48,12 +53,12 @@ export function SupportDashboard({ slug, initialSessionId }: SupportDashboardPro
       setLoadingData(true);
       try {
         const [overviewRes, activityRes] = await Promise.all([
-          fetch('/api/platform/support', {
+          fetch(ROUTES.api.platform.support, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'overview', sessionId }),
           }),
-          fetch('/api/platform/support', {
+          fetch(ROUTES.api.platform.support, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'activity', sessionId, limit: 50 }),
@@ -105,7 +110,7 @@ export function SupportDashboard({ slug, initialSessionId }: SupportDashboardPro
 
     setStarting(true);
     try {
-      const res = await fetch('/api/platform/support', {
+      const res = await fetch(ROUTES.api.platform.support, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -136,7 +141,7 @@ export function SupportDashboard({ slug, initialSessionId }: SupportDashboardPro
     if (!sessionId) return;
     setEnding(true);
     try {
-      await fetch('/api/platform/support', {
+      await fetch(ROUTES.api.platform.support, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -7,13 +7,22 @@ import { createSupabaseServerClient, getVerifiedUser } from '@/lib/supabase/serv
 
 export const dynamic = 'force-dynamic';
 
+export function resolveSafeMfaDestination(nextParam?: string | null): string {
+  return nextParam &&
+    nextParam.startsWith('/') &&
+    !nextParam.startsWith('//') &&
+    !nextParam.startsWith('/\\')
+    ? nextParam
+    : ROUTES.platform.root;
+}
+
 interface MfaPageProps {
   searchParams: Promise<{ next?: string }>;
 }
 
 export default async function PlatformMfaPage({ searchParams }: MfaPageProps) {
   const { next: nextParam } = await searchParams;
-  const nextDestination = nextParam ?? ROUTES.platform.root;
+  const safeNext = resolveSafeMfaDestination(nextParam);
 
   const user = await getVerifiedUser();
   if (!user || user.is_anonymous) {
@@ -29,11 +38,11 @@ export default async function PlatformMfaPage({ searchParams }: MfaPageProps) {
     redirect(`${ROUTES.staff.login}?error=forbidden`);
   }
 
-  // If already at AAL2, redirect straight to target destination
+  // If already at AAL2, redirect straight to sanitized target destination
   const supabase = await createSupabaseServerClient();
   const { data: mfaData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
   if (mfaData?.currentLevel === 'aal2') {
-    redirect(nextDestination);
+    redirect(safeNext);
   }
 
   return (

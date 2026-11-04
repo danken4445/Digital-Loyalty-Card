@@ -104,7 +104,7 @@ import * as PlatformRootPage from '@/app/platform/page';
 import * as PlatformNewPage from '@/app/platform/new/page';
 import * as PlatformSlugPage from '@/app/platform/[slug]/page';
 import * as PlatformSupportPage from '@/app/platform/[slug]/support/page';
-import * as PlatformMfaPage from '@/app/platform/mfa/page';
+import PlatformMfaPageDefault, * as PlatformMfaPage from '@/app/platform/mfa/page';
 
 describe('Phase 14 Task 5: Platform Admin Guard, Routes, and Pages', () => {
   beforeEach(() => {
@@ -198,6 +198,54 @@ describe('Phase 14 Task 5: Platform Admin Guard, Routes, and Pages', () => {
     });
     const session = await enforcePlatformPageAccess('/platform');
     expect(session.userId).toBe('admin-user-1');
+  });
+
+  it('mfa_page_sanitizes_redirect_destination_against_open_redirect', async () => {
+    // Authenticated admin user at AAL2 level
+    verifiedUserMock = { id: 'admin-user-1', is_anonymous: false, email: 'admin@platform.local' };
+    mockAdminClient.rpc.mockResolvedValue({ data: true, error: null });
+    mockServerClient.auth.mfa.getAuthenticatorAssuranceLevel.mockResolvedValue({
+      data: { currentLevel: 'aal2', nextLevel: 'aal2' },
+      error: null,
+    });
+
+    // Helper sanitization checks
+    expect(PlatformMfaPage.resolveSafeMfaDestination('https://evil.com')).toBe(ROUTES.platform.root);
+    expect(PlatformMfaPage.resolveSafeMfaDestination('//evil.com')).toBe(ROUTES.platform.root);
+    expect(PlatformMfaPage.resolveSafeMfaDestination('/\\evil.com')).toBe(ROUTES.platform.root);
+    expect(PlatformMfaPage.resolveSafeMfaDestination('javascript:alert(1)')).toBe(ROUTES.platform.root);
+    expect(PlatformMfaPage.resolveSafeMfaDestination(undefined)).toBe(ROUTES.platform.root);
+    expect(PlatformMfaPage.resolveSafeMfaDestination(null)).toBe(ROUTES.platform.root);
+    expect(PlatformMfaPage.resolveSafeMfaDestination('')).toBe(ROUTES.platform.root);
+    expect(PlatformMfaPage.resolveSafeMfaDestination('/platform/tenants/alpha')).toBe(
+      '/platform/tenants/alpha',
+    );
+
+    // Off-site / protocol-relative open-redirect attempts must safely fall back to ROUTES.platform.root
+    await expect(
+      PlatformMfaPageDefault({
+        searchParams: Promise.resolve({ next: 'https://evil.com' }),
+      }),
+    ).rejects.toThrow(`NEXT_REDIRECT: ${ROUTES.platform.root}`);
+
+    await expect(
+      PlatformMfaPageDefault({
+        searchParams: Promise.resolve({ next: '//evil.com' }),
+      }),
+    ).rejects.toThrow(`NEXT_REDIRECT: ${ROUTES.platform.root}`);
+
+    await expect(
+      PlatformMfaPageDefault({
+        searchParams: Promise.resolve({ next: '/\\evil.com' }),
+      }),
+    ).rejects.toThrow(`NEXT_REDIRECT: ${ROUTES.platform.root}`);
+
+    // Legitimate internal relative paths are preserved
+    await expect(
+      PlatformMfaPageDefault({
+        searchParams: Promise.resolve({ next: '/platform/acme-shop' }),
+      }),
+    ).rejects.toThrow('NEXT_REDIRECT: /platform/acme-shop');
   });
 
   it('create_tenant_route_validates_slug_and_csrf', async () => {

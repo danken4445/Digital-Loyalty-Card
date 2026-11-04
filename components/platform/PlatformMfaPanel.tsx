@@ -8,7 +8,14 @@ import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 export function PlatformMfaPanel() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const nextUrl = searchParams.get('next') ?? ROUTES.platform.root;
+  const nextParam = searchParams.get('next');
+  const safeNext =
+    nextParam &&
+    nextParam.startsWith('/') &&
+    !nextParam.startsWith('//') &&
+    !nextParam.startsWith('/\\')
+      ? nextParam
+      : ROUTES.platform.root;
 
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState<'challenge' | 'enroll'>('challenge');
@@ -149,8 +156,8 @@ export function PlatformMfaPanel() {
         return;
       }
 
-      // Elevated to AAL2 -> navigate to destination
-      router.push(nextUrl);
+      // Elevated to AAL2 -> navigate to sanitized destination
+      router.push(safeNext);
     } catch (err: unknown) {
       setErrorMessage(err instanceof Error ? err.message : 'Verification failed.');
       setSubmitting(false);
