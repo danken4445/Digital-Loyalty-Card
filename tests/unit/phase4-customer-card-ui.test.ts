@@ -770,7 +770,7 @@ describe('Phase 4 Customer Card UI & Signed Redemption Token Test Suite', () => 
     });
 
     describe('StripResultParam (components/card/StripResultParam.tsx)', () => {
-      it('renders status banner for all 5 STAMP_RESULT_CODES with role="status" and aria-live="polite"', () => {
+      it('renders status banner for all STAMP_RESULT_CODES with role="status" and aria-live="polite"', () => {
         const expectedMap: Record<
           (typeof STAMP_RESULT_CODES)[number],
           { title: string; badge: string; text: string }
@@ -778,27 +778,42 @@ describe('Phase 4 Customer Card UI & Signed Redemption Token Test Suite', () => 
           stamped: {
             title: 'STAMP COLLECTED',
             badge: '+1 STAMP',
-            text: 'Thanks for visiting',
+            text: 'Thanks for visiting.',
           },
           cooldown: {
             title: 'COOLDOWN ACTIVE',
             badge: 'COOLDOWN',
-            text: '30-minute cooldown',
+            text: 'on cooldown',
           },
           'daily-limit': {
             title: 'DAILY CAP REACHED',
             badge: 'DAILY CAP',
-            text: 'max 2 stamps per day',
+            text: 'come back tomorrow',
           },
           'tag-throttled': {
             title: 'TAP THROTTLED',
-            badge: 'WAIT 5 SEC',
-            text: 'wait 5 seconds',
+            badge: 'WAIT A MOMENT',
+            text: 'wait a few seconds',
           },
           'invalid-tag': {
             title: 'INACTIVE NFC TAG',
             badge: 'TAG INACTIVE',
             text: 'tag is no longer active',
+          },
+          'no-card': {
+            title: 'NO CARD YET',
+            badge: 'ADD CARD',
+            text: 'card to collect stamps',
+          },
+          'tenant-unavailable': {
+            title: 'SHOP UNAVAILABLE',
+            badge: 'UNAVAILABLE',
+            text: 'accepting stamps right now',
+          },
+          unauthorized: {
+            title: 'NOT ALLOWED',
+            badge: 'UNAUTHORIZED',
+            text: 'allowed to do that',
           },
         };
 
@@ -814,6 +829,8 @@ describe('Phase 4 Customer Card UI & Signed Redemption Token Test Suite', () => 
           expect(html).toContain(expected.title);
           expect(html).toContain(expected.badge);
           expect(html).toContain(expected.text);
+          expect(html).not.toContain('Caffeine Plug');
+          expect(html).not.toMatch(/d+-minute|max d+ stamps|d+ seconds/);
         }
       });
 

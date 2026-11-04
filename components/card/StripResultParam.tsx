@@ -17,32 +17,50 @@ interface ResultMeta {
 const RESULT_META_MAP: Record<StampResultCode, ResultMeta> = {
   stamped: {
     title: 'STAMP COLLECTED',
-    message: 'Stamp added! Thanks for visiting The Caffeine Plug.',
+    message: 'Stamp added! Thanks for visiting.',
     badge: '+1 STAMP',
     isSuccess: true,
   },
   cooldown: {
     title: 'COOLDOWN ACTIVE',
-    message: 'Hang tight — stamps have a 30-minute cooldown between visits.',
+    message: "You're on cooldown — try again a little later.",
     badge: 'COOLDOWN',
     isSuccess: false,
   },
   'daily-limit': {
     title: 'DAILY CAP REACHED',
-    message: 'Daily limit reached (max 2 stamps per day). See you tomorrow!',
+    message: 'Daily stamp limit reached — come back tomorrow.',
     badge: 'DAILY CAP',
     isSuccess: false,
   },
   'tag-throttled': {
     title: 'TAP THROTTLED',
-    message: 'Card was just tapped a moment ago. Please wait 5 seconds and tap again.',
-    badge: 'WAIT 5 SEC',
+    message: 'This tag was just tapped. Please wait a few seconds and tap again.',
+    badge: 'WAIT A MOMENT',
     isSuccess: false,
   },
   'invalid-tag': {
     title: 'INACTIVE NFC TAG',
-    message: 'This NFC tag is no longer active. Please ask our barista for help.',
+    message: 'This NFC tag is no longer active. Please ask the staff for help.',
     badge: 'TAG INACTIVE',
+    isSuccess: false,
+  },
+  'no-card': {
+    title: 'NO CARD YET',
+    message: "Add this shop's card to collect stamps.",
+    badge: 'ADD CARD',
+    isSuccess: false,
+  },
+  'tenant-unavailable': {
+    title: 'SHOP UNAVAILABLE',
+    message: "This shop isn't accepting stamps right now.",
+    badge: 'UNAVAILABLE',
+    isSuccess: false,
+  },
+  unauthorized: {
+    title: 'NOT ALLOWED',
+    message: "You're not allowed to do that.",
+    badge: 'UNAUTHORIZED',
     isSuccess: false,
   },
 };

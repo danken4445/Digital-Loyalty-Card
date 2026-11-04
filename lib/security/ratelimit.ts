@@ -6,6 +6,7 @@ export interface RateLimitCheckInput {
   endpoint:
     | 'tap'
     | 'claim'
+    | 'cards'
     | 'customers'
     | 'redeem-token'
     | 'instagram-upsize-token'
@@ -44,6 +45,7 @@ const WINDOW_MS = 60_000; // 1 minute sliding window
 const LIMITS: Record<RateLimitCheckInput['endpoint'], { perIp: number; perCustomer: number }> = {
   tap: { perIp: 60, perCustomer: 30 },
   claim: { perIp: 20, perCustomer: 10 },
+  cards: { perIp: 20, perCustomer: 10 },
   customers: { perIp: 30, perCustomer: 20 },
   'redeem-token': { perIp: 30, perCustomer: 15 },
   'instagram-upsize-token': { perIp: 30, perCustomer: 15 },

@@ -9,6 +9,9 @@ export const STAMP_RESULT_CODES = [
   'daily-limit',
   'tag-throttled',
   'invalid-tag',
+  'no-card',
+  'tenant-unavailable',
+  'unauthorized',
 ] as const;
 
 export type StampResultCode = (typeof STAMP_RESULT_CODES)[number];

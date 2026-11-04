@@ -1,12 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import {
-  ROUTES,
-  isStampResultCode,
-  type ApiResponse,
-  type ClaimStampResponse,
-  type StampResultCode,
-} from '@/lib/contracts';
+import { ROUTES, type ApiResponse, type ClaimStampResponse } from '@/lib/contracts';
+import { parseStampCardPayload, stampRedirectPath } from '@/lib/nfc/stampOutcome';
 import { verifyTap } from '@/lib/nfc/verifyTap';
 import { verifySameOriginRequest } from '@/lib/security/csrf';
 import { checkPublicEndpointRateLimit, getClientIp } from '@/lib/security/ratelimit';
@@ -108,10 +103,9 @@ export async function POST(
 
   try {
     const admin = createSupabaseAdminClient();
-    const { data, error } = await admin.rpc('record_stamp', {
+    const { data, error } = await admin.rpc('stamp_card_nfc', {
       p_customer: user.id,
       p_tag: tapVerification.normalizedTagId,
-      p_source: 'nfc',
     });
 
     if (error) {
@@ -125,13 +119,13 @@ export async function POST(
       );
     }
 
-    const result: StampResultCode = isStampResultCode(data) ? data : 'invalid-tag';
+    const outcome = parseStampCardPayload(data);
 
     return NextResponse.json<ApiResponse<ClaimStampResponse>>({
       ok: true,
       data: {
-        result,
-        redirectTo: ROUTES.cardWithResult(result),
+        result: outcome.result,
+        redirectTo: stampRedirectPath(outcome, tapVerification.normalizedTagId),
       },
     });
   } catch {

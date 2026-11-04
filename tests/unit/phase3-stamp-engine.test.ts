@@ -46,7 +46,7 @@ describe('Phase 3 Stamp Engine & Tap Route Test Suite', () => {
 
     // Default admin mock setup
     mockAdminRpc.mockResolvedValue({
-      data: 'stamped',
+      data: { result: 'stamped', tenant_slug: 'the-caffeine-plug' },
       error: null,
     });
     vi.mocked(createSupabaseAdminClient).mockReturnValue(mockAdminClient as any);
@@ -311,10 +311,10 @@ describe('Phase 3 Stamp Engine & Tap Route Test Suite', () => {
       expect(mockAdminRpc).not.toHaveBeenCalled();
     });
 
-    it('redirects (303) to /card?r=stamped when record_stamp succeeds', async () => {
+    it('redirects (303) to the shop page with r=stamped when stamp_card_nfc succeeds', async () => {
       vi.mocked(getVerifiedUser).mockResolvedValueOnce(authenticatedCustomer);
       mockAdminRpc.mockResolvedValueOnce({
-        data: 'stamped',
+        data: { result: 'stamped', tenant_slug: 'the-caffeine-plug' },
         error: null,
       });
 
@@ -324,24 +324,28 @@ describe('Phase 3 Stamp Engine & Tap Route Test Suite', () => {
       });
 
       expect(response.status).toBe(303);
-      expect(response.headers.get('location')).toBe('http://localhost:3000/card?r=stamped');
+      expect(response.headers.get('location')).toBe(
+        'http://localhost:3000/s/the-caffeine-plug?r=stamped',
+      );
 
-      expect(mockAdminRpc).toHaveBeenCalledWith('record_stamp', {
+      expect(mockAdminRpc).toHaveBeenCalledWith('stamp_card_nfc', {
         p_customer: authenticatedCustomer.id,
         p_tag: 'tcp_tag_demo_9x8k2m4p7q1w',
-        p_source: 'nfc',
       });
     });
 
     it.each([
-      ['cooldown', '/card?r=cooldown'],
-      ['daily-limit', '/card?r=daily-limit'],
-      ['tag-throttled', '/card?r=tag-throttled'],
+      ['cooldown', '/s/the-caffeine-plug?r=cooldown'],
+      ['daily-limit', '/s/the-caffeine-plug?r=daily-limit'],
+      ['tag-throttled', '/s/the-caffeine-plug?r=tag-throttled'],
       ['invalid-tag', '/card?r=invalid-tag'],
-    ])('redirects (303) to %s when record_stamp returns %s', async (resultCode, expectedPath) => {
+    ])('redirects (303) for %s to %s when stamp_card_nfc returns it', async (resultCode, expectedPath) => {
       vi.mocked(getVerifiedUser).mockResolvedValueOnce(authenticatedCustomer);
       mockAdminRpc.mockResolvedValueOnce({
-        data: resultCode,
+        data: {
+          result: resultCode,
+          tenant_slug: resultCode === 'invalid-tag' ? null : 'the-caffeine-plug',
+        },
         error: null,
       });
 
@@ -502,7 +506,7 @@ describe('Phase 3 Stamp Engine & Tap Route Test Suite', () => {
     it('successfully claims stamp for authenticated customer', async () => {
       vi.mocked(getVerifiedUser).mockResolvedValueOnce(authenticatedCustomer);
       mockAdminRpc.mockResolvedValueOnce({
-        data: 'stamped',
+        data: { result: 'stamped', tenant_slug: 'the-caffeine-plug' },
         error: null,
       });
 
@@ -520,14 +524,13 @@ describe('Phase 3 Stamp Engine & Tap Route Test Suite', () => {
         ok: true,
         data: {
           result: 'stamped',
-          redirectTo: '/card?r=stamped',
+          redirectTo: '/s/the-caffeine-plug?r=stamped',
         },
       });
 
-      expect(mockAdminRpc).toHaveBeenCalledWith('record_stamp', {
+      expect(mockAdminRpc).toHaveBeenCalledWith('stamp_card_nfc', {
         p_customer: authenticatedCustomer.id,
         p_tag: 'tcp_tag_demo_9x8k2m4p7q1w',
-        p_source: 'nfc',
       });
     });
 
