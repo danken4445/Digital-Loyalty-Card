@@ -365,6 +365,68 @@ export interface RpcContracts {
     Args: { p_source: string; p_target: string };
     Returns: { result: MergeResultCode; cards_moved: number; cards_combined: number };
   };
+  // Phase 14 (migrations 20261106*): platform admin, tenant admin, support and ops functions.
+  set_tenant_status: {
+    Args: { p_actor: string; p_tenant: string; p_status: string; p_reason: string };
+    Returns: 'updated' | 'unauthorized' | 'invalid-status' | 'invalid-reason' | 'not-found';
+  };
+  is_platform_admin_user: { Args: { p_user: string }; Returns: boolean };
+  platform_create_tenant: {
+    Args: { p_actor: string; p_slug: string; p_name: string; p_owner_email: string };
+    Returns: PlatformCreateTenantResult;
+  };
+  invite_member: {
+    Args: { p_actor: string; p_tenant: string; p_email: string; p_role: StaffRole };
+    Returns: 'invited' | 'unauthorized' | 'already-member' | 'invalid-email' | 'invalid-role';
+  };
+  accept_invite: {
+    Args: { p_user: string; p_invite: string; p_display_name: string };
+    Returns: 'accepted' | 'invalid-invite' | 'expired' | 'email-mismatch';
+  };
+  set_member_role: {
+    Args: { p_actor: string; p_tenant: string; p_user: string; p_role: StaffRole };
+    Returns: 'updated' | 'unauthorized' | 'last-owner' | 'not-found' | 'invalid-role';
+  };
+  set_member_active: {
+    Args: { p_actor: string; p_tenant: string; p_user: string; p_active: boolean };
+    Returns: 'updated' | 'unauthorized' | 'last-owner' | 'not-found';
+  };
+  update_tenant_rules: {
+    Args: { p_actor: string; p_tenant: string; p_patch: TenantRulesPatch };
+    Returns: 'updated' | 'unauthorized' | 'invalid-patch';
+  };
+  preview_tenant_rules: {
+    Args: { p_actor: string; p_tenant: string; p_patch: TenantRulesPatch };
+    Returns: TenantRulesPreview;
+  };
+  update_tenant_brand: {
+    Args: { p_actor: string; p_tenant: string; p_brand: TenantBrand };
+    Returns: 'updated' | 'unauthorized' | 'invalid-brand';
+  };
+  start_support_session: {
+    Args: { p_admin: string; p_tenant: string; p_reason: string };
+    Returns: { result: 'started' | 'unauthorized' | 'invalid-reason' | 'not-found'; sessionId?: string; expiresAt?: string };
+  };
+  end_support_session: {
+    Args: { p_admin: string; p_session: string };
+    Returns: 'ended' | 'unauthorized' | 'not-found';
+  };
+  support_get_tenant_overview: {
+    Args: { p_admin: string; p_session: string };
+    Returns: SupportTenantOverview | { result: 'unauthorized' };
+  };
+  support_list_recent_activity: {
+    Args: { p_admin: string; p_session: string; p_limit?: number };
+    Returns: SupportActivityRow[] | { result: 'unauthorized' };
+  };
+  ops_cleanup_status: {
+    Args: Record<string, never>;
+    Returns: { lastRunAt: string | null; stale: boolean };
+  };
+  tag_leak_signals: {
+    Args: { p_actor: string; p_tenant: string; p_window_minutes?: number };
+    Returns: TagLeakSignal[] | { result: 'unauthorized' };
+  };
   ensure_customer: {
     Args: {
       p_customer: string;
@@ -704,6 +766,14 @@ export const ROUTES = Object.freeze({
     manualStamp: '/staff/stamp',
     tags: '/staff/tags',
     activity: '/staff/activity',
+    settings: (slug: string) => `/staff/${encodeURIComponent(slug)}/settings`,
+  },
+  platform: {
+    root: '/platform',
+    mfa: '/platform/mfa',
+    newTenant: '/platform/new',
+    tenant: (slug: string) => `/platform/${encodeURIComponent(slug)}`,
+    support: (slug: string) => `/platform/${encodeURIComponent(slug)}/support`,
   },
   api: {
     health: '/api/health',
@@ -720,5 +790,94 @@ export const ROUTES = Object.freeze({
       tags: '/api/staff/tags',
       tenant: '/api/staff/tenant',
     },
+    platform: {
+      tenants: '/api/platform/tenants',
+      support: '/api/platform/support',
+    },
   },
 });
+
+/**
+ * Phase 14 (owner console and platform operations) contracts. Rules and bounds mirror the
+ * public.tenant_settings CHECK constraints; the database stays the authority.
+ */
+export const SUPPORT_SESSION_MINUTES = 30 as const;
+/** Days a customer may still redeem after a shop is suspended (tenants.suspended_at). */
+export const TENANT_STATUS_SUSPENDED_REDEEM_DAYS = 30 as const;
+
+export const TENANT_RULE_BOUNDS = Object.freeze({
+  cooldown_minutes: { min: 0, max: 1440 },
+  daily_cap: { min: 1, max: 20 },
+  reward_threshold: { min: 3, max: 50 },
+  tag_throttle_seconds: { min: 0, max: 60 },
+  reward_label: { minLength: 1, maxLength: 40 },
+});
+
+export interface TenantRulesPatch {
+  cooldown_minutes?: number;
+  daily_cap?: number;
+  reward_threshold?: number;
+  tag_throttle_seconds?: number;
+  reward_label?: string;
+}
+
+export interface TenantRulesPreview {
+  cardsNewlyRedeemable: number;
+  cardsWithPartialProgress: number;
+  currentThreshold: number;
+  newThreshold: number;
+}
+
+export interface PlatformCreateTenantResult {
+  result: 'created' | 'unauthorized' | 'invalid-slug' | 'duplicate-slug' | 'invalid-email';
+  tenantId?: string;
+  inviteId?: string;
+}
+
+export interface TenantInvite {
+  id: string;
+  tenantId: string;
+  email: string;
+  role: StaffRole;
+  expiresAt: string;
+  acceptedAt: string | null;
+}
+
+export interface PlatformAdminSession {
+  userId: string;
+  email: string | null;
+}
+
+export type PlatformAuthResult =
+  | { authorized: true; admin: PlatformAdminSession }
+  | { authorized: false; reason: 'unauthenticated' | 'forbidden' | 'mfa-required' };
+
+export interface SupportSession {
+  sessionId: string;
+  tenantId: string;
+  reason: string;
+  startedAt: string;
+  expiresAt: string;
+}
+
+export interface SupportTenantOverview {
+  tenantId: string;
+  slug: string;
+  name: string;
+  status: TenantStatus;
+  cards: number;
+  activeStaff: number;
+  stampsLast7Days: number;
+}
+
+export interface SupportActivityRow {
+  at: string;
+  kind: 'stamp' | 'redeem' | 'audit';
+  action: string;
+}
+
+export interface TagLeakSignal {
+  tagId: string;
+  distinctCustomers: number;
+  throttleRejections: number;
+}
