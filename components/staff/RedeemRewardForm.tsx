@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { SHOP_CONFIG } from '@/lib/config';
+import { SHOP_CONFIG, STAMP_RULES } from '@/lib/config';
 import {
   ROUTES,
   type ApiResponse,
@@ -11,7 +11,20 @@ import {
   type StaffRedeemResponse,
 } from '@/lib/contracts';
 
-export function RedeemRewardForm() {
+export interface RedeemRewardFormProps {
+  /** The active shop's reward threshold; falls back to the platform default. */
+  rewardThreshold?: number;
+  /** The active shop's reward label, e.g. "FREE COFFEE". */
+  rewardLabel?: string;
+  /** The active shop's Instagram handle for the follow perk. */
+  instagramHandle?: string;
+}
+
+export function RedeemRewardForm({
+  rewardThreshold = STAMP_RULES.rewardThreshold,
+  rewardLabel = 'FREE COFFEE',
+  instagramHandle = SHOP_CONFIG.instagramHandle,
+}: RedeemRewardFormProps = {}) {
   const [tokenInput, setTokenInput] = useState('');
   const [activeToken, setActiveToken] = useState('');
   const [loadingPreview, setLoadingPreview] = useState(false);
@@ -205,7 +218,7 @@ export function RedeemRewardForm() {
               )
             ) : preview.canRedeem ? (
               <span className="rounded-full bg-white px-3 py-1 text-sm font-bold text-plug-black">
-                ELIGIBLE FOR FREE COFFEE
+                ELIGIBLE FOR {rewardLabel.toUpperCase()}
               </span>
             ) : (
               <span className="rounded-full border border-red-500/50 bg-red-950/50 px-3 py-1 text-xs font-semibold text-red-300">
@@ -248,10 +261,8 @@ export function RedeemRewardForm() {
                     <p className="font-semibold text-white">Before you confirm</p>
                     <p className="mt-1 text-xs leading-relaxed text-neutral-300">
                       Ask the customer to open Instagram on their phone and show that they follow{' '}
-                      <span className="font-semibold text-white">
-                        {SHOP_CONFIG.instagramHandle}
-                      </span>{' '}
-                      (the profile button should say &ldquo;Following&rdquo;). No stamps are used.
+                      <span className="font-semibold text-white">{instagramHandle}</span> (the
+                      profile button should say &ldquo;Following&rdquo;). No stamps are used.
                     </p>
                   </div>
                   <button
@@ -277,12 +288,15 @@ export function RedeemRewardForm() {
                 aria-busy={loadingConfirm}
                 className="w-full inline-flex min-h-12 items-center justify-center rounded-xl border border-white bg-white px-6 py-3.5 text-sm font-bold text-plug-black transition-transform active:scale-[0.99] hover:bg-neutral-200 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-plug-black"
               >
-                {loadingConfirm ? 'Deducting 10 Stamps...' : 'Confirm & Redeem 10 Stamps'}
+                {loadingConfirm
+                  ? `Deducting ${rewardThreshold} Stamps...`
+                  : `Confirm & Redeem ${rewardThreshold} Stamps`}
               </button>
             ) : (
               <div className="rounded-xl border border-plug-border bg-plug-black p-4 text-center text-xs text-plug-muted">
-                Customer has {preview.availableStamps} stamps. 10 stamps are required to redeem a
-                free coffee reward.
+                Customer has {preview.availableStamps} stamps. {rewardThreshold} stamps are required
+                to redeem:
+                {rewardLabel}.
               </div>
             )}
           </div>
@@ -309,7 +323,7 @@ export function RedeemRewardForm() {
                   ? 'NOTHING WAS GIVEN'
                   : confirmResult.rewardKind === 'instagram-upsize'
                     ? 'FREE UPSIZE GRANTED — NO STAMPS USED'
-                    : 'REWARD REDEEMED — 10 STAMPS DEDUCTED'}
+                    : `REWARD REDEEMED — ${rewardThreshold} STAMPS DEDUCTED`}
               </h3>
             </div>
           </div>

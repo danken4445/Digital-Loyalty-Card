@@ -39,7 +39,7 @@ vi.mock('@/lib/supabase/admin', () => ({
 vi.mock('@/lib/auth/staff', () => ({
   requireStaffSession: vi.fn().mockResolvedValue({
     authorized: true,
-    staff: { userId: '11111111-1111-4111-8111-111111111111' },
+    staff: { userId: '11111111-1111-4111-8111-111111111111', tenantId: TENANT_ONE_ID },
   }),
   logStaffAuditEvent: vi.fn().mockResolvedValue(undefined),
 }));
@@ -141,7 +141,7 @@ describe('Phase 12: shop-bound redeem tokens (v2)', () => {
     });
   });
 
-  it('redeem_rejects_other_tenant_token_interim', async () => {
+  it('redeem_rejects_other_tenant_token_for_active_shop', async () => {
     const issued = await issueRedeemToken(CUSTOMER_ID, OTHER_TENANT_ID);
 
     const preview = await staffRedeemPost(makeRedeemRequest({ action: 'preview', token: issued.token }));

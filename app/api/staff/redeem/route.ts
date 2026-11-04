@@ -1,22 +1,44 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { logStaffAuditEvent, requireStaffSession } from '@/lib/auth/staff';
-import { STAMP_RULES } from '@/lib/config';
-import {
-  TENANT_ONE_ID,
-  type ApiResponse,
-  type RedeemResultCode,
-  type StaffRedeemResponse,
-} from '@/lib/contracts';
+import { requireStaffSession } from '@/lib/auth/staff';
+import { type ApiResponse, type RedeemResultCode, type StaffRedeemResponse } from '@/lib/contracts';
 import { verifySameOriginRequest } from '@/lib/security/csrf';
 import { checkPublicEndpointRateLimit, getClientIp } from '@/lib/security/ratelimit';
 import { verifyRedeemToken } from '@/lib/security/redeemToken';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { getTenantById } from '@/lib/tenants/context';
 
 const staffRedeemSchema = z.object({
   action: z.enum(['preview', 'confirm']),
   token: z.string().trim().min(1).max(2048),
 });
+
+const REWARD_RESULTS = [
+  'redeemed',
+  'insufficient-stamps',
+  'invalid-token',
+  'no-card',
+  'unauthorized',
+  'tenant-unavailable',
+] as const satisfies readonly RedeemResultCode[];
+
+const PERK_RESULTS = [
+  'redeemed',
+  'already-claimed',
+  'invalid-perk',
+  'no-card',
+  'unauthorized',
+  'tenant-unavailable',
+] as const satisfies readonly RedeemResultCode[];
+
+function isRewardResult(value: unknown): value is (typeof REWARD_RESULTS)[number] {
+  return typeof value === 'string' && (REWARD_RESULTS as readonly string[]).includes(value);
+}
+
+function isPerkResult(value: unknown): value is (typeof PERK_RESULTS)[number] {
+  return typeof value === 'string' && (PERK_RESULTS as readonly string[]).includes(value);
+}
 
 export async function POST(
   request: Request,
@@ -134,8 +156,11 @@ export async function POST(
       );
     }
 
-    // Interim (until the active-shop switch): only shop one's rewards are redeemable.
-    if (verification.payload.tenantId !== TENANT_ONE_ID) {
+    const staff = auth.staff;
+    const { payload } = verification;
+
+    // A reward QR is bound to the shop that issued it; only that shop's staff can redeem it.
+    if (payload.tenantId !== staff.tenantId) {
       const wrongTenantMessage = 'This reward belongs to another shop.';
       if (parsed.data.action === 'preview') {
         return NextResponse.json<ApiResponse<StaffRedeemResponse>>(
@@ -151,7 +176,7 @@ export async function POST(
             mode: 'confirm',
             result: 'wrong-tenant',
             rewardKind: verification.kind,
-            customerId: verification.payload.customerId,
+            customerId: payload.customerId,
             displayCode: verification.displayCode,
             availableStampsAfter: 0,
             message: wrongTenantMessage,
@@ -161,12 +186,27 @@ export async function POST(
       );
     }
 
-    const admin = createSupabaseAdminClient();
-    const { data: existingNonce } = await admin
+    const tenant = await getTenantById(staff.tenantId);
+    if (!tenant) {
+      return NextResponse.json<ApiResponse<StaffRedeemResponse>>(
+        {
+          ok: false,
+          error: 'internal_error',
+          message: 'Shop settings are unavailable.',
+        },
+        { status: 500 },
+      );
+    }
+    const { rewardThreshold, rewardLabel } = tenant.settings;
+
+    // Session client: RLS scopes audit_log, card_balances and perk_claims to the staff member's shops.
+    const supabase = await createSupabaseServerClient();
+    const { data: existingNonce } = await supabase
       .from('audit_log')
       .select('id')
+      .eq('tenant_id', staff.tenantId)
       .eq('action', 'staff_redeem_token_used')
-      .eq('target', verification.payload.nonce)
+      .eq('target', payload.nonce)
       .maybeSingle();
 
     if (existingNonce) {
@@ -188,7 +228,7 @@ export async function POST(
             mode: 'confirm',
             result: 'invalid-token',
             rewardKind: verification.kind,
-            customerId: verification.payload.customerId,
+            customerId: payload.customerId,
             displayCode: verification.displayCode,
             availableStampsAfter: 0,
             message: 'This redemption QR token has already been used.',
@@ -199,22 +239,28 @@ export async function POST(
     }
 
     if (parsed.data.action === 'preview') {
-      const { data: bal } = await admin
-        .from('customer_balances')
+      const { data: bal } = await supabase
+        .from('card_balances')
         .select('customer_id, total_stamps, stamps_redeemed, available_stamps, last_stamped_at')
-        .eq('customer_id', verification.payload.customerId)
-        .maybeSingle();
+        .eq('tenant_id', staff.tenantId)
+        .eq('customer_id', payload.customerId)
+        .maybeSingle<{
+          total_stamps: number | null;
+          stamps_redeemed: number | null;
+          available_stamps: number | null;
+        }>();
 
       const availableStamps = bal?.available_stamps ?? 0;
       const totalStamps = bal?.total_stamps ?? 0;
       const stampsRedeemed = bal?.stamps_redeemed ?? 0;
 
-      let canRedeem = availableStamps >= STAMP_RULES.rewardThreshold;
+      let canRedeem = availableStamps >= rewardThreshold;
       if (verification.kind === 'instagram-upsize') {
-        const { data: existingClaim } = await admin
+        const { data: existingClaim } = await supabase
           .from('perk_claims')
           .select('id')
-          .eq('customer_id', verification.payload.customerId)
+          .eq('tenant_id', staff.tenantId)
+          .eq('customer_id', payload.customerId)
           .eq('perk', 'instagram_follow_upsize')
           .maybeSingle();
         canRedeem = !existingClaim;
@@ -227,13 +273,13 @@ export async function POST(
             mode: 'preview',
             valid: true,
             rewardKind: verification.kind,
-            customerId: verification.payload.customerId,
+            customerId: payload.customerId,
             displayCode: verification.displayCode,
             availableStamps,
             totalStamps,
             stampsRedeemed,
             canRedeem,
-            expiresAtIso: new Date(verification.payload.exp * 1000).toISOString(),
+            expiresAtIso: new Date(payload.exp * 1000).toISOString(),
           },
         },
         { status: 200 },
@@ -241,11 +287,25 @@ export async function POST(
     }
 
     // action === 'confirm'
+    const admin = createSupabaseAdminClient();
+
+    async function readAvailableStamps(): Promise<number> {
+      const { data: after } = await supabase
+        .from('card_balances')
+        .select('available_stamps')
+        .eq('tenant_id', staff.tenantId)
+        .eq('customer_id', payload.customerId)
+        .maybeSingle<{ available_stamps: number | null }>();
+      return after?.available_stamps ?? 0;
+    }
+
     if (verification.kind === 'instagram-upsize') {
-      // One claim per card is enforced inside claim_instagram_upsize, so token replay is harmless
-      const { data: claimData, error: claimError } = await admin.rpc('claim_instagram_upsize', {
-        p_customer: verification.payload.customerId,
-        p_staff: auth.staff.userId,
+      // One claim per card is enforced inside claim_card_perk, so token replay is harmless
+      const { data: claimData, error: claimError } = await admin.rpc('claim_card_perk', {
+        p_actor: staff.userId,
+        p_tenant: staff.tenantId,
+        p_customer: payload.customerId,
+        p_perk: 'instagram_follow_upsize',
       });
 
       if (claimError) {
@@ -259,16 +319,7 @@ export async function POST(
         );
       }
 
-      const claimResult: RedeemResultCode =
-        claimData === 'redeemed' || claimData === 'already-claimed' || claimData === 'unauthorized'
-          ? claimData
-          : 'invalid-token';
-
-      const { data: claimBal } = await admin
-        .from('customer_balances')
-        .select('available_stamps')
-        .eq('customer_id', verification.payload.customerId)
-        .maybeSingle();
+      const claimResult: RedeemResultCode = isPerkResult(claimData) ? claimData : 'invalid-token';
 
       return NextResponse.json<ApiResponse<StaffRedeemResponse>>(
         {
@@ -277,9 +328,9 @@ export async function POST(
             mode: 'confirm',
             result: claimResult,
             rewardKind: 'instagram-upsize',
-            customerId: verification.payload.customerId,
+            customerId: payload.customerId,
             displayCode: verification.displayCode,
-            availableStampsAfter: claimBal?.available_stamps ?? 0,
+            availableStampsAfter: await readAvailableStamps(),
             message:
               claimResult === 'redeemed'
                 ? 'Instagram upsize granted. Upsize their drink at no charge. No stamps used.'
@@ -287,18 +338,22 @@ export async function POST(
                   ? 'This card has already used its Instagram upsize.'
                   : claimResult === 'unauthorized'
                     ? 'Staff member is not authorized to redeem.'
-                    : 'Upsize could not be granted.',
+                    : claimResult === 'no-card'
+                      ? `This customer has no ${staff.tenantName} card.`
+                      : 'Upsize could not be granted.',
           },
         },
         { status: 200 },
       );
     }
 
-    // Pass p_nonce so single-use nonce check & consumption execute atomically inside the customer advisory lock
-    const { data: rpcData, error: rpcError } = await admin.rpc('redeem_reward', {
-      p_customer: verification.payload.customerId,
-      p_staff: auth.staff.userId,
-      p_nonce: verification.payload.nonce,
+    // redeem_card_reward checks and records the single-use nonce atomically inside the customer
+    // lock and writes the audit rows itself.
+    const { data: rpcData, error: rpcError } = await admin.rpc('redeem_card_reward', {
+      p_actor: staff.userId,
+      p_tenant: staff.tenantId,
+      p_customer: payload.customerId,
+      p_nonce: payload.nonce,
     });
 
     if (rpcError) {
@@ -312,43 +367,18 @@ export async function POST(
       );
     }
 
-    const { data: updatedBal } = await admin
-      .from('customer_balances')
-      .select('available_stamps')
-      .eq('customer_id', verification.payload.customerId)
-      .maybeSingle();
-
-    if (rpcData === 'redeemed') {
-      await logStaffAuditEvent({
-        actorId: auth.staff.userId,
-        action: 'staff_redeem_token_used',
-        target: verification.payload.nonce,
-        detail: {
-          customer_id: verification.payload.customerId,
-          display_code: verification.displayCode,
-        },
-      }).catch(() => {
-        // Nonce is already atomically recorded inside redeem_reward(p_customer, p_staff, p_nonce)
-      });
-    }
-
-    const redeemResult: RedeemResultCode =
-      rpcData === 'redeemed' ||
-      rpcData === 'insufficient-stamps' ||
-      rpcData === 'unauthorized' ||
-      rpcData === 'invalid-token' ||
-      rpcData === 'expired-token'
-        ? rpcData
-        : 'invalid-token';
+    const redeemResult: RedeemResultCode = isRewardResult(rpcData) ? rpcData : 'invalid-token';
 
     const message =
       redeemResult === 'redeemed'
-        ? 'Reward redeemed successfully! 10 stamps deducted.'
+        ? `${rewardLabel} redeemed successfully! ${rewardThreshold} stamps deducted.`
         : redeemResult === 'insufficient-stamps'
-          ? 'Customer does not have enough stamps (10 required).'
+          ? `Customer does not have enough stamps (${rewardThreshold} required).`
           : redeemResult === 'unauthorized'
             ? 'Staff member is not authorized to redeem.'
-            : 'Redemption failed.';
+            : redeemResult === 'no-card'
+              ? `This customer has no ${staff.tenantName} card.`
+              : 'Redemption failed.';
 
     return NextResponse.json<ApiResponse<StaffRedeemResponse>>(
       {
@@ -357,9 +387,9 @@ export async function POST(
           mode: 'confirm',
           result: redeemResult,
           rewardKind: 'free-coffee',
-          customerId: verification.payload.customerId,
+          customerId: payload.customerId,
           displayCode: verification.displayCode,
-          availableStampsAfter: updatedBal?.available_stamps ?? 0,
+          availableStampsAfter: await readAvailableStamps(),
           message,
         },
       },

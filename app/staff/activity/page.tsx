@@ -1,11 +1,14 @@
 import { StaffPageShell } from '@/components/staff/StaffPageShell';
 import { enforceStaffPageAccess, getStaffActivityDashboardData } from '@/lib/auth/staff';
+import { SHOP_CONFIG } from '@/lib/config';
 import { ROUTES } from '@/lib/contracts';
-import { formatManilaDateTime } from '@/lib/rules/display';
+import { formatDateTimeInZone } from '@/lib/rules/display';
+import { getTenantById } from '@/lib/tenants/context';
 
 export default async function StaffActivityPage() {
   const staff = await enforceStaffPageAccess(ROUTES.staff.activity);
   const activity = await getStaffActivityDashboardData();
+  const timezone = (await getTenantById(staff.tenantId))?.settings.timezone ?? SHOP_CONFIG.timezone;
 
   return (
     <StaffPageShell
@@ -13,7 +16,7 @@ export default async function StaffActivityPage() {
       currentPath={ROUTES.staff.activity}
       title="Activity & Audit Log"
       headerLabel="Activity & Audit Header"
-      description="Recent stamps and rewards, anything that looks unusual, and the full record of staff actions. Times are Manila time."
+      description="Recent stamps and rewards, anything that looks unusual, and the full record of staff actions. Times are shown in your shop's timezone."
     >
       <div className="space-y-12">
         {/* Section 1: Anomaly Flags */}
@@ -88,7 +91,7 @@ export default async function StaffActivityPage() {
                     <th className="px-4 py-3">Customer ID</th>
                     <th className="px-4 py-3">Source</th>
                     <th className="px-4 py-3">Tag / Audit Detail</th>
-                    <th className="px-4 py-3">Timestamp (Manila)</th>
+                    <th className="px-4 py-3">Timestamp</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-plug-border">
@@ -132,7 +135,7 @@ export default async function StaffActivityPage() {
                         )}
                       </td>
                       <td className="px-4 py-3 font-mono text-[11px] text-plug-muted whitespace-nowrap">
-                        {formatManilaDateTime(stamp.created_at)} PHT
+                        {formatDateTimeInZone(stamp.created_at, timezone)}
                       </td>
                     </tr>
                   ))}
@@ -163,7 +166,7 @@ export default async function StaffActivityPage() {
                     <th className="px-4 py-3">Stamps Deducted</th>
                     <th className="px-4 py-3">Customer ID</th>
                     <th className="px-4 py-3">Staff Barista ID</th>
-                    <th className="px-4 py-3">Timestamp (Manila)</th>
+                    <th className="px-4 py-3">Timestamp</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-plug-border">
@@ -186,7 +189,7 @@ export default async function StaffActivityPage() {
                         {redemption.staff_id}
                       </td>
                       <td className="px-4 py-3 font-mono text-[11px] text-plug-muted whitespace-nowrap">
-                        {formatManilaDateTime(redemption.created_at)} PHT
+                        {formatDateTimeInZone(redemption.created_at, timezone)}
                       </td>
                     </tr>
                   ))}
@@ -218,7 +221,7 @@ export default async function StaffActivityPage() {
                     <th className="px-4 py-3">Actor</th>
                     <th className="px-4 py-3">Target</th>
                     <th className="px-4 py-3">Detail (JSON)</th>
-                    <th className="px-4 py-3">Timestamp (Manila)</th>
+                    <th className="px-4 py-3">Timestamp</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-plug-border">
@@ -243,7 +246,7 @@ export default async function StaffActivityPage() {
                         )}
                       </td>
                       <td className="px-4 py-3 font-mono text-[11px] text-plug-muted whitespace-nowrap">
-                        {formatManilaDateTime(log.created_at)} PHT
+                        {formatDateTimeInZone(log.created_at, timezone)}
                       </td>
                     </tr>
                   ))}

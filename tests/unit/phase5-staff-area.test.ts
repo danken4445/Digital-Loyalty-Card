@@ -167,6 +167,28 @@ import StaffLoginPage from '@/app/staff/login/page';
 const TEST_STAFF_ID = '99999999-9999-9999-9999-999999999999';
 const TEST_CUSTOMER_ID = '11111111-1111-1111-1111-111111111111';
 const TEST_CUSTOMER_ID_2 = '22222222-2222-2222-2222-222222222222';
+const TENANT_RULES = { dailyCap: 2, timezone: 'Asia/Manila' };
+
+/** Raw tenants row (with embedded tenant_settings) as read by getTenantById. */
+function tenantRow() {
+  return {
+    id: TENANT_ONE_ID,
+    slug: TENANT_ONE_SLUG,
+    name: 'The Caffeine Plug',
+    status: 'active',
+    tenant_settings: {
+      cooldown_minutes: 30,
+      daily_cap: 2,
+      reward_threshold: 10,
+      tag_throttle_seconds: 5,
+      timezone: 'Asia/Manila',
+      currency: 'PHP',
+      reward_label: 'FREE COFFEE',
+      brand: {},
+      perks: {},
+    },
+  };
+}
 
 function membershipRow(
   role: 'staff' | 'owner' | 'manager' = 'staff',
@@ -233,6 +255,7 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
     vi.clearAllMocks();
     process.env.REDEEM_TOKEN_SECRET = TEST_SECRET;
     tableQueryHandlers = {};
+    tableQueryHandlers['tenants'] = () => createMockSupabaseQuery(tenantRow(), null);
     cookieJar.clear();
 
     vi.mocked(checkPublicEndpointRateLimit).mockResolvedValue({
@@ -246,10 +269,10 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
       if (rpcName === 'log_audit_event') {
         return { data: 'audit-event-uuid-1', error: null };
       }
-      if (rpcName === 'redeem_reward') {
+      if (rpcName === 'redeem_card_reward') {
         return { data: 'redeemed', error: null };
       }
-      if (rpcName === 'record_stamp') {
+      if (rpcName === 'stamp_card_manual') {
         return { data: 'stamped', error: null };
       }
       return { data: null, error: null };
@@ -445,9 +468,7 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
         };
 
         const decorated = decorateTagWithUrls(tag);
-        expect(decorated.productionTapUrl).toBe(
-          'https://card.thecaffeineplug.ph/t/tcp_tag_test_counter_1',
-        );
+        expect(decorated.productionTapUrl).toBe('http://localhost:3000/t/tcp_tag_test_counter_1');
         expect(decorated.localTapUrl).toBe('http://localhost:3000/t/tcp_tag_test_counter_1');
         expect(decorated.id).toBe(tag.id);
         expect(decorated.label).toBe(tag.label);
@@ -464,7 +485,7 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
 
         const decorated = decorateTagWithUrls(tag);
         expect(decorated.productionTapUrl).toBe(
-          `https://card.thecaffeineplug.ph/t/${encodeURIComponent(tag.id)}`,
+          `http://localhost:3000/t/${encodeURIComponent(tag.id)}`,
         );
       });
     });
@@ -527,7 +548,7 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
           stamps,
           redemptions: [],
           auditLogs: [],
-        });
+        }, TENANT_RULES);
 
         expect(anomalies).toEqual([]);
       });
@@ -578,7 +599,7 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
           stamps,
           redemptions: [],
           auditLogs: [],
-        });
+        }, TENANT_RULES);
 
         expect(anomalies).toHaveLength(1);
         expect(anomalies[0]!.category).toBe('repeated-daily-cap');
@@ -642,7 +663,7 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
           stamps,
           redemptions: [],
           auditLogs,
-        });
+        }, TENANT_RULES);
 
         expect(anomalies).toHaveLength(1);
         expect(anomalies[0]!.category).toBe('repeated-daily-cap');
@@ -682,7 +703,7 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
           stamps: [],
           redemptions: [],
           auditLogs,
-        });
+        }, TENANT_RULES);
 
         expect(anomalies).toHaveLength(1);
         expect(anomalies[0]!.category).toBe('repeated-daily-cap');
@@ -705,7 +726,7 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
           stamps,
           redemptions: [],
           auditLogs: [],
-        });
+        }, TENANT_RULES);
 
         expect(anomalies).toHaveLength(1);
         expect(anomalies[0]!.category).toBe('high-tag-volume');
@@ -729,7 +750,7 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
           stamps,
           redemptions: [],
           auditLogs: [],
-        });
+        }, TENANT_RULES);
 
         expect(anomalies).toHaveLength(1);
         expect(anomalies[0]!.category).toBe('high-tag-volume');
@@ -768,7 +789,7 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
           stamps: [],
           redemptions: [],
           auditLogs,
-        });
+        }, TENANT_RULES);
 
         expect(anomalies).toHaveLength(1);
         expect(anomalies[0]!.category).toBe('high-tag-volume');
@@ -811,7 +832,7 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
           stamps,
           redemptions: [],
           auditLogs: [],
-        });
+        }, TENANT_RULES);
 
         expect(anomalies).toHaveLength(1);
         expect(anomalies[0]!.category).toBe('frequent-manual-stamps');
@@ -835,7 +856,7 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
           stamps,
           redemptions: [],
           auditLogs: [],
-        });
+        }, TENANT_RULES);
 
         expect(anomalies).toHaveLength(1);
         expect(anomalies[0]!.category).toBe('frequent-manual-stamps');
@@ -903,9 +924,7 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
         const tagsWithUrls = await getStaffTagsList();
         expect(tagsWithUrls).toHaveLength(1);
         expect(tagsWithUrls[0]!.id).toBe('tcp_tag_counter_1');
-        expect(tagsWithUrls[0]!.productionTapUrl).toBe(
-          'https://card.thecaffeineplug.ph/t/tcp_tag_counter_1',
-        );
+        expect(tagsWithUrls[0]!.productionTapUrl).toBe('http://localhost:3000/t/tcp_tag_counter_1');
         expect(tagsWithUrls[0]!.localTapUrl).toBe('http://localhost:3000/t/tcp_tag_counter_1');
       });
     });
@@ -1066,7 +1085,7 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
       tableQueryHandlers['audit_log'] = () => createMockSupabaseQuery(null, null);
 
       // customer_balances: 10 stamps
-      tableQueryHandlers['customer_balances'] = () =>
+      tableQueryHandlers['card_balances'] = () =>
         createMockSupabaseQuery(
           {
             customer_id: TEST_CUSTOMER_ID,
@@ -1096,7 +1115,7 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
       const issued = await issueRedeemToken(TEST_CUSTOMER_ID, TENANT_ONE_ID);
 
       tableQueryHandlers['audit_log'] = () => createMockSupabaseQuery(null, null);
-      tableQueryHandlers['customer_balances'] = () =>
+      tableQueryHandlers['card_balances'] = () =>
         createMockSupabaseQuery(
           {
             customer_id: TEST_CUSTOMER_ID,
@@ -1119,13 +1138,13 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
       expect(json.data.availableStamps).toBe(9);
     });
 
-    it('succeeds on confirm: calls redeem_reward RPC with customer and staff, records audit log, and returns result: redeemed', async () => {
+    it('succeeds on confirm: calls redeem_card_reward RPC with the active shop, customer and staff, and returns result: redeemed', async () => {
       const issued = await issueRedeemToken(TEST_CUSTOMER_ID, TENANT_ONE_ID);
 
       tableQueryHandlers['audit_log'] = () => createMockSupabaseQuery(null, null);
 
       // Customer balance after deduction: 0 stamps
-      tableQueryHandlers['customer_balances'] = () =>
+      tableQueryHandlers['card_balances'] = () =>
         createMockSupabaseQuery(
           {
             available_stamps: 0,
@@ -1134,15 +1153,12 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
         );
 
       mockAdminClient.rpc.mockImplementation(async (rpcName: string, args: any) => {
-        if (rpcName === 'redeem_reward') {
+        if (rpcName === 'redeem_card_reward') {
           expect(args.p_customer).toBe(TEST_CUSTOMER_ID);
-          expect(args.p_staff).toBe(TEST_STAFF_ID);
+          expect(args.p_actor).toBe(TEST_STAFF_ID);
+          expect(args.p_tenant).toBe(TENANT_ONE_ID);
+          expect(args.p_nonce).toBe(issued.payload.nonce);
           return { data: 'redeemed', error: null };
-        }
-        if (rpcName === 'log_audit_event') {
-          expect(args.p_action).toBe('staff_redeem_token_used');
-          expect(args.p_target).toBe(issued.payload.nonce);
-          return { data: 'audit-log-uuid-1', error: null };
         }
         return { data: null, error: null };
       });
@@ -1156,18 +1172,20 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
       expect(json.data.mode).toBe('confirm');
       expect(json.data.result).toBe('redeemed');
       expect(json.data.availableStampsAfter).toBe(0);
-      expect(json.data.message).toBe('Reward redeemed successfully! 10 stamps deducted.');
+      expect(json.data.message).toBe('FREE COFFEE redeemed successfully! 10 stamps deducted.');
+      // The SQL function writes the redemption audit rows; the route makes no separate audit RPC
+      expect(mockAdminClient.rpc).not.toHaveBeenCalledWith('log_audit_event', expect.anything());
     });
 
-    it('handles confirm when redeem_reward returns insufficient-stamps', async () => {
+    it('handles confirm when redeem_card_reward returns insufficient-stamps', async () => {
       const issued = await issueRedeemToken(TEST_CUSTOMER_ID, TENANT_ONE_ID);
 
       tableQueryHandlers['audit_log'] = () => createMockSupabaseQuery(null, null);
-      tableQueryHandlers['customer_balances'] = () =>
+      tableQueryHandlers['card_balances'] = () =>
         createMockSupabaseQuery({ available_stamps: 8 }, null);
 
       mockAdminClient.rpc.mockImplementation(async (rpcName: string) => {
-        if (rpcName === 'redeem_reward') {
+        if (rpcName === 'redeem_card_reward') {
           return { data: 'insufficient-stamps', error: null };
         }
         return { data: null, error: null };
@@ -1183,13 +1201,13 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
       expect(json.data.message).toBe('Customer does not have enough stamps (10 required).');
     });
 
-    it('returns 500 when redeem_reward RPC fails', async () => {
+    it('returns 500 when redeem_card_reward RPC fails', async () => {
       const issued = await issueRedeemToken(TEST_CUSTOMER_ID, TENANT_ONE_ID);
 
       tableQueryHandlers['audit_log'] = () => createMockSupabaseQuery(null, null);
 
       mockAdminClient.rpc.mockImplementation(async (rpcName: string) => {
-        if (rpcName === 'redeem_reward') {
+        if (rpcName === 'redeem_card_reward') {
           return { data: null, error: { message: 'Database transaction lock failed' } };
         }
         return { data: null, error: null };
@@ -1293,8 +1311,8 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
       expect(resEmpty.status).toBe(400);
     });
 
-    it('returns 404 when customerId is not found in public.customers', async () => {
-      tableQueryHandlers['customers'] = () => createMockSupabaseQuery(null, null);
+    it('returns 404 when the customer has no card at the active shop (no-card)', async () => {
+      mockAdminClient.rpc.mockResolvedValueOnce({ data: 'no-card', error: null });
 
       const res = await staffStampPost(
         makeStampRequest({
@@ -1305,27 +1323,20 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
       expect(res.status).toBe(404);
       const json = await res.json();
       expect(json.ok).toBe(false);
-      expect(json.message).toBe('Customer ID not found.');
+      expect(json.message).toBe('This customer has no The Caffeine Plug card.');
     });
 
-    it('succeeds for valid customer and reason: calls record_stamp with manual source, logs audit event, and returns balance', async () => {
-      tableQueryHandlers['customers'] = () =>
-        createMockSupabaseQuery({ id: TEST_CUSTOMER_ID }, null);
-      tableQueryHandlers['customer_balances'] = () =>
+    it('succeeds for valid customer and reason: calls stamp_card_manual for the active shop and returns balance', async () => {
+      tableQueryHandlers['card_balances'] = () =>
         createMockSupabaseQuery({ available_stamps: 7 }, null);
 
       mockAdminClient.rpc.mockImplementation(async (rpcName: string, args: any) => {
-        if (rpcName === 'record_stamp') {
+        if (rpcName === 'stamp_card_manual') {
           expect(args.p_customer).toBe(TEST_CUSTOMER_ID);
-          expect(args.p_source).toBe('manual');
-          expect(args.p_staff).toBe(TEST_STAFF_ID);
+          expect(args.p_tenant).toBe(TENANT_ONE_ID);
+          expect(args.p_actor).toBe(TEST_STAFF_ID);
           expect(args.p_reason).toBe('iPhone 8 NFC broken; receipt verified');
           return { data: 'stamped', error: null };
-        }
-        if (rpcName === 'log_audit_event') {
-          expect(args.p_action).toBe('staff_manual_stamp_issued');
-          expect(args.p_target).toBe(TEST_CUSTOMER_ID);
-          return { data: 'audit-log-uuid-2', error: null };
         }
         return { data: null, error: null };
       });
@@ -1343,14 +1354,13 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
       expect(json.data.customerId).toBe(TEST_CUSTOMER_ID);
       expect(json.data.availableStampsAfter).toBe(7);
       expect(json.data.reason).toBe('iPhone 8 NFC broken; receipt verified');
+      // stamp_card_manual audits inside SQL, so the route makes no separate audit RPC
+      expect(mockAdminClient.rpc).not.toHaveBeenCalledWith('log_audit_event', expect.anything());
     });
 
-    it('returns 500 when record_stamp RPC encounters an error', async () => {
-      tableQueryHandlers['customers'] = () =>
-        createMockSupabaseQuery({ id: TEST_CUSTOMER_ID }, null);
-
+    it('returns 500 when stamp_card_manual RPC encounters an error', async () => {
       mockAdminClient.rpc.mockImplementation(async (rpcName: string) => {
-        if (rpcName === 'record_stamp') {
+        if (rpcName === 'stamp_card_manual') {
           return { data: null, error: { message: 'RPC execution failed' } };
         }
         return { data: null, error: null };
@@ -1426,13 +1436,9 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
         const json = await res.json();
         expect(json.ok).toBe(true);
         expect(json.data).toHaveLength(2);
-        expect(json.data[0].productionTapUrl).toBe(
-          'https://card.thecaffeineplug.ph/t/tcp_tag_counter_1',
-        );
+        expect(json.data[0].productionTapUrl).toBe('http://localhost:3000/t/tcp_tag_counter_1');
         expect(json.data[0].localTapUrl).toBe('http://localhost:3000/t/tcp_tag_counter_1');
-        expect(json.data[1].productionTapUrl).toBe(
-          'https://card.thecaffeineplug.ph/t/tcp_tag_drive_thru',
-        );
+        expect(json.data[1].productionTapUrl).toBe('http://localhost:3000/t/tcp_tag_drive_thru');
       });
 
       it('returns 500 when database query errors', async () => {
@@ -1448,6 +1454,11 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
     });
 
     describe('POST /api/staff/tags', () => {
+      // Tag management is owner/manager only; the role gate itself is covered in phase12-staff-actions.
+      beforeEach(() => {
+        mockActiveStaff('owner');
+      });
+
       it('rejects unauthenticated caller with 401', async () => {
         mockUnauthenticated();
         const res = await staffTagsPost(makeTagRequest({ action: 'create' }));
@@ -1481,22 +1492,31 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
       });
 
       describe('action: create', () => {
-        it('creates a new random tag matching pattern, logs tag_created, and returns decorated tag', async () => {
-          let insertedData: any = null;
+        it('creates a tag through create_tag for the active shop and returns the re-read, decorated tag', async () => {
+          let createdId = '';
+          mockAdminClient.rpc.mockImplementation(async (rpcName: string, args: any) => {
+            if (rpcName === 'create_tag') {
+              expect(args.p_actor).toBe(TEST_STAFF_ID);
+              expect(args.p_tenant).toBe(TENANT_ONE_ID);
+              expect(args.p_label).toBe('Front Counter Card #2');
+              createdId = args.p_tag_id;
+              return { data: 'created', error: null };
+            }
+            return { data: null, error: null };
+          });
 
           tableQueryHandlers['tags'] = () => {
             const query: any = createMockSupabaseQuery();
-            query.insert = vi.fn((data: any) => {
-              insertedData = {
-                id: data.id,
-                label: data.label,
+            query.maybeSingle = vi.fn(async () => ({
+              data: {
+                id: createdId,
+                label: 'Front Counter Card #2',
                 active: true,
                 created_at: '2026-11-01T12:00:00Z',
                 deactivated_at: null,
-              };
-              query.single = vi.fn().mockResolvedValue({ data: insertedData, error: null });
-              return query;
-            });
+              },
+              error: null,
+            }));
             return query;
           };
 
@@ -1508,33 +1528,26 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
           expect(json.ok).toBe(true);
           expect(json.data.action).toBe('create');
           expect(json.data.tag.id).toMatch(/^tcp_tag_[0-9a-z]{16}$/);
+          expect(json.data.tag.id).toBe(createdId);
           expect(json.data.tag.label).toBe('Front Counter Card #2');
           expect(json.data.tag.productionTapUrl).toBe(
-            `https://card.thecaffeineplug.ph/t/${encodeURIComponent(json.data.tag.id)}`,
+            `http://localhost:3000/t/${encodeURIComponent(json.data.tag.id)}`,
           );
 
-          expect(mockAdminClient.rpc).toHaveBeenCalledWith(
+          // The SQL function writes the tag_created audit row, so the route makes no audit RPC
+          expect(mockAdminClient.rpc).not.toHaveBeenCalledWith(
             'log_audit_event',
-            expect.objectContaining({
-              p_actor: TEST_STAFF_ID,
-              p_action: 'tag_created',
-              p_target: json.data.tag.id,
-            }),
+            expect.anything(),
           );
         });
 
-        it('returns 500 when inserting tag fails', async () => {
-          tableQueryHandlers['tags'] = () => {
-            const query: any = createMockSupabaseQuery();
-            query.insert = vi.fn(() => {
-              query.single = vi.fn().mockResolvedValue({
-                data: null,
-                error: { message: 'Unique violation on tag id' },
-              });
-              return query;
-            });
-            return query;
-          };
+        it('returns 500 when creating the tag fails', async () => {
+          mockAdminClient.rpc.mockImplementation(async (rpcName: string) => {
+            if (rpcName === 'create_tag') {
+              return { data: null, error: { message: 'Unique violation on tag id' } };
+            }
+            return { data: null, error: null };
+          });
 
           const res = await staffTagsPost(makeTagRequest({ action: 'create' }));
           expect(res.status).toBe(500);
@@ -1543,7 +1556,10 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
 
       describe('action: deactivate', () => {
         it('returns 404 when tag does not exist', async () => {
-          tableQueryHandlers['tags'] = () => createMockSupabaseQuery(null, null);
+          mockAdminClient.rpc.mockImplementation(async (rpcName: string) => {
+            if (rpcName === 'deactivate_tag') return { data: 'not-found', error: null };
+            return { data: null, error: null };
+          });
 
           const res = await staffTagsPost(
             makeTagRequest({ action: 'deactivate', tagId: 'tcp_tag_nonexistent' }),
@@ -1554,30 +1570,27 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
           expect(json.message).toBe('NFC tag not found.');
         });
 
-        it('deactivates tag, logs tag_deactivated, and returns updated tag', async () => {
-          const existingTag: TagRow = {
+        it('deactivates tag through deactivate_tag and returns the updated tag', async () => {
+          const updatedTag: TagRow = {
             id: 'tcp_tag_to_deactivate',
             label: 'Counter Tag',
-            active: true,
-            created_at: '2026-11-01T10:00:00Z',
-            deactivated_at: null,
-          };
-
-          const updatedTag: TagRow = {
-            ...existingTag,
             active: false,
+            created_at: '2026-11-01T10:00:00Z',
             deactivated_at: new Date().toISOString(),
           };
 
-          tableQueryHandlers['tags'] = () => {
-            const query: any = createMockSupabaseQuery();
-            query.maybeSingle = vi.fn().mockResolvedValue({ data: existingTag, error: null });
-            query.update = vi.fn(() => {
-              query.single = vi.fn().mockResolvedValue({ data: updatedTag, error: null });
-              return query;
-            });
-            return query;
-          };
+          mockAdminClient.rpc.mockImplementation(async (rpcName: string, args: any) => {
+            if (rpcName === 'deactivate_tag') {
+              expect(args).toEqual({
+                p_actor: TEST_STAFF_ID,
+                p_tenant: TENANT_ONE_ID,
+                p_tag_id: 'tcp_tag_to_deactivate',
+              });
+              return { data: 'deactivated', error: null };
+            }
+            return { data: null, error: null };
+          });
+          tableQueryHandlers['tags'] = () => createMockSupabaseQuery(updatedTag, null);
 
           const res = await staffTagsPost(
             makeTagRequest({ action: 'deactivate', tagId: 'tcp_tag_to_deactivate' }),
@@ -1588,21 +1601,19 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
           expect(json.data.action).toBe('deactivate');
           expect(json.data.deactivatedTagId).toBe('tcp_tag_to_deactivate');
           expect(json.data.tag.active).toBe(false);
-
-          expect(mockAdminClient.rpc).toHaveBeenCalledWith(
+          expect(mockAdminClient.rpc).not.toHaveBeenCalledWith(
             'log_audit_event',
-            expect.objectContaining({
-              p_actor: TEST_STAFF_ID,
-              p_action: 'tag_deactivated',
-              p_target: 'tcp_tag_to_deactivate',
-            }),
+            expect.anything(),
           );
         });
       });
 
       describe('action: rotate', () => {
         it('returns 404 when target tag does not exist', async () => {
-          tableQueryHandlers['tags'] = () => createMockSupabaseQuery(null, null);
+          mockAdminClient.rpc.mockImplementation(async (rpcName: string) => {
+            if (rpcName === 'rotate_tag') return { data: 'not-found', error: null };
+            return { data: null, error: null };
+          });
 
           const res = await staffTagsPost(
             makeTagRequest({ action: 'rotate', tagId: 'tcp_tag_nonexistent' }),
@@ -1610,29 +1621,32 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
           expect(res.status).toBe(404);
         });
 
-        it('deactivates old tag, creates new tag, logs tag_rotated with deactivated_tag_id, and returns new tag', async () => {
-          const oldTag = {
-            id: 'tcp_tag_old_counter',
-            label: 'Register 1 Old',
-          };
-
-          let newTagInserted: TagRow | null = null;
+        it('rotates through rotate_tag with a fresh id and returns the new tag', async () => {
+          let newId = '';
+          mockAdminClient.rpc.mockImplementation(async (rpcName: string, args: any) => {
+            if (rpcName === 'rotate_tag') {
+              expect(args.p_actor).toBe(TEST_STAFF_ID);
+              expect(args.p_tenant).toBe(TENANT_ONE_ID);
+              expect(args.p_old_tag_id).toBe('tcp_tag_old_counter');
+              expect(args.p_label).toBe('Register 1 New Card');
+              newId = args.p_new_tag_id;
+              return { data: 'rotated', error: null };
+            }
+            return { data: null, error: null };
+          });
 
           tableQueryHandlers['tags'] = () => {
             const query: any = createMockSupabaseQuery();
-            query.maybeSingle = vi.fn().mockResolvedValue({ data: oldTag, error: null });
-            query.update = vi.fn(() => query);
-            query.insert = vi.fn((data: any) => {
-              newTagInserted = {
-                id: data.id,
-                label: data.label,
+            query.maybeSingle = vi.fn(async () => ({
+              data: {
+                id: newId,
+                label: 'Register 1 New Card',
                 active: true,
                 created_at: '2026-11-01T14:00:00Z',
                 deactivated_at: null,
-              };
-              query.single = vi.fn().mockResolvedValue({ data: newTagInserted, error: null });
-              return query;
-            });
+              },
+              error: null,
+            }));
             return query;
           };
 
@@ -1649,53 +1663,42 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
           expect(json.data.action).toBe('rotate');
           expect(json.data.deactivatedTagId).toBe('tcp_tag_old_counter');
           expect(json.data.tag.id).toMatch(/^tcp_tag_[0-9a-z]{16}$/);
+          expect(json.data.tag.id).toBe(newId);
           expect(json.data.tag.label).toBe('Register 1 New Card');
-
-          expect(mockAdminClient.rpc).toHaveBeenCalledWith(
+          expect(mockAdminClient.rpc).not.toHaveBeenCalledWith(
             'log_audit_event',
-            expect.objectContaining({
-              p_actor: TEST_STAFF_ID,
-              p_action: 'tag_rotated',
-              p_target: json.data.tag.id,
-              p_detail: expect.objectContaining({
-                deactivated_tag_id: 'tcp_tag_old_counter',
-              }),
-            }),
+            expect.anything(),
           );
         });
 
-        it('preserves existing tag label when newLabel is not provided during rotation', async () => {
-          const oldTag = {
-            id: 'tcp_tag_preserve_lbl',
-            label: 'Barista Card Back Station',
-          };
-
-          let insertedLabel: string | null = null;
-
-          tableQueryHandlers['tags'] = () => {
-            const query: any = createMockSupabaseQuery();
-            query.maybeSingle = vi.fn().mockResolvedValue({ data: oldTag, error: null });
-            query.update = vi.fn(() => query);
-            query.insert = vi.fn((data: any) => {
-              insertedLabel = data.label;
-              const inserted = {
-                id: data.id,
-                label: data.label,
+        it('leaves the label to rotate_tag (which keeps the old one) when newLabel is not provided', async () => {
+          let rotateArgs: any = null;
+          mockAdminClient.rpc.mockImplementation(async (rpcName: string, args: any) => {
+            if (rpcName === 'rotate_tag') {
+              rotateArgs = args;
+              return { data: 'rotated', error: null };
+            }
+            return { data: null, error: null };
+          });
+          tableQueryHandlers['tags'] = () =>
+            createMockSupabaseQuery(
+              {
+                id: 'tcp_tag_new',
+                label: 'Barista Card Back Station',
                 active: true,
                 created_at: '2026-11-01T14:00:00Z',
                 deactivated_at: null,
-              };
-              query.single = vi.fn().mockResolvedValue({ data: inserted, error: null });
-              return query;
-            });
-            return query;
-          };
+              },
+              null,
+            );
 
           const res = await staffTagsPost(
             makeTagRequest({ action: 'rotate', tagId: 'tcp_tag_preserve_lbl' }),
           );
           expect(res.status).toBe(200);
-          expect(insertedLabel).toBe('Barista Card Back Station');
+          expect(rotateArgs.p_label).toBeUndefined();
+          const json = await res.json();
+          expect(json.data.tag.label).toBe('Barista Card Back Station');
         });
       });
     });

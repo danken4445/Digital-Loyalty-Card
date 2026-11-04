@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { logStaffAuditEvent, requireStaffSession } from '@/lib/auth/staff';
+import { requireStaffSession } from '@/lib/auth/staff';
 import {
   isStampResultCode,
   type ApiResponse,
@@ -10,6 +10,7 @@ import {
 import { verifySameOriginRequest } from '@/lib/security/csrf';
 import { checkPublicEndpointRateLimit, getClientIp } from '@/lib/security/ratelimit';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 const manualStampSchema = z.object({
   customerId: z.string().uuid(),
@@ -97,28 +98,12 @@ export async function POST(
       );
     }
 
+    const staff = auth.staff;
     const admin = createSupabaseAdminClient();
-    const { data: customerRow } = await admin
-      .from('customers')
-      .select('id')
-      .eq('id', parsed.data.customerId)
-      .maybeSingle();
-
-    if (!customerRow) {
-      return NextResponse.json<ApiResponse<StaffManualStampResponse>>(
-        {
-          ok: false,
-          error: 'invalid_input',
-          message: 'Customer ID not found.',
-        },
-        { status: 404 },
-      );
-    }
-
-    const { data: stampResult, error: stampError } = await admin.rpc('record_stamp', {
+    const { data: stampResult, error: stampError } = await admin.rpc('stamp_card_manual', {
+      p_actor: staff.userId,
+      p_tenant: staff.tenantId,
       p_customer: parsed.data.customerId,
-      p_source: 'manual',
-      p_staff: auth.staff.userId,
       p_reason: parsed.data.reason,
     });
 
@@ -133,21 +118,36 @@ export async function POST(
       );
     }
 
-    await logStaffAuditEvent({
-      actorId: auth.staff.userId,
-      action: 'staff_manual_stamp_issued',
-      target: parsed.data.customerId,
-      detail: {
-        reason: parsed.data.reason,
-        result: stampResult,
-      },
-    });
+    // stamp_card_manual writes its own audit_log row, so no separate audit call here.
+    if (stampResult === 'no-card') {
+      return NextResponse.json<ApiResponse<StaffManualStampResponse>>(
+        {
+          ok: false,
+          error: 'invalid_input',
+          message: `This customer has no ${staff.tenantName} card.`,
+        },
+        { status: 404 },
+      );
+    }
 
-    const { data: bal } = await admin
-      .from('customer_balances')
+    if (stampResult === 'unauthorized') {
+      return NextResponse.json<ApiResponse<StaffManualStampResponse>>(
+        {
+          ok: false,
+          error: 'forbidden',
+          message: 'Forbidden. Active staff credentials required.',
+        },
+        { status: 403 },
+      );
+    }
+
+    const supabase = await createSupabaseServerClient();
+    const { data: bal } = await supabase
+      .from('card_balances')
       .select('available_stamps')
+      .eq('tenant_id', staff.tenantId)
       .eq('customer_id', parsed.data.customerId)
-      .maybeSingle();
+      .maybeSingle<{ available_stamps: number | null }>();
 
     const result: StampResultCode = isStampResultCode(stampResult) ? stampResult : 'stamped';
 

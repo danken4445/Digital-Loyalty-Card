@@ -74,12 +74,13 @@ vi.mock('@/lib/auth/customer', () => ({
 
 vi.mock('@/lib/tenants/context', () => ({
   getTenantBySlug: vi.fn(),
+  getTenantById: vi.fn(),
 }));
 
 import { issueRedeemToken, verifyRedeemToken } from '@/lib/security/redeemToken';
 import { getVerifiedUser } from '@/lib/supabase/server';
 import { getCustomerCardState } from '@/lib/auth/customer';
-import { getTenantBySlug } from '@/lib/tenants/context';
+import { getTenantById, getTenantBySlug } from '@/lib/tenants/context';
 import { POST as upsizeTokenPost } from '@/app/api/perks/instagram-upsize/route';
 import { POST as staffRedeemPost } from '@/app/api/staff/redeem/route';
 import { InstagramUpsizePanel } from '@/components/card/InstagramUpsizePanel';
@@ -167,9 +168,10 @@ describe('Instagram follow upsize perk', () => {
     vi.clearAllMocks();
     tableData = {};
     vi.mocked(getTenantBySlug).mockResolvedValue(TEST_TENANT);
+    vi.mocked(getTenantById).mockResolvedValue(TEST_TENANT);
     mockAdminClient.rpc.mockImplementation(async (rpcName: string) => {
-      if (rpcName === 'claim_instagram_upsize') return { data: 'redeemed', error: null };
-      if (rpcName === 'redeem_reward') return { data: 'redeemed', error: null };
+      if (rpcName === 'claim_card_perk') return { data: 'redeemed', error: null };
+      if (rpcName === 'redeem_card_reward') return { data: 'redeemed', error: null };
       if (rpcName === 'log_audit_event') return { data: 'audit-1', error: null };
       return { data: null, error: null };
     });
@@ -248,7 +250,7 @@ describe('Instagram follow upsize perk', () => {
     });
 
     it('previews as eligible when the perk is unclaimed, regardless of stamps', async () => {
-      tableData.customer_balances = { available_stamps: 0, total_stamps: 0, stamps_redeemed: 0 };
+      tableData.card_balances = { available_stamps: 0, total_stamps: 0, stamps_redeemed: 0 };
       const { token } = await issueRedeemToken(TEST_CUSTOMER_ID, TENANT_ONE_ID, { kind: 'instagram-upsize' });
       const res = await staffRedeemPost(
         post(ROUTES.api.staff.redeem, { action: 'preview', token }),
@@ -269,7 +271,7 @@ describe('Instagram follow upsize perk', () => {
       expect(json.data.canRedeem).toBe(false);
     });
 
-    it('confirms through claim_instagram_upsize and never touches redeem_reward', async () => {
+    it('confirms through claim_card_perk and never touches redeem_card_reward', async () => {
       const { token } = await issueRedeemToken(TEST_CUSTOMER_ID, TENANT_ONE_ID, { kind: 'instagram-upsize' });
       const res = await staffRedeemPost(
         post(ROUTES.api.staff.redeem, { action: 'confirm', token }),
@@ -280,11 +282,16 @@ describe('Instagram follow upsize perk', () => {
         result: 'redeemed',
         rewardKind: 'instagram-upsize',
       });
-      expect(mockAdminClient.rpc).toHaveBeenCalledWith('claim_instagram_upsize', {
+      expect(mockAdminClient.rpc).toHaveBeenCalledWith('claim_card_perk', {
+        p_actor: TEST_STAFF_ID,
+        p_tenant: TENANT_ONE_ID,
         p_customer: TEST_CUSTOMER_ID,
-        p_staff: TEST_STAFF_ID,
+        p_perk: 'instagram_follow_upsize',
       });
-      expect(mockAdminClient.rpc).not.toHaveBeenCalledWith('redeem_reward', expect.anything());
+      expect(mockAdminClient.rpc).not.toHaveBeenCalledWith(
+        'redeem_card_reward',
+        expect.anything(),
+      );
     });
 
     it('reports already-claimed from the database', async () => {
@@ -298,18 +305,15 @@ describe('Instagram follow upsize perk', () => {
       expect(json.data.message).toBe('This card has already used its Instagram upsize.');
     });
 
-    it('still routes free-coffee tokens to redeem_reward', async () => {
+    it('still routes free-coffee tokens to redeem_card_reward', async () => {
       const { token } = await issueRedeemToken(TEST_CUSTOMER_ID, TENANT_ONE_ID);
       const res = await staffRedeemPost(
         post(ROUTES.api.staff.redeem, { action: 'confirm', token }),
       );
       const json = await res.json();
       expect(json.data.rewardKind).toBe('free-coffee');
-      expect(mockAdminClient.rpc).toHaveBeenCalledWith('redeem_reward', expect.anything());
-      expect(mockAdminClient.rpc).not.toHaveBeenCalledWith(
-        'claim_instagram_upsize',
-        expect.anything(),
-      );
+      expect(mockAdminClient.rpc).toHaveBeenCalledWith('redeem_card_reward', expect.anything());
+      expect(mockAdminClient.rpc).not.toHaveBeenCalledWith('claim_card_perk', expect.anything());
     });
   });
 

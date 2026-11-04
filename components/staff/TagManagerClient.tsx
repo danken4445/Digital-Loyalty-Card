@@ -12,9 +12,11 @@ import { formatManilaDateTime } from '@/lib/rules/display';
 
 export interface TagManagerClientProps {
   initialTags: TagWithUrls[];
+  /** Owners and managers can create, rotate and deactivate tags; staff can only view and copy URLs. */
+  canManage?: boolean;
 }
 
-export function TagManagerClient({ initialTags }: TagManagerClientProps) {
+export function TagManagerClient({ initialTags, canManage = true }: TagManagerClientProps) {
   const [tags, setTags] = useState<TagWithUrls[]>(initialTags);
   const [newLabel, setNewLabel] = useState('');
   const [isCreating, setIsCreating] = useState(false);
@@ -151,41 +153,51 @@ export function TagManagerClient({ initialTags }: TagManagerClientProps) {
   return (
     <div className="space-y-8">
       {/* Create Tag Form */}
-      <div className="rounded-2xl border border-plug-border bg-plug-surface p-6 text-white sm:p-8">
-        <h2 className="text-lg font-semibold text-white">Provision NTAG215 Hardware Tag</h2>
-        <p className="mt-1 text-sm text-plug-muted">
-          Generates a new unguessable tag ID (e.g. <code>tcp_tag_...</code>). Write the resulting
-          URL into blank NTAG215 stickers using NFC Tools or NXP TagWriter.
-        </p>
+      {canManage ? (
+        <div className="rounded-2xl border border-plug-border bg-plug-surface p-6 text-white sm:p-8">
+          <h2 className="text-lg font-semibold text-white">Provision NTAG215 Hardware Tag</h2>
+          <p className="mt-1 text-sm text-plug-muted">
+            Generates a new unguessable tag ID (e.g. <code>tcp_tag_...</code>). Write the resulting
+            URL into blank NTAG215 stickers using NFC Tools or NXP TagWriter.
+          </p>
 
-        <form onSubmit={handleCreateTag} className="mt-6">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-            <div className="flex-1">
-              <label htmlFor="new-tag-label" className="block text-sm font-medium text-neutral-200">
-                Tag Label (Optional)
-              </label>
-              <input
-                id="new-tag-label"
-                type="text"
-                value={newLabel}
-                onChange={(e) => setNewLabel(e.target.value)}
-                placeholder="e.g. Front Counter Barista Card #2"
+          <form onSubmit={handleCreateTag} className="mt-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+              <div className="flex-1">
+                <label
+                  htmlFor="new-tag-label"
+                  className="block text-sm font-medium text-neutral-200"
+                >
+                  Tag Label (Optional)
+                </label>
+                <input
+                  id="new-tag-label"
+                  type="text"
+                  value={newLabel}
+                  onChange={(e) => setNewLabel(e.target.value)}
+                  placeholder="e.g. Front Counter Barista Card #2"
+                  disabled={isCreating}
+                  className="mt-1.5 w-full min-h-12 rounded-xl border border-plug-border bg-plug-black px-3 py-2 text-sm text-white placeholder-neutral-600 transition-colors focus-visible:border-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                />
+              </div>
+
+              <button
+                type="submit"
                 disabled={isCreating}
-                className="mt-1.5 w-full min-h-12 rounded-xl border border-plug-border bg-plug-black px-3 py-2 text-sm text-white placeholder-neutral-600 transition-colors focus-visible:border-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-              />
+                aria-busy={isCreating}
+                className="inline-flex min-h-12 items-center justify-center rounded-xl border border-white bg-white px-5 py-2 text-sm font-bold text-plug-black transition-transform active:scale-[0.99] hover:bg-neutral-200 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-plug-black"
+              >
+                {isCreating ? 'Generating Tag...' : 'Generate New Random Tag'}
+              </button>
             </div>
-
-            <button
-              type="submit"
-              disabled={isCreating}
-              aria-busy={isCreating}
-              className="inline-flex min-h-12 items-center justify-center rounded-xl border border-white bg-white px-5 py-2 text-sm font-bold text-plug-black transition-transform active:scale-[0.99] hover:bg-neutral-200 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-plug-black"
-            >
-              {isCreating ? 'Generating Tag...' : 'Generate New Random Tag'}
-            </button>
-          </div>
-        </form>
-      </div>
+          </form>
+        </div>
+      ) : (
+        <div className="rounded-2xl border border-plug-border bg-plug-surface p-5 text-sm text-plug-muted">
+          Only owners and managers can create, rotate or deactivate tags. You can still copy tag
+          URLs below.
+        </div>
+      )}
 
       {/* Alert Messages */}
       {errorMessage && (
@@ -223,7 +235,8 @@ export function TagManagerClient({ initialTags }: TagManagerClientProps) {
 
         {tags.length === 0 ? (
           <div className="rounded-2xl border border-plug-border bg-plug-surface p-8 text-center text-xs text-plug-muted">
-            No NFC tags provisioned yet. Use the form above to generate your first counter tag.
+            No NFC tags provisioned yet.
+            {canManage ? ' Use the form above to generate your first counter tag.' : ''}
           </div>
         ) : (
           <div className="space-y-4">
@@ -269,7 +282,7 @@ export function TagManagerClient({ initialTags }: TagManagerClientProps) {
                     </div>
 
                     {/* Active Actions */}
-                    {tag.active && (
+                    {canManage && tag.active && (
                       <div className="flex flex-wrap items-center gap-2">
                         <button
                           type="button"
@@ -300,9 +313,7 @@ export function TagManagerClient({ initialTags }: TagManagerClientProps) {
                     {/* Production Tap URL */}
                     <div className="flex flex-col gap-2 rounded-xl border border-plug-border bg-plug-black p-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="overflow-hidden">
-                        <span className="text-xs text-plug-muted block">
-                          Production URL (card.thecaffeineplug.ph):
-                        </span>
+                        <span className="text-xs text-plug-muted block">Production URL:</span>
                         <code className="block truncate font-mono text-xs text-white">
                           {tag.productionTapUrl}
                         </code>

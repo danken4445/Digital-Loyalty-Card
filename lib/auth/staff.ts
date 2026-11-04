@@ -3,7 +3,6 @@ import 'server-only';
 import { randomBytes } from 'node:crypto';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { SHOP_CONFIG } from '@/lib/config';
 import {
   ROUTES,
   STAFF_ROLES,
@@ -20,10 +19,10 @@ import {
   type TagRow,
   type TagWithUrls,
 } from '@/lib/contracts';
-import { formatManilaDate } from '@/lib/rules/display';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import type { Json } from '@/lib/supabase/database.types';
 import { createSupabaseServerClient, getVerifiedUser } from '@/lib/supabase/server';
+import { getTenantById } from '@/lib/tenants/context';
 
 interface MembershipRow {
   tenant_id: string;
@@ -175,6 +174,8 @@ export function generateRandomTagId(): string {
 
 /**
  * Decorates a TagRow with the exact URLs to write into NFC Tools / NXP TagWriter.
+ * Both are built from NEXT_PUBLIC_SITE_URL (the platform's public origin); tags are shop-neutral
+ * URLs because SQL resolves the shop from the tag.
  */
 export function decorateTagWithUrls(tag: TagRow): TagWithUrls {
   const encodedId = encodeURIComponent(tag.id);
@@ -185,7 +186,7 @@ export function decorateTagWithUrls(tag: TagRow): TagWithUrls {
 
   return {
     ...tag,
-    productionTapUrl: `https://${SHOP_CONFIG.defaultProductionDomain}/t/${encodedId}`,
+    productionTapUrl: `${configuredSiteUrl}/t/${encodedId}`,
     localTapUrl: `${configuredSiteUrl}/t/${encodedId}`,
   };
 }
@@ -193,22 +194,31 @@ export function decorateTagWithUrls(tag: TagRow): TagWithUrls {
 /**
  * Pure anomaly detector over recent stamps, redemptions, and audit logs.
  * Flags:
- * 1. Customers hitting the daily cap (2 NFC stamps/day in Asia/Manila) or repeated daily_limit/cooldown blocks.
+ * 1. Customers hitting the shop's daily cap (NFC stamps per day in the shop's timezone) or repeated daily_limit/cooldown blocks.
  * 2. NFC tags with unusually high stamp volume (>= 10 stamps in the recent 50-stamp window) or tag_throttled events.
  * 3. Customers or staff with frequent manual stamp overrides (>= 3 manual stamps in the recent 50-stamp window).
  */
-export function detectActivityAnomalies(input: {
-  stamps: StampRow[];
-  redemptions: RedemptionRow[];
-  auditLogs: AuditLogRow[];
-}): ActivityAnomalyFlag[] {
+export function detectActivityAnomalies(
+  input: {
+    stamps: StampRow[];
+    redemptions: RedemptionRow[];
+    auditLogs: AuditLogRow[];
+  },
+  rules: { dailyCap: number; timezone: string },
+): ActivityAnomalyFlag[] {
   const anomalies: ActivityAnomalyFlag[] = [];
+  const dayFormatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: rules.timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
 
-  // 1. Check customers hitting daily cap (2 NFC stamps on the same Manila day) or repeated rate/cooldown blocks
+  // 1. Check customers hitting the daily cap (dailyCap NFC stamps on the same shop-local day) or repeated rate/cooldown blocks
   const customerDayCounts = new Map<string, { customerId: string; day: string; count: number }>();
   for (const stamp of input.stamps) {
     if (stamp.source !== 'nfc') continue;
-    const day = formatManilaDate(stamp.created_at);
+    const day = dayFormatter.format(new Date(stamp.created_at));
     const key = `${stamp.customer_id}:${day}`;
     const current = customerDayCounts.get(key) ?? {
       customerId: stamp.customer_id,
@@ -221,7 +231,7 @@ export function detectActivityAnomalies(input: {
 
   const dailyCapCustomerDays = new Map<string, number>();
   for (const entry of customerDayCounts.values()) {
-    if (entry.count >= 2) {
+    if (entry.count >= rules.dailyCap) {
       dailyCapCustomerDays.set(
         entry.customerId,
         (dailyCapCustomerDays.get(entry.customerId) ?? 0) + 1,
@@ -248,7 +258,7 @@ export function detectActivityAnomalies(input: {
         severity: rejections >= 3 ? 'high' : 'warning',
         category: 'repeated-daily-cap',
         title: 'Repeated Daily Cap / Cooldown Activity',
-        description: `Customer ${customerId.slice(0, 8).toUpperCase()} reached the 2-stamp daily cap on ${capDays} recent day(s) with ${rejections} blocked tap attempt(s).`,
+        description: `Customer ${customerId.slice(0, 8).toUpperCase()} reached the ${rules.dailyCap}-stamp daily cap on ${capDays} recent day(s) with ${rejections} blocked tap attempt(s).`,
         targetId: customerId,
       });
     }
@@ -326,30 +336,39 @@ export function detectActivityAnomalies(input: {
 }
 
 /**
- * Fetches the complete staff activity dashboard dataset (last 50 stamps, last 50 redemptions,
+ * Fetches the active shop's staff activity dashboard dataset (last 50 stamps, last 50 redemptions,
  * last 50 audit_log rows, and computed anomaly flags) after verifying staff authorization.
+ * Reads go through the session client, so RLS and the explicit tenant filter both scope the rows.
  */
 export async function getStaffActivityDashboardData(): Promise<StaffActivityDashboardData> {
-  await enforceStaffPageAccess(ROUTES.staff.activity);
-  const admin = createSupabaseAdminClient();
+  const staff = await enforceStaffPageAccess(ROUTES.staff.activity);
+  const supabase = await createSupabaseServerClient();
 
-  const [stampsRes, redemptionsRes, auditRes] = await Promise.all([
-    admin
+  const [tenant, stampsRes, redemptionsRes, auditRes] = await Promise.all([
+    getTenantById(staff.tenantId),
+    supabase
       .from('stamps')
       .select('id, customer_id, tag_id, source, staff_id, reason, created_at')
+      .eq('tenant_id', staff.tenantId)
       .order('created_at', { ascending: false })
       .limit(50),
-    admin
+    supabase
       .from('redemptions')
       .select('id, customer_id, stamps_used, staff_id, created_at')
+      .eq('tenant_id', staff.tenantId)
       .order('created_at', { ascending: false })
       .limit(50),
-    admin
+    supabase
       .from('audit_log')
       .select('id, actor, action, target, detail, created_at')
+      .eq('tenant_id', staff.tenantId)
       .order('created_at', { ascending: false })
       .limit(50),
   ]);
+
+  if (!tenant) {
+    throw new Error('Failed to load shop settings for the activity dashboard.');
+  }
 
   const stamps = (stampsRes.data ?? []) as StampRow[];
   const redemptions = (redemptionsRes.data ?? []) as RedemptionRow[];
@@ -359,20 +378,24 @@ export async function getStaffActivityDashboardData(): Promise<StaffActivityDash
     stamps,
     redemptions,
     auditLogs,
-    anomalies: detectActivityAnomalies({ stamps, redemptions, auditLogs }),
+    anomalies: detectActivityAnomalies(
+      { stamps, redemptions, auditLogs },
+      { dailyCap: tenant.settings.dailyCap, timezone: tenant.settings.timezone },
+    ),
   };
 }
 
 /**
- * Fetches all NFC tags ordered by newest first, decorated with their NTAG215 tap URLs.
+ * Fetches the active shop's NFC tags ordered by newest first, decorated with their tap URLs.
  */
 export async function getStaffTagsList(): Promise<TagWithUrls[]> {
-  await enforceStaffPageAccess(ROUTES.staff.tags);
-  const admin = createSupabaseAdminClient();
+  const staff = await enforceStaffPageAccess(ROUTES.staff.tags);
+  const supabase = await createSupabaseServerClient();
 
-  const { data, error } = await admin
+  const { data, error } = await supabase
     .from('tags')
     .select('id, label, active, created_at, deactivated_at')
+    .eq('tenant_id', staff.tenantId)
     .order('created_at', { ascending: false });
 
   if (error) {

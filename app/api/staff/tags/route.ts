@@ -1,15 +1,20 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { decorateTagWithUrls, generateRandomTagId, requireStaffSession } from '@/lib/auth/staff';
 import {
-  decorateTagWithUrls,
-  generateRandomTagId,
-  logStaffAuditEvent,
-  requireStaffSession,
-} from '@/lib/auth/staff';
-import type { ApiResponse, StaffTagActionResponse, TagRow, TagWithUrls } from '@/lib/contracts';
+  TAG_MANAGER_ROLES,
+  type ApiResponse,
+  type StaffRole,
+  type StaffTagActionResponse,
+  type TagRow,
+  type TagWithUrls,
+} from '@/lib/contracts';
 import { verifySameOriginRequest } from '@/lib/security/csrf';
 import { checkPublicEndpointRateLimit, getClientIp } from '@/lib/security/ratelimit';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
+
+const TAG_FORBIDDEN_MESSAGE = 'Only owners and managers can manage tags.';
 
 const tagActionSchema = z.discriminatedUnion('action', [
   z.object({
@@ -64,10 +69,11 @@ export async function GET(request?: Request): Promise<NextResponse<ApiResponse<T
       );
     }
 
-    const admin = createSupabaseAdminClient();
-    const { data, error } = await admin
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase
       .from('tags')
       .select('id, label, active, created_at, deactivated_at')
+      .eq('tenant_id', auth.staff.tenantId)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -148,6 +154,14 @@ export async function POST(
       );
     }
 
+    const staff = auth.staff;
+    if (!(TAG_MANAGER_ROLES as readonly StaffRole[]).includes(staff.role)) {
+      return NextResponse.json<ApiResponse<StaffTagActionResponse>>(
+        { ok: false, error: 'forbidden', message: TAG_FORBIDDEN_MESSAGE },
+        { status: 403 },
+      );
+    }
+
     let body: unknown = {};
     const contentLength = request.headers.get('content-length');
     if (contentLength !== '0') {
@@ -181,45 +195,69 @@ export async function POST(
     }
 
     const admin = createSupabaseAdminClient();
+    const supabase = await createSupabaseServerClient();
+
+    /** Re-reads a tag through the session client (RLS plus the explicit shop filter). */
+    async function readTag(tagId: string): Promise<TagRow | null> {
+      const { data } = await supabase
+        .from('tags')
+        .select('id, label, active, created_at, deactivated_at')
+        .eq('tenant_id', staff.tenantId)
+        .eq('id', tagId)
+        .maybeSingle();
+      return (data as TagRow | null) ?? null;
+    }
+
+    function failure(
+      status: number,
+      error: 'forbidden' | 'invalid_input' | 'internal_error',
+      message: string,
+    ) {
+      return NextResponse.json<ApiResponse<StaffTagActionResponse>>(
+        { ok: false, error, message },
+        { status },
+      );
+    }
 
     if (parsed.data.action === 'create') {
-      const newId = generateRandomTagId();
       const labelValue = parsed.data.label ? parsed.data.label.trim() : null;
 
-      const { data: inserted, error: insertError } = await admin
-        .from('tags')
-        .insert({
-          id: newId,
-          label: labelValue,
-          active: true,
-        })
-        .select('id, label, active, created_at, deactivated_at')
-        .single();
-
-      if (insertError || !inserted) {
-        return NextResponse.json<ApiResponse<StaffTagActionResponse>>(
-          {
-            ok: false,
-            error: 'internal_error',
-            message: 'Failed to create NFC tag.',
-          },
-          { status: 500 },
-        );
+      // A random-ID collision is vanishingly rare, but 'duplicate' is retried once with a new ID.
+      let newId = '';
+      let createResult: string | null = null;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        newId = generateRandomTagId();
+        const { data, error } = await admin.rpc('create_tag', {
+          p_actor: staff.userId,
+          p_tenant: staff.tenantId,
+          p_tag_id: newId,
+          p_label: labelValue ?? undefined,
+        });
+        if (error) {
+          return failure(500, 'internal_error', 'Failed to create NFC tag.');
+        }
+        createResult = data;
+        if (data !== 'duplicate') break;
       }
 
-      await logStaffAuditEvent({
-        actorId: auth.staff.userId,
-        action: 'tag_created',
-        target: newId,
-        detail: { label: labelValue },
-      });
+      if (createResult === 'unauthorized') {
+        return failure(403, 'forbidden', TAG_FORBIDDEN_MESSAGE);
+      }
+      if (createResult !== 'created') {
+        return failure(500, 'internal_error', 'Failed to create NFC tag.');
+      }
+
+      const inserted = await readTag(newId);
+      if (!inserted) {
+        return failure(500, 'internal_error', 'Failed to create NFC tag.');
+      }
 
       return NextResponse.json<ApiResponse<StaffTagActionResponse>>(
         {
           ok: true,
           data: {
             action: 'create',
-            tag: decorateTagWithUrls(inserted as TagRow),
+            tag: decorateTagWithUrls(inserted),
           },
         },
         { status: 200 },
@@ -227,57 +265,36 @@ export async function POST(
     }
 
     if (parsed.data.action === 'deactivate') {
-      const { data: existingTag } = await admin
-        .from('tags')
-        .select('id')
-        .eq('id', parsed.data.tagId)
-        .maybeSingle();
-
-      if (!existingTag) {
-        return NextResponse.json<ApiResponse<StaffTagActionResponse>>(
-          {
-            ok: false,
-            error: 'invalid_input',
-            message: 'NFC tag not found.',
-          },
-          { status: 404 },
-        );
-      }
-
-      const { data: updated, error: updateError } = await admin
-        .from('tags')
-        .update({
-          active: false,
-          deactivated_at: new Date().toISOString(),
-        })
-        .eq('id', parsed.data.tagId)
-        .select('id, label, active, created_at, deactivated_at')
-        .single();
-
-      if (updateError || !updated) {
-        return NextResponse.json<ApiResponse<StaffTagActionResponse>>(
-          {
-            ok: false,
-            error: 'internal_error',
-            message: 'Failed to deactivate NFC tag.',
-          },
-          { status: 500 },
-        );
-      }
-
-      await logStaffAuditEvent({
-        actorId: auth.staff.userId,
-        action: 'tag_deactivated',
-        target: parsed.data.tagId,
-        detail: {},
+      const { data: result, error: rpcError } = await admin.rpc('deactivate_tag', {
+        p_actor: staff.userId,
+        p_tenant: staff.tenantId,
+        p_tag_id: parsed.data.tagId,
       });
+
+      if (rpcError) {
+        return failure(500, 'internal_error', 'Failed to deactivate NFC tag.');
+      }
+      if (result === 'not-found') {
+        return failure(404, 'invalid_input', 'NFC tag not found.');
+      }
+      if (result === 'unauthorized') {
+        return failure(403, 'forbidden', TAG_FORBIDDEN_MESSAGE);
+      }
+      if (result !== 'deactivated') {
+        return failure(500, 'internal_error', 'Failed to deactivate NFC tag.');
+      }
+
+      const updated = await readTag(parsed.data.tagId);
+      if (!updated) {
+        return failure(500, 'internal_error', 'Failed to deactivate NFC tag.');
+      }
 
       return NextResponse.json<ApiResponse<StaffTagActionResponse>>(
         {
           ok: true,
           data: {
             action: 'deactivate',
-            tag: decorateTagWithUrls(updated as TagRow),
+            tag: decorateTagWithUrls(updated),
             deactivatedTagId: parsed.data.tagId,
           },
         },
@@ -285,86 +302,51 @@ export async function POST(
       );
     }
 
-    // action === 'rotate'
-    const { data: existingTag } = await admin
-      .from('tags')
-      .select('id, label')
-      .eq('id', parsed.data.tagId)
-      .maybeSingle();
-
-    if (!existingTag) {
-      return NextResponse.json<ApiResponse<StaffTagActionResponse>>(
-        {
-          ok: false,
-          error: 'invalid_input',
-          message: 'NFC tag not found.',
-        },
-        { status: 404 },
-      );
-    }
-
-    const { error: deactivateError } = await admin
-      .from('tags')
-      .update({
-        active: false,
-        deactivated_at: new Date().toISOString(),
-      })
-      .eq('id', parsed.data.tagId);
-
-    if (deactivateError) {
-      return NextResponse.json<ApiResponse<StaffTagActionResponse>>(
-        {
-          ok: false,
-          error: 'internal_error',
-          message: 'Failed to deactivate tag during rotation.',
-        },
-        { status: 500 },
-      );
-    }
-
-    const newId = generateRandomTagId();
-    const newLabel =
+    // action === 'rotate'. A blank newLabel keeps the old label (rotate_tag copies it when null).
+    const rotateLabel =
       parsed.data.newLabel !== undefined && parsed.data.newLabel.trim().length > 0
         ? parsed.data.newLabel.trim()
-        : existingTag.label || null;
+        : null;
 
-    const { data: newTag, error: insertError } = await admin
-      .from('tags')
-      .insert({
-        id: newId,
-        label: newLabel,
-        active: true,
-      })
-      .select('id, label, active, created_at, deactivated_at')
-      .single();
-
-    if (insertError || !newTag) {
-      return NextResponse.json<ApiResponse<StaffTagActionResponse>>(
-        {
-          ok: false,
-          error: 'internal_error',
-          message: 'Failed to create new tag during rotation.',
-        },
-        { status: 500 },
-      );
+    let newTagId = '';
+    let rotateResult: string | null = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      newTagId = generateRandomTagId();
+      const { data, error } = await admin.rpc('rotate_tag', {
+        p_actor: staff.userId,
+        p_tenant: staff.tenantId,
+        p_old_tag_id: parsed.data.tagId,
+        p_new_tag_id: newTagId,
+        p_label: rotateLabel ?? undefined,
+      });
+      if (error) {
+        return failure(500, 'internal_error', 'Failed to rotate NFC tag.');
+      }
+      rotateResult = data;
+      if (data !== 'duplicate') break;
     }
 
-    await logStaffAuditEvent({
-      actorId: auth.staff.userId,
-      action: 'tag_rotated',
-      target: newId,
-      detail: {
-        deactivated_tag_id: parsed.data.tagId,
-        label: newTag.label,
-      },
-    });
+    if (rotateResult === 'not-found') {
+      return failure(404, 'invalid_input', 'NFC tag not found.');
+    }
+    if (rotateResult === 'unauthorized') {
+      return failure(403, 'forbidden', TAG_FORBIDDEN_MESSAGE);
+    }
+    if (rotateResult !== 'rotated') {
+      return failure(500, 'internal_error', 'Failed to rotate NFC tag.');
+    }
+
+    const newTag = await readTag(newTagId);
+    if (!newTag) {
+      return failure(500, 'internal_error', 'Failed to rotate NFC tag.');
+    }
 
     return NextResponse.json<ApiResponse<StaffTagActionResponse>>(
       {
         ok: true,
         data: {
           action: 'rotate',
-          tag: decorateTagWithUrls(newTag as TagRow),
+          tag: decorateTagWithUrls(newTag),
           deactivatedTagId: parsed.data.tagId,
         },
       },
