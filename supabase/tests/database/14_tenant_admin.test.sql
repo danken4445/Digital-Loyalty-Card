@@ -11,7 +11,7 @@ set search_path to extensions, public;
 grant usage on schema extensions to anon, authenticated, service_role;
 grant execute on all functions in schema extensions to anon, authenticated, service_role;
 
-select plan(48);
+select plan(60);
 
 -- ------------------------------------------------------------------------------
 -- Fixtures
@@ -641,6 +641,126 @@ select is(
     (select count(*)::int from public.tenant_invites where tenant_id = '14111111-0000-4000-8000-000000000001') > 0,
     true,
     'tenant_invites RLS: owner can see tenant invites'
+);
+reset role;
+
+-- ------------------------------------------------------------------------------
+-- 11. brand_upload_scoped_to_own_tenant_folder
+-- ------------------------------------------------------------------------------
+
+-- Owner can upload to own tenant folder
+set local role authenticated;
+set local "request.jwt.claims" to '{"sub": "14000000-0000-4000-8000-000000000002"}';
+select lives_ok(
+    $$insert into storage.objects (bucket_id, name)
+      values ('tenant-brand', '14111111-0000-4000-8000-000000000001/logo.png')$$,
+    'brand_upload_scoped_to_own_tenant_folder: owner can upload to own tenant folder'
+);
+reset role;
+
+-- Manager can upload to own tenant folder
+set local role authenticated;
+set local "request.jwt.claims" to '{"sub": "14000000-0000-4000-8000-000000000004"}';
+select lives_ok(
+    $$insert into storage.objects (bucket_id, name)
+      values ('tenant-brand', '14111111-0000-4000-8000-000000000001/banner.webp')$$,
+    'brand_upload_scoped_to_own_tenant_folder: manager can upload to own tenant folder'
+);
+reset role;
+
+-- Staff role cannot upload to own tenant folder
+set local role authenticated;
+set local "request.jwt.claims" to '{"sub": "14000000-0000-4000-8000-000000000005"}';
+select throws_ok(
+    $$insert into storage.objects (bucket_id, name)
+      values ('tenant-brand', '14111111-0000-4000-8000-000000000001/staff-denied.png')$$,
+    '42501',
+    null,
+    'brand_upload_scoped_to_own_tenant_folder: staff cannot upload to own tenant folder'
+);
+reset role;
+
+-- Owner cannot upload to other tenant folder
+set local role authenticated;
+set local "request.jwt.claims" to '{"sub": "14000000-0000-4000-8000-000000000002"}';
+select throws_ok(
+    $$insert into storage.objects (bucket_id, name)
+      values ('tenant-brand', '14222222-0000-4000-8000-000000000002/cross-tenant.png')$$,
+    '42501',
+    null,
+    'brand_upload_scoped_to_own_tenant_folder: owner cannot upload to other tenant folder'
+);
+reset role;
+
+-- Manager can update own tenant object
+set local role authenticated;
+set local "request.jwt.claims" to '{"sub": "14000000-0000-4000-8000-000000000004"}';
+select lives_ok(
+    $$update storage.objects set metadata = '{"size": 1024}'::jsonb
+      where bucket_id = 'tenant-brand' and name = '14111111-0000-4000-8000-000000000001/banner.webp'$$,
+    'brand_upload_scoped_to_own_tenant_folder: manager can update own tenant object'
+);
+
+-- Manager can delete own tenant object
+set local "storage.allow_delete_query" to 'true';
+select lives_ok(
+    $$delete from storage.objects
+      where bucket_id = 'tenant-brand' and name = '14111111-0000-4000-8000-000000000001/banner.webp'$$,
+    'brand_upload_scoped_to_own_tenant_folder: manager can delete own tenant object'
+);
+reset role;
+
+-- Public select allows anon to read tenant-brand objects
+set local role anon;
+select is(
+    (select count(*)::int from storage.objects where bucket_id = 'tenant-brand'),
+    1,
+    'brand_upload_scoped_to_own_tenant_folder: public select allows anon to read tenant-brand objects'
+);
+reset role;
+
+-- ------------------------------------------------------------------------------
+-- 12. brand_bucket_rejects_svg
+-- ------------------------------------------------------------------------------
+
+-- Bucket exists and is public
+select is(
+    (select public from storage.buckets where id = 'tenant-brand'),
+    true,
+    'brand_bucket_rejects_svg: tenant-brand bucket is public'
+);
+
+-- File size limit is 512 KB
+select is(
+    (select file_size_limit from storage.buckets where id = 'tenant-brand'),
+    524288::bigint,
+    'brand_bucket_rejects_svg: file_size_limit is 512KB'
+);
+
+-- Allowed mime types match specification
+select is(
+    (select allowed_mime_types from storage.buckets where id = 'tenant-brand'),
+    array['image/png', 'image/jpeg', 'image/webp']::text[],
+    'brand_bucket_rejects_svg: allowed_mime_types match specification'
+);
+
+-- SVG mime type is not allowed
+select is(
+    (select ('image/svg+xml' = any(allowed_mime_types) or 'image/svg' = any(allowed_mime_types))
+     from storage.buckets where id = 'tenant-brand'),
+    false,
+    'brand_bucket_rejects_svg: svg mime type rejected from bucket'
+);
+
+-- SVG extension upload rejected
+set local role authenticated;
+set local "request.jwt.claims" to '{"sub": "14000000-0000-4000-8000-000000000002"}';
+select throws_ok(
+    $$insert into storage.objects (bucket_id, name)
+      values ('tenant-brand', '14111111-0000-4000-8000-000000000001/logo.svg')$$,
+    '42501',
+    null,
+    'brand_bucket_rejects_svg: svg extension rejected'
 );
 reset role;
 

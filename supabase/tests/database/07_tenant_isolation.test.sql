@@ -200,8 +200,8 @@ select is_empty(
         and p.prosecdef
         and has_function_privilege(r.rolname, p.oid, 'execute')
         and not (r.rolname = 'authenticated'
-                 and (n.nspname, p.proname) = ('private', 'staff_tenant_ids'))$$,
-    'No SECURITY DEFINER function is executable by anon or authenticated beyond staff_tenant_ids'
+                 and (n.nspname, p.proname) in (('private', 'staff_tenant_ids'), ('private', 'manager_tenant_ids')))$$,
+    'No SECURITY DEFINER function is executable by anon or authenticated beyond staff_tenant_ids and manager_tenant_ids'
 );
 
 select * from finish();
