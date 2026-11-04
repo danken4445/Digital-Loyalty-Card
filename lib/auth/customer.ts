@@ -186,6 +186,10 @@ export async function listWalletCards(): Promise<WalletCardSummary[] | null> {
       totalStamps: balance?.total_stamps ?? 0,
       lastStampedAt: balance?.last_stamped_at ?? null,
       addedAt: row.added_at,
+      cardsCompleted: calculateCardsCompleted(
+        balance?.total_stamps ?? 0,
+        tenant.tenant_settings.reward_threshold,
+      ),
     });
   }
 
