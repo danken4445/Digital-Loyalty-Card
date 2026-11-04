@@ -172,6 +172,22 @@ export type Database = {
           },
         ];
       };
+      platform_admins: {
+        Row: {
+          created_at: string;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       redemptions: {
         Row: {
           created_at: string;
@@ -453,6 +469,7 @@ export type Database = {
           name: string;
           slug: string;
           status: string;
+          suspended_at: string | null;
         };
         ComputedFields: never;
         Insert: {
@@ -461,6 +478,7 @@ export type Database = {
           name: string;
           slug: string;
           status?: string;
+          suspended_at?: string | null;
         };
         Update: {
           created_at?: string;
@@ -468,6 +486,7 @@ export type Database = {
           name?: string;
           slug?: string;
           status?: string;
+          suspended_at?: string | null;
         };
         Relationships: [];
       };
@@ -521,6 +540,7 @@ export type Database = {
       };
       delete_wallet: { Args: { p_customer: string }; Returns: boolean };
       ensure_customer: { Args: { p_customer: string }; Returns: string };
+      is_platform_admin_user: { Args: { p_user: string }; Returns: boolean };
       log_audit_event: {
         Args: {
           p_action: string;
@@ -546,6 +566,10 @@ export type Database = {
           p_old_tag_id: string;
           p_tenant: string;
         };
+        Returns: string;
+      };
+      set_tenant_status: {
+        Args: { p_actor: string; p_reason: string; p_status: string; p_tenant: string };
         Returns: string;
       };
       stamp_card_manual: {

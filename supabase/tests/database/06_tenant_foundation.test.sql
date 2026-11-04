@@ -123,7 +123,7 @@ select is_empty(
       from information_schema.tables as t
       where t.table_schema = 'public'
         and t.table_type = 'BASE TABLE'
-        and t.table_name not in ('tenants', 'customers')
+        and t.table_name not in ('tenants', 'customers', 'platform_admins')
         and not exists (
             select 1 from information_schema.columns as c
             where c.table_schema = 'public'
