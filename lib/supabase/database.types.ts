@@ -115,6 +115,55 @@ export type Database = {
         };
         Relationships: [];
       };
+      locations: {
+        Row: {
+          active: boolean;
+          address: string | null;
+          card_mode: string;
+          child_tenant_id: string | null;
+          created_at: string;
+          id: string;
+          name: string;
+          tenant_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          active?: boolean;
+          address?: string | null;
+          card_mode?: string;
+          child_tenant_id?: string | null;
+          created_at?: string;
+          id?: string;
+          name: string;
+          tenant_id: string;
+        };
+        Update: {
+          active?: boolean;
+          address?: string | null;
+          card_mode?: string;
+          child_tenant_id?: string | null;
+          created_at?: string;
+          id?: string;
+          name?: string;
+          tenant_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'locations_child_tenant_id_fkey';
+            columns: ['child_tenant_id'];
+            isOneToOne: false;
+            referencedRelation: 'tenants';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'locations_tenant_id_fkey';
+            columns: ['tenant_id'];
+            isOneToOne: false;
+            referencedRelation: 'tenants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       perk_claims: {
         Row: {
           created_at: string;
@@ -250,6 +299,7 @@ export type Database = {
           created_at: string;
           customer_id: string;
           id: string;
+          location_id: string | null;
           reason: string | null;
           source: string;
           staff_id: string | null;
@@ -261,6 +311,7 @@ export type Database = {
           created_at?: string;
           customer_id: string;
           id?: string;
+          location_id?: string | null;
           reason?: string | null;
           source?: string;
           staff_id?: string | null;
@@ -271,6 +322,7 @@ export type Database = {
           created_at?: string;
           customer_id?: string;
           id?: string;
+          location_id?: string | null;
           reason?: string | null;
           source?: string;
           staff_id?: string | null;
@@ -300,6 +352,13 @@ export type Database = {
             referencedColumns: ['id'];
           },
           {
+            foreignKeyName: 'stamps_location_tenant_fkey';
+            columns: ['location_id', 'tenant_id'];
+            isOneToOne: false;
+            referencedRelation: 'locations';
+            referencedColumns: ['id', 'tenant_id'];
+          },
+          {
             foreignKeyName: 'stamps_tag_id_fkey';
             columns: ['tag_id'];
             isOneToOne: false;
@@ -322,6 +381,7 @@ export type Database = {
           deactivated_at: string | null;
           id: string;
           label: string | null;
+          location_id: string | null;
           tenant_id: string;
         };
         ComputedFields: never;
@@ -331,6 +391,7 @@ export type Database = {
           deactivated_at?: string | null;
           id: string;
           label?: string | null;
+          location_id?: string | null;
           tenant_id: string;
         };
         Update: {
@@ -339,9 +400,17 @@ export type Database = {
           deactivated_at?: string | null;
           id?: string;
           label?: string | null;
+          location_id?: string | null;
           tenant_id?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: 'tags_location_tenant_fkey';
+            columns: ['location_id', 'tenant_id'];
+            isOneToOne: false;
+            referencedRelation: 'locations';
+            referencedColumns: ['id', 'tenant_id'];
+          },
           {
             foreignKeyName: 'tags_tenant_id_fkey';
             columns: ['tenant_id'];
@@ -368,6 +437,48 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: 'tenant_domains_tenant_id_fkey';
+            columns: ['tenant_id'];
+            isOneToOne: false;
+            referencedRelation: 'tenants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      tenant_invites: {
+        Row: {
+          accepted_at: string | null;
+          created_at: string;
+          email: string;
+          expires_at: string;
+          id: string;
+          invited_by: string | null;
+          role: string;
+          tenant_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          accepted_at?: string | null;
+          created_at?: string;
+          email: string;
+          expires_at?: string;
+          id?: string;
+          invited_by?: string | null;
+          role: string;
+          tenant_id: string;
+        };
+        Update: {
+          accepted_at?: string | null;
+          created_at?: string;
+          email?: string;
+          expires_at?: string;
+          id?: string;
+          invited_by?: string | null;
+          role?: string;
+          tenant_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'tenant_invites_tenant_id_fkey';
             columns: ['tenant_id'];
             isOneToOne: false;
             referencedRelation: 'tenants';
@@ -467,6 +578,7 @@ export type Database = {
           created_at: string;
           id: string;
           name: string;
+          parent_tenant_id: string | null;
           slug: string;
           status: string;
           suspended_at: string | null;
@@ -476,6 +588,7 @@ export type Database = {
           created_at?: string;
           id?: string;
           name: string;
+          parent_tenant_id?: string | null;
           slug: string;
           status?: string;
           suspended_at?: string | null;
@@ -484,11 +597,20 @@ export type Database = {
           created_at?: string;
           id?: string;
           name?: string;
+          parent_tenant_id?: string | null;
           slug?: string;
           status?: string;
           suspended_at?: string | null;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: 'tenants_parent_tenant_id_fkey';
+            columns: ['parent_tenant_id'];
+            isOneToOne: false;
+            referencedRelation: 'tenants';
+            referencedColumns: ['id'];
+          },
+        ];
       };
     };
     Views: {
@@ -521,6 +643,10 @@ export type Database = {
       };
     };
     Functions: {
+      accept_invite: {
+        Args: { p_display_name: string; p_invite: string; p_user: string };
+        Returns: string;
+      };
       add_card: {
         Args: { p_consent_version?: string; p_customer: string; p_tenant: string };
         Returns: string;
@@ -530,8 +656,22 @@ export type Database = {
         Returns: string;
       };
       cleanup_stale_anonymous_customers: { Args: { p_older_than?: string }; Returns: number };
+      create_location: {
+        Args: { p_actor: string; p_address?: string; p_name: string; p_tenant: string };
+        Returns: Json;
+      };
       create_tag: {
         Args: { p_actor: string; p_label?: string; p_tag_id: string; p_tenant: string };
+        Returns: string;
+      };
+      create_tag_at: {
+        Args: {
+          p_actor: string;
+          p_label?: string;
+          p_location?: string;
+          p_tag_id: string;
+          p_tenant: string;
+        };
         Returns: string;
       };
       deactivate_tag: {
@@ -540,6 +680,10 @@ export type Database = {
       };
       delete_wallet: { Args: { p_customer: string }; Returns: boolean };
       ensure_customer: { Args: { p_customer: string }; Returns: string };
+      invite_member: {
+        Args: { p_actor: string; p_email: string; p_role: string; p_tenant: string };
+        Returns: string;
+      };
       is_platform_admin_user: { Args: { p_user: string }; Returns: boolean };
       log_audit_event: {
         Args: {
@@ -553,6 +697,18 @@ export type Database = {
       };
       merge_nonce_used: { Args: { p_nonce: string }; Returns: boolean };
       merge_wallets: { Args: { p_source: string; p_target: string }; Returns: Json };
+      platform_create_tenant: {
+        Args: { p_actor: string; p_name: string; p_owner_email: string; p_slug: string };
+        Returns: Json;
+      };
+      preview_location_separation: {
+        Args: { p_actor: string; p_location: string; p_tenant: string };
+        Returns: Json;
+      };
+      preview_tenant_rules: {
+        Args: { p_actor: string; p_patch: Json; p_tenant: string };
+        Returns: Json;
+      };
       redeem_card_reward: {
         Args: { p_actor: string; p_customer: string; p_nonce: string; p_tenant: string };
         Returns: string;
@@ -566,6 +722,36 @@ export type Database = {
           p_old_tag_id: string;
           p_tenant: string;
         };
+        Returns: string;
+      };
+      rotate_tag_at: {
+        Args: {
+          p_actor: string;
+          p_label?: string;
+          p_location?: string;
+          p_new_tag_id: string;
+          p_old_tag_id: string;
+          p_tenant: string;
+        };
+        Returns: string;
+      };
+      set_location_card_mode: {
+        Args: {
+          p_actor: string;
+          p_child_slug?: string;
+          p_confirm_name?: string;
+          p_location: string;
+          p_mode: string;
+          p_tenant: string;
+        };
+        Returns: Json;
+      };
+      set_member_active: {
+        Args: { p_active: boolean; p_actor: string; p_tenant: string; p_user: string };
+        Returns: string;
+      };
+      set_member_role: {
+        Args: { p_actor: string; p_role: string; p_tenant: string; p_user: string };
         Returns: string;
       };
       set_tenant_status: {
@@ -585,6 +771,25 @@ export type Database = {
       stamp_card_nfc: {
         Args: { p_customer: string; p_now?: string; p_tag: string };
         Returns: Json;
+      };
+      update_location: {
+        Args: {
+          p_active: boolean;
+          p_actor: string;
+          p_address: string;
+          p_location: string;
+          p_name: string;
+          p_tenant: string;
+        };
+        Returns: string;
+      };
+      update_tenant_brand: {
+        Args: { p_actor: string; p_brand: Json; p_tenant: string };
+        Returns: string;
+      };
+      update_tenant_rules: {
+        Args: { p_actor: string; p_patch: Json; p_tenant: string };
+        Returns: string;
       };
     };
     Enums: {
