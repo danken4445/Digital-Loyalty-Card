@@ -89,7 +89,8 @@ export async function GET(
   const { data: locationsData } = await supabase
     .from('locations')
     .select('id, name')
-    .eq('tenant_id', tenantId);
+    .eq('tenant_id', tenantId)
+    .order('created_at', { ascending: true });
 
   const locationMap = new Map<string, string>();
   const defaultBranchName =

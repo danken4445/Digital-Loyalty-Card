@@ -417,6 +417,23 @@ describe('Phase 14 Task 7: Branding, Tags Tab, CSV Export, Locations', () => {
         p_new_tag_id: expect.stringMatching(/^tcp_tag_[0-9a-z]{16}$/),
       }),
     );
+
+    // Duplicate collision returns 409 Conflict
+    mockAdminClient.rpc.mockResolvedValueOnce({ data: 'duplicate', error: null });
+    const dupReq = new Request('http://localhost:3000/api/staff/shop-a/tags', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', origin: 'http://localhost:3000' },
+      body: JSON.stringify({
+        action: 'rotate',
+        oldTagId: 'tcp_tag_old12345678',
+        newLabel: 'Rotated Register Tag',
+        locationId: '11111111-2222-3333-4444-555555555555',
+      }),
+    });
+    const dupRes = await tagsPost(dupReq, { params: Promise.resolve({ slug: 'shop-a' }) });
+    expect(dupRes.status).toBe(409);
+    const dupBody = await dupRes.json();
+    expect(dupBody.ok).toBe(false);
   });
 
   // 7. tags_tab_assigns_branch_and_groups_by_it
@@ -427,17 +444,18 @@ describe('Phase 14 Task 7: Branding, Tags Tab, CSV Export, Locations', () => {
     mockAdminClient.rpc.mockResolvedValueOnce({ data: 'created', error: null });
 
     const branchUuid = '11111111-2222-3333-4444-555555555555';
-    const createReq = new Request('http://localhost:3000/api/staff/shop-a/tags', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', origin: 'http://localhost:3000' },
-      body: JSON.stringify({
-        action: 'create',
-        label: 'Patio Counter',
-        locationId: branchUuid,
-      }),
-    });
+    const makeCreateReq = () =>
+      new Request('http://localhost:3000/api/staff/shop-a/tags', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', origin: 'http://localhost:3000' },
+        body: JSON.stringify({
+          action: 'create',
+          label: 'Patio Counter',
+          locationId: branchUuid,
+        }),
+      });
 
-    const createRes = await tagsPost(createReq, { params: Promise.resolve({ slug: 'shop-a' }) });
+    const createRes = await tagsPost(makeCreateReq(), { params: Promise.resolve({ slug: 'shop-a' }) });
     expect(createRes.status).toBe(200);
     expect(mockAdminClient.rpc).toHaveBeenCalledWith(
       'create_tag_at',
@@ -446,6 +464,16 @@ describe('Phase 14 Task 7: Branding, Tags Tab, CSV Export, Locations', () => {
         p_location: branchUuid,
       }),
     );
+
+    // Duplicate creation returns 409 Conflict
+    mockAdminClient.rpc.mockResolvedValueOnce({ data: 'duplicate', error: null });
+    const dupCreateRes = await tagsPost(makeCreateReq(), { params: Promise.resolve({ slug: 'shop-a' }) });
+    expect(dupCreateRes.status).toBe(409);
+
+    // Invalid location returns 400 Bad Request
+    mockAdminClient.rpc.mockResolvedValueOnce({ data: 'invalid-location', error: null });
+    const invalidLocRes = await tagsPost(makeCreateReq(), { params: Promise.resolve({ slug: 'shop-a' }) });
+    expect(invalidLocRes.status).toBe(400);
 
     // Test grouping helper
     const testTags = [

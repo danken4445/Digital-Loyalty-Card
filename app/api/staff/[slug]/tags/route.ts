@@ -228,14 +228,58 @@ export async function POST(
       p_location: parsed.data.locationId ?? undefined,
     });
 
-    if (rpcErr || (result !== 'created' && result !== 'duplicate')) {
+    if (rpcErr) {
       return NextResponse.json<ApiResponse<TagActionResponse>>(
         {
           ok: false,
           error: 'internal_error',
-          message: rpcErr ? rpcErr.message : `Failed to create tag: ${result}`,
+          message: rpcErr.message,
         },
         { status: 500, headers: NO_STORE_HEADERS },
+      );
+    }
+
+    if (result === 'unauthorized') {
+      return NextResponse.json<ApiResponse<TagActionResponse>>(
+        {
+          ok: false,
+          error: 'forbidden',
+          message: 'Only owners and managers can create tags.',
+        },
+        { status: 403, headers: NO_STORE_HEADERS },
+      );
+    }
+
+    if (result === 'invalid-location') {
+      return NextResponse.json<ApiResponse<TagActionResponse>>(
+        {
+          ok: false,
+          error: 'invalid_input',
+          message: 'Invalid branch location specified.',
+        },
+        { status: 400, headers: NO_STORE_HEADERS },
+      );
+    }
+
+    if (result === 'duplicate') {
+      return NextResponse.json<ApiResponse<TagActionResponse>>(
+        {
+          ok: false,
+          error: 'invalid_input',
+          message: 'Tag ID collision. Please retry provisioning.',
+        },
+        { status: 409, headers: NO_STORE_HEADERS },
+      );
+    }
+
+    if (result !== 'created') {
+      return NextResponse.json<ApiResponse<TagActionResponse>>(
+        {
+          ok: false,
+          error: 'invalid_input',
+          message: `Failed to create tag: ${result}`,
+        },
+        { status: 400, headers: NO_STORE_HEADERS },
       );
     }
 
@@ -274,14 +318,69 @@ export async function POST(
       p_location: parsed.data.locationId ?? undefined,
     });
 
-    if (rpcErr || (result !== 'rotated' && result !== 'duplicate')) {
+    if (rpcErr) {
       return NextResponse.json<ApiResponse<TagActionResponse>>(
         {
           ok: false,
-          error: result === 'not-found' ? 'invalid_input' : 'internal_error',
-          message: rpcErr ? rpcErr.message : `Failed to rotate tag: ${result}`,
+          error: 'internal_error',
+          message: rpcErr.message,
         },
-        { status: result === 'not-found' ? 404 : 500, headers: NO_STORE_HEADERS },
+        { status: 500, headers: NO_STORE_HEADERS },
+      );
+    }
+
+    if (result === 'unauthorized') {
+      return NextResponse.json<ApiResponse<TagActionResponse>>(
+        {
+          ok: false,
+          error: 'forbidden',
+          message: 'Only owners and managers can rotate tags.',
+        },
+        { status: 403, headers: NO_STORE_HEADERS },
+      );
+    }
+
+    if (result === 'not-found') {
+      return NextResponse.json<ApiResponse<TagActionResponse>>(
+        {
+          ok: false,
+          error: 'invalid_input',
+          message: 'Active tag to rotate was not found.',
+        },
+        { status: 404, headers: NO_STORE_HEADERS },
+      );
+    }
+
+    if (result === 'invalid-location') {
+      return NextResponse.json<ApiResponse<TagActionResponse>>(
+        {
+          ok: false,
+          error: 'invalid_input',
+          message: 'Invalid branch location specified.',
+        },
+        { status: 400, headers: NO_STORE_HEADERS },
+      );
+    }
+
+    if (result === 'duplicate') {
+      return NextResponse.json<ApiResponse<TagActionResponse>>(
+        {
+          ok: false,
+          error: 'invalid_input',
+          message: 'New tag ID collision. Please retry rotating.',
+        },
+        { status: 409, headers: NO_STORE_HEADERS },
+      );
+    }
+
+    if (result !== 'rotated') {
+      return NextResponse.json<ApiResponse<TagActionResponse>>(
+        {
+          ok: false,
+          error: 'invalid_input',
+          message: `Failed to rotate tag: ${result}`,
+        },
+        { status: 400, headers: NO_STORE_HEADERS },
       );
     }
 
@@ -317,14 +416,47 @@ export async function POST(
     p_tag_id: parsed.data.tagId,
   });
 
-  if (rpcErr || (result !== 'deactivated' && result !== 'not-found')) {
+  if (rpcErr) {
     return NextResponse.json<ApiResponse<TagActionResponse>>(
       {
         ok: false,
         error: 'internal_error',
-        message: rpcErr ? rpcErr.message : `Failed to deactivate tag: ${result}`,
+        message: rpcErr.message,
       },
       { status: 500, headers: NO_STORE_HEADERS },
+    );
+  }
+
+  if (result === 'unauthorized') {
+    return NextResponse.json<ApiResponse<TagActionResponse>>(
+      {
+        ok: false,
+        error: 'forbidden',
+        message: 'Only owners and managers can deactivate tags.',
+      },
+      { status: 403, headers: NO_STORE_HEADERS },
+    );
+  }
+
+  if (result === 'not-found') {
+    return NextResponse.json<ApiResponse<TagActionResponse>>(
+      {
+        ok: false,
+        error: 'invalid_input',
+        message: 'Tag not found.',
+      },
+      { status: 404, headers: NO_STORE_HEADERS },
+    );
+  }
+
+  if (result !== 'deactivated') {
+    return NextResponse.json<ApiResponse<TagActionResponse>>(
+      {
+        ok: false,
+        error: 'invalid_input',
+        message: `Failed to deactivate tag: ${result}`,
+      },
+      { status: 400, headers: NO_STORE_HEADERS },
     );
   }
 
