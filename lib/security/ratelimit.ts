@@ -20,6 +20,7 @@ export interface RateLimitCheckInput {
     | 'delete-customer';
   ip: string | null;
   customerId?: string | null;
+  tenantId?: string | null;
 }
 
 export interface RateLimitResult {
@@ -44,21 +45,24 @@ export function getClientIp(request: Request): string | null {
 }
 
 const WINDOW_MS = 60_000; // 1 minute sliding window
-const LIMITS: Record<RateLimitCheckInput['endpoint'], { perIp: number; perCustomer: number }> = {
-  tap: { perIp: 60, perCustomer: 30 },
-  claim: { perIp: 20, perCustomer: 10 },
-  cards: { perIp: 20, perCustomer: 10 },
-  customers: { perIp: 30, perCustomer: 20 },
-  'redeem-token': { perIp: 30, perCustomer: 15 },
-  'instagram-upsize-token': { perIp: 30, perCustomer: 15 },
-  'staff-redeem': { perIp: 60, perCustomer: 30 },
-  'staff-stamp': { perIp: 60, perCustomer: 30 },
-  'staff-tags': { perIp: 30, perCustomer: 20 },
-  'staff-tenant': { perIp: 30, perCustomer: 20 },
-  'staff-billing': { perIp: 30, perCustomer: 20 },
-  'merge-intent': { perIp: 20, perCustomer: 10 },
-  merge: { perIp: 20, perCustomer: 10 },
-  'delete-customer': { perIp: 10, perCustomer: 5 },
+const LIMITS: Record<
+  RateLimitCheckInput['endpoint'],
+  { perIp: number; perCustomer: number; perTenant: number }
+> = {
+  tap: { perIp: 60, perCustomer: 30, perTenant: 120 },
+  claim: { perIp: 20, perCustomer: 10, perTenant: 60 },
+  cards: { perIp: 20, perCustomer: 10, perTenant: 60 },
+  customers: { perIp: 30, perCustomer: 20, perTenant: 60 },
+  'redeem-token': { perIp: 30, perCustomer: 15, perTenant: 60 },
+  'instagram-upsize-token': { perIp: 30, perCustomer: 15, perTenant: 60 },
+  'staff-redeem': { perIp: 60, perCustomer: 30, perTenant: 120 },
+  'staff-stamp': { perIp: 60, perCustomer: 30, perTenant: 120 },
+  'staff-tags': { perIp: 30, perCustomer: 20, perTenant: 60 },
+  'staff-tenant': { perIp: 30, perCustomer: 20, perTenant: 60 },
+  'staff-billing': { perIp: 30, perCustomer: 20, perTenant: 60 },
+  'merge-intent': { perIp: 20, perCustomer: 10, perTenant: 40 },
+  merge: { perIp: 20, perCustomer: 10, perTenant: 40 },
+  'delete-customer': { perIp: 10, perCustomer: 5, perTenant: 20 },
 };
 
 // In-memory sliding window store used for local development / unit tests when Upstash Redis is not configured.
@@ -149,6 +153,8 @@ export async function checkPublicEndpointRateLimit(
     return ipResult;
   }
 
+  let lastResult = ipResult;
+
   if (input.customerId) {
     const customerKey = `${input.endpoint}:cust:${input.customerId}`;
     const custUpstash = getUpstashLimiter(`${input.endpoint}:cust`, config.perCustomer);
@@ -164,8 +170,26 @@ export async function checkPublicEndpointRateLimit(
     if (!custResult.allowed) {
       return custResult;
     }
-    return custResult;
+    lastResult = custResult;
   }
 
-  return ipResult;
+  if (input.tenantId) {
+    const tenantKey = `${input.endpoint}:tenant:${input.tenantId}`;
+    const tenantUpstash = getUpstashLimiter(`${input.endpoint}:tenant`, config.perTenant);
+    const tenantResult = tenantUpstash
+      ? await tenantUpstash.limit(input.tenantId).then((r) => ({
+          allowed: r.success,
+          limit: r.limit,
+          remaining: r.remaining,
+          resetMs: Math.max(0, r.reset - nowMs),
+        }))
+      : checkMemoryRateLimit(tenantKey, config.perTenant, nowMs);
+
+    if (!tenantResult.allowed) {
+      return tenantResult;
+    }
+    lastResult = tenantResult;
+  }
+
+  return lastResult;
 }

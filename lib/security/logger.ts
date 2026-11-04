@@ -2,6 +2,10 @@ import 'server-only';
 
 export type SecurityLogLevel = 'info' | 'warn' | 'error';
 
+export interface SecurityLogContext extends Record<string, unknown> {
+  tenantId?: string;
+}
+
 export interface StructuredSecurityLog {
   timestamp: string;
   level: SecurityLogLevel;
@@ -19,8 +23,13 @@ const TOKEN_VALUE_PATTERN =
 
 /**
  * Redacts PII (emails, IPs, phone numbers) and secrets/tokens from a value before logging.
+ * Preserves shop tenant IDs (tenantId) as non-personal data.
  */
 export function redactSensitiveValue(value: unknown, keyName = ''): unknown {
+  if (keyName === 'tenantId') {
+    return value;
+  }
+
   if (keyName && SENSITIVE_KEY_PATTERN.test(keyName)) {
     return '[REDACTED]';
   }
@@ -67,7 +76,7 @@ export function sanitizeLogContext(context: Record<string, unknown> = {}): Recor
 export function logSecurityEvent(
   level: SecurityLogLevel,
   event: string,
-  context: Record<string, unknown> = {},
+  context: SecurityLogContext = {},
 ): StructuredSecurityLog {
   const payload: StructuredSecurityLog = {
     timestamp: new Date().toISOString(),

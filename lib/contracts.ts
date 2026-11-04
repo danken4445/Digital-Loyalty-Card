@@ -771,10 +771,14 @@ export interface CleanupStaleAnonymousResult {
  * Phase 8 Deployment & Liveness Health Probe Contract
  */
 export interface HealthCheckResponse {
-  status: 'ok';
+  status: 'ok' | 'degraded';
   service: string;
   timestampIso: string;
   timezone: string;
+  cleanup?: {
+    lastRunAt: string | null;
+    stale: boolean;
+  };
 }
 
 /**

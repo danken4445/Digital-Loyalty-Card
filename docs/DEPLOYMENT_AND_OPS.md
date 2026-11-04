@@ -384,3 +384,96 @@ Owners and managers register and rotate NFC tags in `/staff/tags` for the active
 - A customer's wallet holds one card per shop; stamps, redemptions and perk claims belong to a (shop, customer) card.
 - "Remove this card" on a shop's page deletes only that shop's card and ledger (`DELETE /api/cards`). "Delete my wallet & data" on `/wallet` and `/privacy` erases every card and the account (`DELETE /api/customers`).
 - Platform-level audit rows (wallet erasure, stale-account cleanup, wallet merges) have a null `tenant_id` and are not visible to any shop's staff.
+
+---
+
+## 10. Custom SMTP Setup & Email Provider
+
+By default, Supabase applies strict default hourly email rate limits (e.g. 30 emails/hour) for transactional emails. For production environments sending customer card backups, staff invites, and magic link recoveries, configuring custom SMTP is required.
+
+### 10.1 Recommended Providers & DNS Records
+- **Providers:** Resend, SendGrid, Amazon SES, or Postmark.
+- **DNS Records (at your domain registrar):**
+  - **SPF:** Add `v=spf1 include:sendgrid.net ~all` (or provider equivalent) TXT record on your root/sending domain.
+  - **DKIM:** Add the CNAME or TXT keys provided by your email provider for cryptographic signature validation.
+  - **DMARC:** Add `v=DMARC1; p=none; rua=mailto:dmarc-reports@thecaffeineplug.ph` TXT record at `_dmarc.thecaffeineplug.ph`.
+
+### 10.2 Supabase Dashboard Steps
+1. Navigate to your Supabase Project -> **Authentication** -> **SMTP Settings** (or **Email Settings**).
+2. Toggle **Enable Custom SMTP** to **ON**.
+3. Fill in:
+   - **Sender email:** `loyalty@thecaffeineplug.ph` (must match your authenticated domain).
+   - **Sender name:** `The Caffeine Plug`
+   - **Host:** e.g. `smtp.resend.com` or `smtp.sendgrid.net`
+   - **Port:** `587`
+   - **Username:** your SMTP username (e.g. `resend` or `apikey`)
+   - **Password:** your SMTP API key / secret
+4. Click **Save Changes**.
+5. Use the dashboard **Send Test Email** button to verify delivery before public rollout.
+
+### 10.3 Raising Anonymous Sign-In Limits (with CAPTCHA Caveat)
+- In high-traffic launch events or busy counter queues, the default anonymous sign-in rate limit in Supabase may throttle new customers.
+- To raise this limit: Navigate to **Authentication** -> **Rate Limits** in the Supabase Dashboard and increase the limit for Anonymous Sign-ins.
+- **CRITICAL CAVEAT:** Never raise anonymous sign-in limits without Cloudflare Turnstile CAPTCHA enabled on your production deployment. Without CAPTCHA protection, increased anonymous sign-in limits leave your database vulnerable to automated bot user-creation floods.
+
+---
+
+## 11. Automated Health & Cleanup Monitoring (`/api/health`)
+
+The platform exposes a public heartbeat endpoint at `/api/health` that checks server liveness and database cleanup health.
+
+### 11.1 Response Payload & Uptime Alerting
+- When all systems are operational:
+  ```json
+  {
+    "ok": true,
+    "data": {
+      "status": "ok",
+      "service": "The Caffeine Plug",
+      "timestampIso": "2026-11-05T00:00:00.000Z",
+      "timezone": "Asia/Manila",
+      "cleanup": {
+        "lastRunAt": "2026-11-01T03:00:00.000Z",
+        "stale": false
+      }
+    }
+  }
+  ```
+- **Degraded Status Alert:** If the `weekly-stale-anonymous-cleanup` `pg_cron` job has failed or missed its schedule for more than 8 days, `/api/health` returns HTTP 200 with:
+  ```json
+  {
+    "ok": true,
+    "data": {
+      "status": "degraded",
+      "cleanup": {
+        "lastRunAt": null,
+        "stale": true
+      }
+    }
+  }
+  ```
+- **Uptime Monitor Configuration (e.g. BetterStack, Datadog, Pingdom, UptimeRobot):**
+  - **Target URL:** `https://card.thecaffeineplug.ph/api/health`
+  - **Check Frequency:** Every 60 seconds
+  - **Alert Condition:** Alert if HTTP response status is not 200 OR if the response body contains `"status":"degraded"`. This alerts operations staff immediately if the RA 10173 compliance cleanup job stops executing.
+
+---
+
+## 12. NFC Tag Leak Detection & Response
+
+Physical NFC tags at counter registers may be photographed, scanned, or shared online, allowing unauthorized distant taps. The system includes automated leak detection and single-click mitigation.
+
+### 12.1 Leak Signal Thresholds (R-6)
+A tag is automatically flagged as potentially leaked if:
+1. **Burst Tap Anomaly:** More than 8 distinct customers stamp using that tag within a 15-minute window (`tag_leak_signals`).
+2. **Excessive Throttle Rejections:** More than 25 rapid-tap throttle rejections occur on that tag within 1 hour (`stamp_rejected_tag_throttled` / `tag_throttled`).
+
+### 12.2 Operator Response & Rotation Runbook
+1. **Console Alert Banner:** When leak signals exist for the active shop, a yellow warning banner appears on `/staff/<slug>/settings/tags` listing the offending tag ID, customer burst count, and rejection volume.
+2. **One-Click Rotation:**
+   - Click the **Rotate** button beside the flagged tag in the banner.
+   - The application immediately deactivates the old physical tag ID (preventing any further taps from that URL) and provisions a fresh randomly generated tag ID (`tcp_tag_...`).
+   - A `warn` security event log is emitted with `tenantId` and audit log trails.
+3. **Physical Tag Replacement:**
+   - Write the new local and production tap URLs shown in the console to a new physical NXP NTAG215 card or acrylic standee using NFC Tools or NXP TagWriter.
+   - Replace the physical tag at the store counter and safely discard or overwrite the compromised tag.

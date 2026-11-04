@@ -8,6 +8,7 @@ import {
 import { requireConsoleAccess, ConsoleAccessError, isNotFoundError } from '@/lib/console/guard';
 import type { ApiResponse, TagRow, TagWithUrls } from '@/lib/contracts';
 import { verifySameOriginRequest } from '@/lib/security/csrf';
+import { logSecurityEvent } from '@/lib/security/logger';
 import { checkPublicEndpointRateLimit, getClientIp } from '@/lib/security/ratelimit';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
@@ -29,6 +30,7 @@ const tagActionSchema = z.discriminatedUnion('action', [
     oldTagId: z.string().trim().min(4).max(128),
     newLabel: z.string().trim().max(120).optional(),
     locationId: z.string().uuid().optional().nullable(),
+    reason: z.string().trim().max(120).optional(),
   }),
   z.object({
     action: z.literal('deactivate'),
@@ -392,6 +394,14 @@ export async function POST(
       deactivated_at: null,
       location_id: parsed.data.locationId || null,
     };
+
+    logSecurityEvent('warn', 'tag_rotated', {
+      tenantId,
+      actor: staff.userId,
+      oldTagId: parsed.data.oldTagId,
+      newTagId,
+      reason: parsed.data.reason ?? 'operator_rotate',
+    });
 
     return NextResponse.json<ApiResponse<TagActionResponse>>(
       {

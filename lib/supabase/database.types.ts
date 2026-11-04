@@ -828,6 +828,7 @@ export type Database = {
       };
       merge_nonce_used: { Args: { p_nonce: string }; Returns: boolean };
       merge_wallets: { Args: { p_source: string; p_target: string }; Returns: Json };
+      ops_cleanup_status: { Args: Record<PropertyKey, never>; Returns: Json };
       platform_create_tenant: {
         Args: { p_actor: string; p_name: string; p_owner_email: string; p_slug: string };
         Returns: Json;
@@ -910,6 +911,10 @@ export type Database = {
       support_get_tenant_overview: { Args: { p_admin: string; p_session: string }; Returns: Json };
       support_list_recent_activity: {
         Args: { p_admin: string; p_limit?: number; p_session: string };
+        Returns: Json;
+      };
+      tag_leak_signals: {
+        Args: { p_actor: string; p_tenant: string; p_window_minutes?: number };
         Returns: Json;
       };
       update_location: {

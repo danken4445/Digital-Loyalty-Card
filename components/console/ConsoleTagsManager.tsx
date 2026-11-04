@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useId, useState } from 'react';
-import type { ApiResponse } from '@/lib/contracts';
+import type { ApiResponse, TagLeakSignal } from '@/lib/contracts';
 import { groupTagsByBranch } from '@/lib/tags/grouping';
 import type { TagWithBranch } from '@/app/api/staff/[slug]/tags/route';
 
@@ -15,6 +15,7 @@ export interface ConsoleTagsManagerProps {
   initialTags: TagWithBranch[];
   locations: LocationOption[];
   canManage: boolean;
+  leakSignals?: TagLeakSignal[];
 }
 
 export function ConsoleTagsManager({
@@ -22,8 +23,10 @@ export function ConsoleTagsManager({
   initialTags,
   locations,
   canManage,
+  leakSignals,
 }: ConsoleTagsManagerProps) {
   const [tags, setTags] = useState<TagWithBranch[]>(initialTags);
+  const [activeLeakSignals, setActiveLeakSignals] = useState<TagLeakSignal[]>(leakSignals ?? []);
   const [label, setLabel] = useState('');
   const [locationId, setLocationId] = useState<string>(locations[0]?.id || '');
   const [isCreating, setIsCreating] = useState(false);
@@ -124,9 +127,59 @@ export function ConsoleTagsManager({
           .concat(body.data.tag),
       );
 
+      setActiveLeakSignals((prev) => prev.filter((s) => s.tagId !== tag.id));
+
       setFeedback({
         type: 'success',
         message: `Tag "${tag.id}" rotated to new tag "${body.data.tag.id}".`,
+      });
+    } catch {
+      setFeedback({ type: 'error', message: 'Network error rotating tag.' });
+    } finally {
+      setInFlightTagId(null);
+    }
+  }
+
+  async function handleRotateFlaggedTag(tagId: string, tag?: TagWithBranch) {
+    if (!canManage) return;
+    setInFlightTagId(tagId);
+    setFeedback(null);
+
+    try {
+      const res = await fetch(`/api/staff/${encodeURIComponent(slug)}/tags`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'rotate',
+          oldTagId: tagId,
+          newLabel: tag?.label || undefined,
+          locationId: tag?.location_id || undefined,
+          reason: 'operator_rotated_leak_signal',
+        }),
+      });
+
+      const body: ApiResponse<{ action: string; tag: TagWithBranch; deactivatedTagId: string }> =
+        await res.json();
+
+      if (!res.ok || !body.ok) {
+        setFeedback({
+          type: 'error',
+          message: !body.ok ? body.message : 'Failed to rotate leaking tag.',
+        });
+        return;
+      }
+
+      setTags((prev) =>
+        prev
+          .map((t) => (t.id === tagId ? { ...t, active: false, deactivated_at: new Date().toISOString() } : t))
+          .concat(body.data.tag),
+      );
+
+      setActiveLeakSignals((prev) => prev.filter((s) => s.tagId !== tagId));
+
+      setFeedback({
+        type: 'success',
+        message: `Leaked tag "${tagId}" rotated to new tag "${body.data.tag.id}".`,
       });
     } catch {
       setFeedback({ type: 'error', message: 'Network error rotating tag.' });
@@ -191,6 +244,59 @@ export function ConsoleTagsManager({
           }`}
         >
           {feedback.message}
+        </div>
+      )}
+
+      {/* Leak Signals Warning Banner */}
+      {activeLeakSignals.length > 0 && (
+        <div
+          role="alert"
+          className="border border-amber-600 bg-amber-950/30 p-4 text-xs text-amber-200 space-y-3"
+        >
+          <div className="flex items-start justify-between">
+            <div>
+              <h3 className="font-bold uppercase tracking-wider text-amber-400">
+                ⚠️ NFC Tag Leak Warning
+              </h3>
+              <p className="mt-1 text-neutral-300">
+                Abnormal activity detected on the tag(s) below. Multiple distinct customers or high rate-limit blocks within a short window indicate this tag URL may have been shared publicly. Rotate immediately.
+              </p>
+            </div>
+          </div>
+          <div className="divide-y divide-amber-900/40 border border-amber-900/60 bg-black/40">
+            {activeLeakSignals.map((sig) => {
+              const matchingTag = tags.find((t) => t.id === sig.tagId);
+              return (
+                <div key={sig.tagId} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 gap-2">
+                  <div>
+                    <div className="font-mono font-bold text-white">{sig.tagId}</div>
+                    <div className="text-2xs text-amber-300/80 mt-0.5">
+                      {sig.distinctCustomers > 0 && (
+                        <span>{sig.distinctCustomers} distinct customers in 15m</span>
+                      )}
+                      {sig.distinctCustomers > 0 && sig.throttleRejections > 0 && <span> • </span>}
+                      {sig.throttleRejections > 0 && (
+                        <span>{sig.throttleRejections} rapid-tap rejections in 1h</span>
+                      )}
+                      {matchingTag?.label && (
+                        <span className="ml-2 text-neutral-400">({matchingTag.label})</span>
+                      )}
+                    </div>
+                  </div>
+                  {canManage && (
+                    <button
+                      type="button"
+                      onClick={() => handleRotateFlaggedTag(sig.tagId, matchingTag)}
+                      disabled={inFlightTagId === sig.tagId}
+                      className="border border-amber-500 bg-amber-500 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-black hover:bg-amber-400 disabled:opacity-50 transition-colors self-start sm:self-auto"
+                    >
+                      {inFlightTagId === sig.tagId ? 'Rotating...' : 'Rotate'}
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 

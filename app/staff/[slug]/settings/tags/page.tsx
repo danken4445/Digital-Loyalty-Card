@@ -1,7 +1,9 @@
 import { enforceConsolePageAccess } from '@/lib/console/guard';
 import { ConsoleTagsManager, type LocationOption } from '@/components/console/ConsoleTagsManager';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { decorateTagWithUrls, getTenantAliasHost } from '@/lib/auth/staff';
+import { evaluateTagLeakSignals } from '@/lib/ops/tag-leak';
 import type { TagRow } from '@/lib/contracts';
 import type { TagWithBranch } from '@/app/api/staff/[slug]/tags/route';
 
@@ -16,8 +18,9 @@ export default async function TagsSettingsPage({ params }: TagsSettingsPageProps
   const { staff, tenantId } = await enforceConsolePageAccess(slug, 'manager');
 
   const supabase = await createSupabaseServerClient();
+  const admin = createSupabaseAdminClient();
 
-  const [tagsRes, locsRes] = await Promise.all([
+  const [tagsRes, locsRes, leakRes] = await Promise.all([
     supabase
       .from('tags')
       .select('id, label, active, created_at, deactivated_at, location_id')
@@ -28,6 +31,10 @@ export default async function TagsSettingsPage({ params }: TagsSettingsPageProps
       .select('id, name')
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: true }),
+    admin.rpc('tag_leak_signals', {
+      p_actor: staff.userId,
+      p_tenant: tenantId,
+    }),
   ]);
 
   const aliasHost = await getTenantAliasHost(tenantId);
@@ -43,6 +50,7 @@ export default async function TagsSettingsPage({ params }: TagsSettingsPageProps
     name: l.name,
   }));
 
+  const leakSignals = evaluateTagLeakSignals(leakRes.data);
   const canManage = staff.role === 'owner' || staff.role === 'manager';
 
   return (
@@ -51,6 +59,7 @@ export default async function TagsSettingsPage({ params }: TagsSettingsPageProps
       initialTags={initialTags}
       locations={locations}
       canManage={canManage}
+      leakSignals={leakSignals}
     />
   );
 }
