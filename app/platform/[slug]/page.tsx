@@ -1,8 +1,10 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { BillingPlanPicker } from '@/components/billing/BillingPlanPicker';
 import { PlatformShell } from '@/components/platform/PlatformShell';
 import { TenantStatusForm } from '@/components/platform/TenantStatusForm';
 import { enforcePlatformPageAccess } from '@/lib/auth/platform';
+import { loadBillingOverview } from '@/lib/billing/overview';
 import { ROUTES, type TenantStatus } from '@/lib/contracts';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
@@ -38,6 +40,7 @@ export default async function PlatformTenantDetailPage({ params }: TenantPagePro
     notFound();
   }
 
+  const billing = await loadBillingOverview(admin.userId, tenant.id);
   const isSuspended = tenant.status === 'suspended';
 
   return (
@@ -126,6 +129,25 @@ export default async function PlatformTenantDetailPage({ params }: TenantPagePro
 
             <div className="mt-6">
               <TenantStatusForm slug={tenant.slug} currentStatus={tenant.status} />
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-plug-border bg-plug-surface p-6 sm:p-8">
+            <h2 className="font-display text-xl font-bold uppercase tracking-wide text-white">
+              Billing Plan
+            </h2>
+            <p className="mt-1 text-sm text-plug-muted">
+              Set the plan on the shop&apos;s behalf. Changes are audited.
+            </p>
+
+            <div className="mt-6">
+              <BillingPlanPicker
+                plans={billing.plans}
+                estimate={billing.estimate}
+                endpoint={ROUTES.api.platform.tenantPlan(tenant.slug)}
+                canChoose
+                allowImmediate
+              />
             </div>
           </div>
         </div>

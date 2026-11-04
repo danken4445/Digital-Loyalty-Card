@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { BRAND_THEME } from '@/lib/config';
-import { ROUTES, type StaffSession } from '@/lib/contracts';
+import { BILLING_VIEWER_ROLES, ROUTES, type StaffRole, type StaffSession } from '@/lib/contracts';
 import { StaffTenantSwitcher } from '@/components/staff/StaffTenantSwitcher';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 
@@ -17,6 +17,8 @@ export interface StaffNavProps {
 interface NavItem {
   name: string;
   href: string;
+  /** Roles that see this tab; omitted = everyone */
+  roles?: readonly StaffRole[];
 }
 
 const NAV_ITEMS: readonly NavItem[] = [
@@ -25,6 +27,7 @@ const NAV_ITEMS: readonly NavItem[] = [
   { name: 'Manual Stamp', href: ROUTES.staff.manualStamp },
   { name: 'NFC Tags', href: ROUTES.staff.tags },
   { name: 'Activity & Audit', href: ROUTES.staff.activity },
+  { name: 'Plan & Billing', href: ROUTES.staff.billing, roles: BILLING_VIEWER_ROLES },
 ] as const;
 
 export function StaffNav({ staff, currentPath }: StaffNavProps) {
@@ -67,10 +70,7 @@ export function StaffNav({ staff, currentPath }: StaffNavProps) {
 
         <div className="flex shrink-0 items-center gap-2">
           {staff.memberships.length > 1 ? (
-            <StaffTenantSwitcher
-              memberships={staff.memberships}
-              activeTenantId={staff.tenantId}
-            />
+            <StaffTenantSwitcher memberships={staff.memberships} activeTenantId={staff.tenantId} />
           ) : null}
           <div
             className="hidden items-center gap-2 text-sm sm:flex"
@@ -96,24 +96,26 @@ export function StaffNav({ staff, currentPath }: StaffNavProps) {
       <nav aria-label="Staff Portal Navigation" className="mx-auto max-w-5xl px-2 sm:px-4">
         {/* Scrolls sideways on narrow phones instead of wrapping to a second row */}
         <ul className="flex items-center gap-1 overflow-x-auto py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {NAV_ITEMS.map((item) => {
-            const isActive = currentPath === item.href;
-            return (
-              <li key={item.href} className="shrink-0">
-                <Link
-                  href={item.href}
-                  aria-current={isActive ? 'page' : undefined}
-                  className={`inline-flex min-h-11 items-center rounded-full px-4 text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-white text-plug-black'
-                      : 'text-plug-muted hover:bg-plug-elevated hover:text-white'
-                  }`}
-                >
-                  {item.name}
-                </Link>
-              </li>
-            );
-          })}
+          {NAV_ITEMS.filter((item) => !item.roles || item.roles.includes(staff.role)).map(
+            (item) => {
+              const isActive = currentPath === item.href;
+              return (
+                <li key={item.href} className="shrink-0">
+                  <Link
+                    href={item.href}
+                    aria-current={isActive ? 'page' : undefined}
+                    className={`inline-flex min-h-11 items-center rounded-full px-4 text-sm font-medium transition-colors ${
+                      isActive
+                        ? 'bg-white text-plug-black'
+                        : 'text-plug-muted hover:bg-plug-elevated hover:text-white'
+                    }`}
+                  >
+                    {item.name}
+                  </Link>
+                </li>
+              );
+            },
+          )}
         </ul>
       </nav>
     </header>

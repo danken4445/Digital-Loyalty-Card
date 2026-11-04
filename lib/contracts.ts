@@ -405,7 +405,11 @@ export interface RpcContracts {
   };
   start_support_session: {
     Args: { p_admin: string; p_tenant: string; p_reason: string };
-    Returns: { result: 'started' | 'unauthorized' | 'invalid-reason' | 'not-found'; sessionId?: string; expiresAt?: string };
+    Returns: {
+      result: 'started' | 'unauthorized' | 'invalid-reason' | 'not-found';
+      sessionId?: string;
+      expiresAt?: string;
+    };
   };
   end_support_session: {
     Args: { p_admin: string; p_session: string };
@@ -587,6 +591,45 @@ export type StaffAuthResult =
       reason: 'unauthenticated' | 'forbidden';
     };
 
+/** Roles that can see a shop's billing (only owners can change the plan; enforced again in SQL). */
+export const BILLING_VIEWER_ROLES = ['owner', 'manager'] as const satisfies readonly StaffRole[];
+
+/**
+ * Flexible billing plans. Mirrors public.billing_plans; money is whole centavos (PHP 1 = 100).
+ * A "customer" is a card holder who earned at least one stamp at the shop that calendar month.
+ */
+export interface BillingPlan {
+  code: string;
+  name: string;
+  description: string;
+  baseFeeCentavos: number;
+  includedCustomers: number;
+  perCustomerCentavos: number;
+  /** Ceiling on the monthly charge, or null when uncapped. */
+  monthlyCapCentavos: number | null;
+}
+
+export interface BillingEstimate {
+  /** First day of the month the figures are for (YYYY-MM-DD, shop timezone). */
+  month: string;
+  /** False for trial shops: figures show what the plan would cost. */
+  billed: boolean;
+  /** Null until the shop picks a plan. */
+  plan: BillingPlan | null;
+  activeCustomers: number;
+  extraCustomers: number;
+  baseFeeCentavos: number;
+  usageFeeCentavos: number;
+  capApplied: boolean;
+  totalCentavos: number;
+  /** A plan change queued for a later month. */
+  pendingPlan: { code: string; effectiveMonth: string } | null;
+}
+
+export interface ChoosePlanResponse {
+  result: 'updated' | 'unchanged';
+}
+
 export interface StaffRedeemRequest {
   action: 'preview' | 'confirm';
   token: string;
@@ -766,6 +809,7 @@ export const ROUTES = Object.freeze({
     manualStamp: '/staff/stamp',
     tags: '/staff/tags',
     activity: '/staff/activity',
+    billing: '/staff/billing',
     settings: (slug: string) => `/staff/${encodeURIComponent(slug)}/settings`,
   },
   platform: {
@@ -789,10 +833,12 @@ export const ROUTES = Object.freeze({
       stamp: '/api/staff/stamp',
       tags: '/api/staff/tags',
       tenant: '/api/staff/tenant',
+      billing: '/api/staff/billing',
     },
     platform: {
       tenants: '/api/platform/tenants',
       support: '/api/platform/support',
+      tenantPlan: (slug: string) => `/api/platform/tenants/${encodeURIComponent(slug)}/plan`,
     },
   },
 });

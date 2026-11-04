@@ -174,3 +174,18 @@ This document records key technical, security, and branding decisions for The Ca
   6. **`cleanup_stale_anonymous_customers` fix.** It no longer schema-qualifies `coalesce` (not a `pg_catalog` function, so the call failed at runtime), and spares anyone with a `tenant_members` row instead of a `staff` row.
   7. **Local setup:** Supabase Auth is the only Turnstile verifier; export `TURNSTILE_SECRET_KEY` (Cloudflare's test secret) before `supabase start`.
 - **Why:** The expand-then-contract plan from D-012 ends here: with no caller left for the legacy functions, keeping them would leave a tenant-blind write path next to the safe one. Dropping the column defaults turns any future writer that forgets its tenant into a loud error instead of a silent tenant #1 row.
+
+---
+
+## D-014: Flexible Per-Customer Billing Plans (metering and estimates, no gateway)
+
+- **Date:** 2026-11-05
+- **Status:** Accepted (prices are placeholders to tune in pilots)
+- **What:**
+  1. **Shops pick a plan; the catalog is data.** `public.billing_plans` holds each plan as a base fee, an included-customer allowance, a per-customer rate and an optional monthly cap, all in whole centavos. Starting catalog: Pay as you go (₱10 each), Starter 50 (₱350 covers 50, then ₱7), Growth 200 (₱1,000 covers 200, then ₱5), Worry-free cap (₱8 each, never above ₱1,200). Changing a price is an edit to a row, not a deploy.
+  2. **A billable customer is a card holder who earned at least one stamp at the shop that calendar month** (shop timezone). Holding a card without visiting is free, so a shop never pays for the wallet's reach.
+  3. **Plan choice is per shop and effective by month** (`tenant_plan_selections`). The first choice applies to the current month; later changes apply from next month, so a shop cannot drop to a cheaper plan after seeing a busy month. A platform admin can apply a change immediately. Only the shop owner (or a platform admin) can choose; owners and managers can read billing.
+  4. **`get_billing_estimate` computes the month's bill on demand** from the stamp ledger and the plan in force. Nothing is stored per invoice yet. Trial shops see what the plan would cost but are marked not billed.
+  5. **Surfaces:** `/staff/billing` (owner and manager, with a "what if I had N customers" comparison) and a Billing Plan card on `/platform/<slug>`. Both call the same SQL; the shop always comes from the verified session or the slug, never the request body.
+- **Why:** The owner wants clients to choose a price they are comfortable with (about ₱5 to ₱10 per customer). A per-active-customer meter with a no-commitment, a bundled and a capped option lets a shop trade commitment for a lower rate. Money is integer centavos so there is no rounding drift.
+- **Not done (still D4):** no payment gateway, no stored invoices, no automatic suspension for non-payment. Pilots are invoiced by hand from the estimate. A platform-admin screen for editing the catalog, and persisted month-end invoices, are the natural next steps.

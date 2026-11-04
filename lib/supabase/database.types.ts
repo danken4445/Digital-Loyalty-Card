@@ -62,6 +62,46 @@ export type Database = {
           },
         ];
       };
+      billing_plans: {
+        Row: {
+          active: boolean;
+          base_fee_centavos: number;
+          code: string;
+          created_at: string;
+          description: string;
+          included_customers: number;
+          monthly_cap_centavos: number | null;
+          name: string;
+          per_customer_centavos: number;
+          sort_order: number;
+        };
+        ComputedFields: never;
+        Insert: {
+          active?: boolean;
+          base_fee_centavos?: number;
+          code: string;
+          created_at?: string;
+          description?: string;
+          included_customers?: number;
+          monthly_cap_centavos?: number | null;
+          name: string;
+          per_customer_centavos: number;
+          sort_order?: number;
+        };
+        Update: {
+          active?: boolean;
+          base_fee_centavos?: number;
+          code?: string;
+          created_at?: string;
+          description?: string;
+          included_customers?: number;
+          monthly_cap_centavos?: number | null;
+          name?: string;
+          per_customer_centavos?: number;
+          sort_order?: number;
+        };
+        Relationships: [];
+      };
       customer_cards: {
         Row: {
           added_at: string;
@@ -564,6 +604,46 @@ export type Database = {
           },
         ];
       };
+      tenant_plan_selections: {
+        Row: {
+          chosen_by: string | null;
+          created_at: string;
+          effective_month: string;
+          plan_code: string;
+          tenant_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          chosen_by?: string | null;
+          created_at?: string;
+          effective_month: string;
+          plan_code: string;
+          tenant_id: string;
+        };
+        Update: {
+          chosen_by?: string | null;
+          created_at?: string;
+          effective_month?: string;
+          plan_code?: string;
+          tenant_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'tenant_plan_selections_plan_code_fkey';
+            columns: ['plan_code'];
+            isOneToOne: false;
+            referencedRelation: 'billing_plans';
+            referencedColumns: ['code'];
+          },
+          {
+            foreignKeyName: 'tenant_plan_selections_tenant_id_fkey';
+            columns: ['tenant_id'];
+            isOneToOne: false;
+            referencedRelation: 'tenants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       tenant_settings: {
         Row: {
           brand: NonNullable<Json>;
@@ -693,6 +773,10 @@ export type Database = {
         Args: { p_consent_version?: string; p_customer: string; p_tenant: string };
         Returns: string;
       };
+      choose_billing_plan: {
+        Args: { p_actor: string; p_immediate?: boolean; p_plan: string; p_tenant: string };
+        Returns: string;
+      };
       claim_card_perk: {
         Args: { p_actor: string; p_customer: string; p_perk: string; p_tenant: string };
         Returns: string;
@@ -723,6 +807,10 @@ export type Database = {
       delete_wallet: { Args: { p_customer: string }; Returns: boolean };
       end_support_session: { Args: { p_admin: string; p_session: string }; Returns: string };
       ensure_customer: { Args: { p_customer: string }; Returns: string };
+      get_billing_estimate: {
+        Args: { p_actor: string; p_month?: string; p_tenant: string };
+        Returns: Json;
+      };
       invite_member: {
         Args: { p_actor: string; p_email: string; p_role: string; p_tenant: string };
         Returns: string;
