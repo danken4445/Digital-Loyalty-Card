@@ -177,7 +177,22 @@ This document records key technical, security, and branding decisions for The Ca
 
 ---
 
-## D-014: Flexible Per-Customer Billing Plans (metering and estimates, no gateway)
+## D-014: Phase 14 Owner Console, Platform Administration, and Operations Architecture
+
+- **Date:** 2026-11-05
+- **Status:** Accepted
+- **What:**
+  1. **Platform Administrators & Required MFA TOTP:** Platform operations are gated by a service-role only `public.platform_admins` table. Platform routes (`/platform/**` and `/api/platform/**`) require an active Supabase user session whose authenticated assurance level is `aal2` (enforced via Supabase TOTP verification). Session guards prevent open redirects on login and enforce CSRF verification on all state-changing endpoints.
+  2. **Time-Boxed Read-Only Support Sessions (R-1):** Platform staff never log in as shop staff and never bypass RLS. Support access is granted strictly through explicit, time-boxed 30-minute read-only sessions created via `start_support_session(p_tenant, p_reason)`. Support queries execute through dedicated `support_*` RPCs scoped to the session tenant, and all session beginnings and expirations are logged to `public.audit_log`.
+  3. **30-Day Suspension Window & Trigger-Stamped Grace Period (R-2):** Changing a tenant's status to `suspended` immediately blocks new NFC and manual stamps. Existing cardholders retain wallet access and can continue redeeming earned rewards for 30 days from `tenants.suspended_at`. A `BEFORE UPDATE` trigger automatically stamps `suspended_at = now()` upon entering `suspended` status and clears it upon re-activation. Once 30 days elapse, redemption calls return `tenant-unavailable` and customer surfaces display closed redemption messaging.
+  4. **Member Invites Without Auth Admin Privileges (R-5):** Staff onboarding uses a dedicated `public.tenant_invites` table. Existing staff or invited members sign in through standard Supabase auth, and an `accept_invite` RPC securely links the verified email address to the corresponding tenant membership without exposing privileged Supabase Auth admin APIs.
+  5. **Multi-Branch Locations Within a Single Tenant (R-3):** A tenant represents a unified brand that can operate multiple physical branches (`locations`). Customers hold one collectible card per brand that earns stamps across all branches under a shared daily cap and visit cooldown. Individual NFC tags and stamp records capture `location_id` for branch-level reporting. If a branch requires independent rules and branding, owners can separate it into a child tenant (`parent_tenant_id`).
+  6. **Tag-Leak Detection & Automated Cron Operations (R-6):** Physical tag leak detection alerts staff if a tag records >8 distinct customer taps within 15 minutes or >25 throttle rejections within an hour, enabling one-click tag rotation. Automated cleanup operations are scheduled via `pg_cron` migrations, and `/api/health` reports system degradation if scheduled cleanup jobs miss their execution window by more than 8 days.
+- **Why:** Delivers autonomous tenant management and secure platform administration with zero raw SQL execution required in day-to-day operations, while enforcing strict privilege separation, auditability, and fraud defense.
+
+---
+
+## D-015: Flexible Per-Customer Billing Plans (metering and estimates, no gateway)
 
 - **Date:** 2026-11-05
 - **Status:** Accepted (prices are placeholders to tune in pilots)

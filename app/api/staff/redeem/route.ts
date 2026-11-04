@@ -1,18 +1,15 @@
 import { NextResponse } from 'next/server';
-import { z } from 'zod';
 import { requireStaffSession } from '@/lib/auth/staff';
 import { type ApiResponse, type RedeemResultCode, type StaffRedeemResponse } from '@/lib/contracts';
 import { verifySameOriginRequest } from '@/lib/security/csrf';
 import { checkPublicEndpointRateLimit, getClientIp } from '@/lib/security/ratelimit';
 import { verifyRedeemToken } from '@/lib/security/redeemToken';
+import {
+  parseStaffRedeemBody,
+  resolveTenantForRedeem,
+} from '@/lib/security/reward-token-helpers';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { getTenantById } from '@/lib/tenants/context';
-
-const staffRedeemSchema = z.object({
-  action: z.enum(['preview', 'confirm']),
-  token: z.string().trim().min(1).max(2048),
-});
 
 const REWARD_RESULTS = [
   'redeemed',
@@ -109,13 +106,13 @@ export async function POST(
       }
     }
 
-    const parsed = staffRedeemSchema.safeParse(body);
-    if (!parsed.success) {
+    const parsed = parseStaffRedeemBody(body);
+    if (!parsed.ok) {
       return NextResponse.json<ApiResponse<StaffRedeemResponse>>(
         {
           ok: false,
-          error: 'invalid_input',
-          message: 'Invalid request payload.',
+          error: parsed.error,
+          message: parsed.message,
         },
         { status: 400 },
       );
@@ -186,17 +183,18 @@ export async function POST(
       );
     }
 
-    const tenant = await getTenantById(staff.tenantId);
-    if (!tenant) {
+    const resolved = await resolveTenantForRedeem(staff.tenantId, { byId: true });
+    if (!resolved.ok) {
       return NextResponse.json<ApiResponse<StaffRedeemResponse>>(
         {
           ok: false,
-          error: 'internal_error',
-          message: 'Shop settings are unavailable.',
+          error: resolved.error,
+          message: resolved.message,
         },
-        { status: 500 },
+        { status: resolved.status },
       );
     }
+    const tenant = resolved.tenant;
     const { rewardThreshold, rewardLabel } = tenant.settings;
 
     // Session client: RLS scopes audit_log, card_balances and perk_claims to the staff member's shops.
@@ -378,7 +376,9 @@ export async function POST(
             ? 'Staff member is not authorized to redeem.'
             : redeemResult === 'no-card'
               ? `This customer has no ${staff.tenantName} card.`
-              : 'Redemption failed.';
+              : redeemResult === 'tenant-unavailable'
+                ? 'Reward redemption for this shop has closed. The 30-day redemption window has expired.'
+                : 'Redemption failed.';
 
     return NextResponse.json<ApiResponse<StaffRedeemResponse>>(
       {

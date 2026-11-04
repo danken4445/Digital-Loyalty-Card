@@ -1,16 +1,14 @@
 import { NextResponse } from 'next/server';
-import { z } from 'zod';
 import { getCustomerCardState } from '@/lib/auth/customer';
-import type { ApiResponse, IssuedRedeemToken, RedeemTokenRequest } from '@/lib/contracts';
+import type { ApiResponse, IssuedRedeemToken } from '@/lib/contracts';
 import { verifySameOriginRequest } from '@/lib/security/csrf';
 import { checkPublicEndpointRateLimit, getClientIp } from '@/lib/security/ratelimit';
 import { issueRedeemToken } from '@/lib/security/redeemToken';
+import {
+  parseRedeemTokenBody,
+  resolveTenantForRedeem,
+} from '@/lib/security/reward-token-helpers';
 import { getVerifiedUser } from '@/lib/supabase/server';
-import { getTenantBySlug } from '@/lib/tenants/context';
-
-const requestBodySchema = z.object({
-  tenantSlug: z.string().trim().min(1).max(64),
-}) satisfies z.ZodType<RedeemTokenRequest>;
 
 export async function POST(
   request: Request,
@@ -58,29 +56,31 @@ export async function POST(
       );
     }
 
-    const parsedBody = requestBodySchema.safeParse(await request.json().catch(() => null));
-    if (!parsedBody.success) {
+    const parsedBody = parseRedeemTokenBody(await request.json().catch(() => null));
+    if (!parsedBody.ok) {
       return NextResponse.json<ApiResponse<IssuedRedeemToken>>(
         {
           ok: false,
-          error: 'invalid_input',
-          message: 'A valid shop is required.',
+          error: parsedBody.error,
+          message: parsedBody.message,
         },
         { status: 400 },
       );
     }
 
-    const tenant = await getTenantBySlug(parsedBody.data.tenantSlug);
-    if (!tenant || tenant.status === 'closed') {
+    const resolved = await resolveTenantForRedeem(parsedBody.data.tenantSlug);
+    if (!resolved.ok) {
       return NextResponse.json<ApiResponse<IssuedRedeemToken>>(
         {
           ok: false,
-          error: 'invalid_input',
-          message: 'A valid shop is required.',
+          error: resolved.error,
+          message: resolved.message,
         },
-        { status: 400 },
+        { status: resolved.status },
       );
     }
+
+    const tenant = resolved.tenant;
 
     const cardState = await getCustomerCardState(tenant);
     if (!cardState) {

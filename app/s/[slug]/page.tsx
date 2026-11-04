@@ -17,6 +17,7 @@ import {
   formatTimeZoneAbbreviation,
 } from '@/lib/rules/display';
 import { issueRedeemToken } from '@/lib/security/redeemToken';
+import { getTenantSuspendedAt, isSuspendedRedeemExpired } from '@/lib/security/reward-token-helpers';
 import { getTenantBySlug } from '@/lib/tenants/context';
 import { AddCardPanel } from '@/components/card/AddCardPanel';
 import { AddCardCelebrationBanner } from '@/components/card/AddCardCelebrationBanner';
@@ -72,8 +73,51 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
 
   const cardState = await getCustomerCardState(tenant);
 
+  const isSuspended = tenant.status === 'suspended';
+  const suspendedAt =
+    (tenant as { suspendedAt?: string | null }).suspendedAt ??
+    (isSuspended ? await getTenantSuspendedAt(tenant.id) : null);
+  const isExpired = isSuspended && isSuspendedRedeemExpired({ status: tenant.status, suspendedAt });
+
   // 1. NO-SESSION ONBOARDING VIEW
   if (cardState === null) {
+    if (isSuspended) {
+      return (
+        <OnboardingCard
+          pageLabel={`${tenant.name} Digital Loyalty Card (Paused)`}
+          title={`${tenant.name} is temporarily paused`}
+          shopName={tenant.name}
+          originalShop={tenant.id === TENANT_ONE_ID}
+          instagramHandle={instagramHandle ?? null}
+          theme={theme}
+          lines={[
+            'This shop is temporarily paused and is not currently issuing new stamp cards.',
+            'Existing cardholders can still redeem earned rewards.',
+          ]}
+          notice={
+            <div
+              role="status"
+              aria-live="polite"
+              className="banner-enter w-full max-w-[390px] mb-4 rounded-2xl border border-yellow-500/50 bg-yellow-950/20 px-4 py-3 text-sm text-yellow-200 text-center"
+            >
+              Shop is temporarily paused. Stamping and new cards are unavailable.
+            </div>
+          }
+        >
+          <div className="w-full text-center">
+            <button
+              type="button"
+              disabled
+              aria-disabled="true"
+              className="w-full py-4 px-6 bg-neutral-800 text-neutral-400 font-display font-black text-sm tracking-widest uppercase border-2 border-neutral-700 opacity-50 cursor-not-allowed rounded-xl"
+            >
+              Shop Paused
+            </button>
+          </div>
+        </OnboardingCard>
+      );
+    }
+
     return (
       <OnboardingCard
         pageLabel={`${tenant.name} Digital Loyalty Card`}
@@ -107,19 +151,24 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
   if (cardState === 'no-card') {
     return (
       <OnboardingCard
-        pageLabel={`${tenant.name} Digital Loyalty Card`}
+        pageLabel={`${tenant.name} Digital Loyalty Card${isSuspended ? ' (Paused)' : ''}`}
         title={`${tenant.name} loyalty card`}
         shopName={tenant.name}
         originalShop={tenant.id === TENANT_ONE_ID}
         instagramHandle={instagramHandle ?? null}
         theme={theme}
-        lines={[`Collect ${rewardThreshold} stamps, get ${settings.rewardLabel}.`]}
+        lines={
+          isSuspended
+            ? ['This shop is temporarily paused and is not currently issuing new stamp cards.']
+            : [`Collect ${rewardThreshold} stamps, get ${settings.rewardLabel}.`]
+        }
       >
         <AddCardPanel
           tenantSlug={tenant.slug}
           tenantName={tenant.name}
           rewardLabel={settings.rewardLabel}
           tagId={tagId}
+          isSuspended={isSuspended}
         />
       </OnboardingCard>
     );
@@ -144,7 +193,7 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
       : null;
 
   let initialRedeemToken: IssuedRedeemToken | null = null;
-  if (progress.isRewardReady) {
+  if (progress.isRewardReady && !isExpired) {
     try {
       initialRedeemToken = await issueRedeemToken(cardState.customerId, tenant.id);
     } catch {
@@ -159,6 +208,19 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
     >
       {/* Celebratory moment when card was just added (?added=1) */}
       {isAddedParam && <AddCardCelebrationBanner />}
+
+      {/* Suspended Shop Banner */}
+      {isSuspended && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="w-full max-w-[390px] mb-4 rounded-2xl border border-yellow-500/50 bg-yellow-950/30 px-4 py-3 text-xs text-yellow-200 text-center"
+        >
+          <span className="font-semibold uppercase tracking-wider block mb-0.5">Paused Shop</span>
+          Stamping is temporarily paused for this shop.
+          {!isExpired && ' Rewards may still be redeemed within the 30-day grace period.'}
+        </div>
+      )}
 
       {/* Status message from the last tap (?r=), stripped from the URL after display */}
       <div className="w-full max-w-[390px] flex flex-col items-center">
@@ -287,6 +349,19 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
             tenantSlug={tenant.slug}
             rewardLabel={settings.rewardLabel}
           />
+        )}
+
+        {/* Expired Redemption Notice for Suspended Shop */}
+        {progress.isRewardReady && isExpired && (
+          <div
+            data-testid="redemption-closed-notice"
+            role="status"
+            aria-live="polite"
+            className="mt-4 rounded-2xl border border-red-500/50 bg-red-950/30 p-4 text-xs text-red-200 text-center"
+          >
+            <span className="font-semibold block mb-1">Redemption period closed</span>
+            Reward redemption for this shop has closed. The 30-day redemption window has expired.
+          </div>
         )}
 
         {/* One-time Instagram follow perk (free upsize), only for shops that offer it */}

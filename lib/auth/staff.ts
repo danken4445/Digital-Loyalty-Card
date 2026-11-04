@@ -367,8 +367,8 @@ export function detectActivityAnomalies(
  * last 50 audit_log rows, and computed anomaly flags) after verifying staff authorization.
  * Reads go through the session client, so RLS and the explicit tenant filter both scope the rows.
  */
-export async function getStaffActivityDashboardData(): Promise<StaffActivityDashboardData> {
-  const staff = await enforceStaffPageAccess(ROUTES.staff.activity);
+export async function getStaffActivityDashboardData(options?: { staff?: StaffMembership }): Promise<StaffActivityDashboardData> {
+  const staff = options?.staff ?? (await enforceStaffPageAccess(ROUTES.staff.activity));
   const supabase = await createSupabaseServerClient();
 
   const [tenant, stampsRes, redemptionsRes, auditRes] = await Promise.all([
@@ -415,8 +415,8 @@ export async function getStaffActivityDashboardData(): Promise<StaffActivityDash
 /**
  * Fetches the active shop's NFC tags ordered by newest first, decorated with their tap URLs.
  */
-export async function getStaffTagsList(): Promise<TagWithUrls[]> {
-  const staff = await enforceStaffPageAccess(ROUTES.staff.tags);
+export async function getStaffTagsList(options?: { staff?: StaffMembership }): Promise<TagWithUrls[]> {
+  const staff = options?.staff ?? (await enforceStaffPageAccess(ROUTES.staff.tags));
   const supabase = await createSupabaseServerClient();
 
   const { data, error } = await supabase

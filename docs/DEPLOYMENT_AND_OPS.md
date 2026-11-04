@@ -477,3 +477,57 @@ A tag is automatically flagged as potentially leaked if:
 3. **Physical Tag Replacement:**
    - Write the new local and production tap URLs shown in the console to a new physical NXP NTAG215 card or acrylic standee using NFC Tools or NXP TagWriter.
    - Replace the physical tag at the store counter and safely discard or overwrite the compromised tag.
+
+---
+
+## 13. Platform Administration, Shop Onboarding & Support Runbook
+
+The platform administration console (`/platform`) allows authorized operators to onboard new shops, manage tenant lifecycles, and conduct time-boxed customer support sessions without direct SQL access.
+
+### 13.1 Platform Admin Bootstrap & Required MFA TOTP
+Platform admin access requires both database authorization and time-based one-time password (TOTP) two-factor authentication (`aal2`):
+
+1. **Bootstrap Admin via SQL Insert:**
+   Execute the following in the Supabase SQL Editor using the user's UUID from `auth.users`:
+   ```sql
+   insert into public.platform_admins (user_id)
+   values ('<user-uuid-from-auth.users>')
+   on conflict (user_id) do nothing;
+   ```
+2. **Enroll TOTP Two-Factor Authentication:**
+   - Sign in to the web application and navigate to `/platform`.
+   - The platform route guard detects if the current session lacks `aal2` verification and prompts for TOTP setup.
+   - Scan the displayed QR code with your authenticator app (Google Authenticator, 1Password, or Authy) and submit the 6-digit verification code.
+   - All subsequent visits to `/platform` require second-factor verification before access is granted.
+
+### 13.2 Onboarding a New Shop via the Platform Console
+1. Navigate to `/platform` and locate the **Onboard New Shop** panel.
+2. Fill in:
+   - **Shop Name:** e.g. `Kape Manila`
+   - **Slug:** URL-safe slug, e.g. `kape-manila` (determines `/s/kape-manila`).
+   - **Initial Owner Email:** The email address of the coffee shop owner.
+3. Click **Create Tenant**.
+4. The system automatically:
+   - Inserts a row in `public.tenants` with `trial` status.
+   - Seeds default `tenant_settings` (cooldown, daily cap, threshold, timezone).
+   - Provisions a default primary branch (`locations`) named `Main Branch`.
+   - Generates a pending invitation in `public.tenant_invites`.
+5. **Owner Acceptance:** The invited owner signs in at `/staff/login` with their invited email. The system calls `accept_invite` and assigns them the `owner` role for their shop with no manual SQL required.
+6. The owner can then visit `/staff/kape-manila/settings` to upload brand assets, customize rules, and generate NFC counter tags.
+
+### 13.3 Support Session Policy (R-1)
+To troubleshoot tenant issues while maintaining strict zero-trust boundaries:
+1. Support staff never log in as shop staff, never share user passwords, and never bypass database RLS.
+2. When investigating a customer inquiry, navigate to `/platform/<slug>` and click **Start Support Session**.
+3. Enter an explicit, auditable reason (e.g. `Investigating duplicate stamp report #482`).
+4. The system opens a **30-minute read-only support session** backed by `public.support_sessions`.
+5. During an active support session, the platform console can invoke read-only `support_*` RPCs (`support_tenant_overview`, `support_list_tags`, `support_list_members`) scoped strictly to that tenant.
+6. Both session start and completion (or 30-minute automatic timeout) are written to `public.audit_log`.
+
+### 13.4 Shop Suspension & 30-Day Redemption Grace Period (R-2)
+1. If a shop closes, disputes charges, or pauses service, select `suspended` under **Tenant Status** in `/platform/<slug>`.
+2. The database trigger `tenants_suspended_at` immediately sets `tenants.suspended_at = now()`.
+3. **Stamping:** All new NFC taps and manual stamps are rejected immediately (`tenant-unavailable`).
+4. **Redemption Grace Period:** Existing customers can view their loyalty card and redeem earned rewards at the counter for up to 30 days from the suspension timestamp.
+5. **Grace Period Expiry:** After 30 days, reward redemptions return `tenant-unavailable`, and customer screens display a closed redemption notice.
+6. **Re-activation:** Selecting `active` or `trial` clears `suspended_at` and restores stamping functionality immediately.
