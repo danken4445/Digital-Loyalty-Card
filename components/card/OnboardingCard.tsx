@@ -3,6 +3,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { BRAND_THEME, SHOP_CONFIG } from '@/lib/config';
 import { ROUTES } from '@/lib/contracts';
+import type { ResolvedCardTheme } from '@/lib/brand/contrast';
 
 export interface OnboardingCardProps {
   /** Accessible name for the page */
@@ -21,6 +22,8 @@ export interface OnboardingCardProps {
   originalShop?: boolean;
   /** Instagram handle shown under the card; null hides it, undefined uses the original shop's. */
   instagramHandle?: string | null;
+  /** Dynamic card theme resolved from tenant brand settings */
+  theme?: ResolvedCardTheme;
   /** The call to action, usually <GetCardButton /> */
   children: ReactNode;
 }
@@ -70,6 +73,7 @@ export function OnboardingCard({
   shopName = SHOP_CONFIG.name,
   originalShop = false,
   instagramHandle = SHOP_CONFIG.instagramHandle,
+  theme,
   children,
 }: OnboardingCardProps) {
   return (
@@ -79,7 +83,19 @@ export function OnboardingCard({
     >
       {notice}
 
-      <section className="w-full max-w-[390px] bg-plug-surface/95 border border-plug-border rounded-3xl px-5 pb-6 pt-8 shadow-[0_24px_60px_rgba(0,0,0,0.8)] backdrop-blur-md flex flex-col items-center text-center">
+      <section
+        className="w-full max-w-[390px] bg-plug-surface/95 border border-plug-border rounded-3xl px-5 pb-6 pt-8 shadow-[0_24px_60px_rgba(0,0,0,0.8)] backdrop-blur-md flex flex-col items-center text-center"
+        style={
+          theme
+            ? {
+                backgroundColor: theme.primaryColor,
+                borderColor: theme.cardBorder,
+                borderWidth: 1,
+                borderStyle: 'solid',
+              }
+            : undefined
+        }
+      >
         {originalShop && (
           <Image
             src={BRAND_THEME.assets.mascotFull}
@@ -91,13 +107,41 @@ export function OnboardingCard({
           />
         )}
 
-        <h1 className="mt-4 font-display text-4xl font-bold uppercase leading-[0.95] tracking-wide text-white">
+        {!originalShop && theme?.logoUrl && (
+          <div
+            className="relative w-20 h-20 shrink-0 rounded-full p-1 mb-2"
+            style={{
+              backgroundColor: theme.surfaceBg,
+              borderColor: theme.cardBorder,
+              borderWidth: 1,
+            }}
+          >
+            <Image
+              src={theme.logoUrl}
+              alt={`${shopName} logo`}
+              width={72}
+              height={72}
+              priority
+              unoptimized
+              className="rounded-full object-contain"
+            />
+          </div>
+        )}
+
+        <h1
+          className="mt-4 font-display text-4xl font-bold uppercase leading-[0.95] tracking-wide text-white"
+          style={theme ? { color: theme.textColor } : undefined}
+        >
           {title}
         </h1>
 
         <div className="mt-3 space-y-1.5">
           {lines.map((line) => (
-            <p key={line} className="text-base leading-snug text-neutral-300">
+            <p
+              key={line}
+              className="text-base leading-snug text-neutral-300"
+              style={theme ? { color: theme.subtextColor } : undefined}
+            >
               {line}
             </p>
           ))}

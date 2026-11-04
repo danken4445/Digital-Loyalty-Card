@@ -19,6 +19,8 @@ import {
 import { issueRedeemToken } from '@/lib/security/redeemToken';
 import { getTenantBySlug } from '@/lib/tenants/context';
 import { AddCardPanel } from '@/components/card/AddCardPanel';
+import { AddCardCelebrationBanner } from '@/components/card/AddCardCelebrationBanner';
+import { resolveCardTheme } from '@/lib/brand/contrast';
 import { GetCardButton } from '@/components/card/GetCardButton';
 import { OnboardingCard } from '@/components/card/OnboardingCard';
 import { StripResultParam } from '@/components/card/StripResultParam';
@@ -35,6 +37,7 @@ interface ShopPageProps {
     result?: string | string[] | undefined;
     deleted?: string | string[] | undefined;
     t?: string | string[] | undefined;
+    added?: string | string[] | undefined;
   }>;
 }
 
@@ -51,6 +54,7 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
   const instagramHandle = instagramPerk?.handle;
   // The 50% off milestone is printed on the original shop's card only
   const milestoneStep = tenant.id === TENANT_ONE_ID ? undefined : null;
+  const theme = resolveCardTheme(settings.brand);
   const tagline =
     settings.brand.tagline ?? (tenant.id === TENANT_ONE_ID ? SHOP_CONFIG.tagline : undefined);
 
@@ -60,6 +64,9 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
   const validResult = typeof rValue === 'string' && isStampResultCode(rValue) ? rValue : null;
 
   const isDeletedParam = resolvedParams?.deleted === '1';
+  const isAddedParam =
+    resolvedParams?.added === '1' ||
+    (Array.isArray(resolvedParams?.added) && resolvedParams.added[0] === '1');
   const rawTag = Array.isArray(resolvedParams?.t) ? resolvedParams.t[0] : resolvedParams?.t;
   const tagId = typeof rawTag === 'string' && rawTag.trim().length > 0 ? rawTag.trim() : null;
 
@@ -74,6 +81,7 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
         shopName={tenant.name}
         originalShop={tenant.id === TENANT_ONE_ID}
         instagramHandle={instagramHandle ?? null}
+        theme={theme}
         lines={[
           'No app download. No form. Instant digital stamp card.',
           `Collect ${rewardThreshold} stamps, get ${settings.rewardLabel}.`,
@@ -90,7 +98,7 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
           ) : undefined
         }
       >
-        <GetCardButton mode="start" tagId={tagId} returnTo={ROUTES.shop(tenant.slug)} />
+        <GetCardButton mode={tagId ? 'start' : 'card'} tagId={tagId} returnTo={ROUTES.shop(tenant.slug)} />
       </OnboardingCard>
     );
   }
@@ -104,6 +112,7 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
         shopName={tenant.name}
         originalShop={tenant.id === TENANT_ONE_ID}
         instagramHandle={instagramHandle ?? null}
+        theme={theme}
         lines={[`Collect ${rewardThreshold} stamps, get ${settings.rewardLabel}.`]}
       >
         <AddCardPanel
@@ -121,7 +130,7 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
   const lastVisitedText = cardState.lastStampedAt
     ? `${formatDateTimeInZone(cardState.lastStampedAt, settings.timezone)} ${formatTimeZoneAbbreviation(settings.timezone, cardState.lastStampedAt)}`
     : null;
-  const memberSinceText = formatMemberSince(cardState.createdAt);
+  const memberSinceText = formatMemberSince(cardState.createdAt, settings.timezone);
   const cardsCompleted =
     cardState.cardsCompleted ?? calculateCardsCompleted(cardState.totalStamps, rewardThreshold);
 
@@ -148,6 +157,9 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
       aria-label={`${tenant.name} Loyalty Card`}
       className="min-h-dvh w-full bg-topo-pattern bg-street-grid flex flex-col items-center justify-between px-4 py-6 sm:py-10"
     >
+      {/* Celebratory moment when card was just added (?added=1) */}
+      {isAddedParam && <AddCardCelebrationBanner />}
+
       {/* Status message from the last tap (?r=), stripped from the URL after display */}
       <div className="w-full max-w-[390px] flex flex-col items-center">
         {validResult && <StripResultParam result={validResult} />}
@@ -159,30 +171,52 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
         className={`w-full max-w-[390px] bg-plug-surface/95 border border-plug-border rounded-3xl p-5 sm:p-6 shadow-[0_24px_60px_rgba(0,0,0,0.8)] backdrop-blur-md relative ${
           justStampedSlot !== null ? 'card-impact' : ''
         }`}
+        style={{
+          backgroundColor: theme.primaryColor,
+          borderColor: theme.cardBorder,
+          borderWidth: 1,
+          borderStyle: 'solid',
+        }}
       >
         {/* Header mirrors the printed card: mascot logo on the left, headline on the right */}
         <header className="flex items-center gap-4">
-          <div className="relative w-16 h-16 shrink-0 rounded-full p-0.5 bg-plug-elevated border border-plug-border">
+          <div
+            className="relative w-16 h-16 shrink-0 rounded-full p-0.5 border"
+            style={{
+              backgroundColor: theme.surfaceBg,
+              borderColor: theme.cardBorder,
+            }}
+          >
             <Image
-              src={BRAND_THEME.assets.logoCircleDark}
+              src={theme.logoUrl ?? BRAND_THEME.assets.logoCircleDark}
               alt={`${tenant.name} logo`}
               width={60}
               height={60}
               priority
+              unoptimized
               className="rounded-full object-contain"
             />
           </div>
 
           <div className="min-w-0">
-            <h1 className="font-display text-3xl font-bold uppercase leading-none tracking-wide text-white">
+            <h1
+              className="font-display text-3xl font-bold uppercase leading-none tracking-wide text-white"
+              style={{ color: theme.textColor }}
+            >
               <span className="sr-only">{tenant.name} </span>Loyalty card
             </h1>
             {tagline && (
-              <p className="text-sm text-neutral-300 mt-1.5 lowercase first-letter:uppercase">
+              <p
+                className="text-sm text-neutral-300 mt-1.5 lowercase first-letter:uppercase"
+                style={{ color: theme.subtextColor }}
+              >
                 {tagline}
               </p>
             )}
-            <p className="text-xs text-neutral-400 mt-1 font-medium">
+            <p
+              className="text-xs text-neutral-400 mt-1 font-medium"
+              style={{ color: theme.subtextColor }}
+            >
               Member Since {memberSinceText}
             </p>
           </div>
@@ -235,7 +269,7 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
           </span>
         </div>
 
-        <div className="mt-5 pt-5 border-t border-plug-border">
+        <div className="mt-5 pt-5 border-t border-plug-border" style={{ borderColor: theme.cardBorder }}>
           <StampGrid
             availableStamps={cardState.availableStamps}
             justStampedSlot={justStampedSlot}
@@ -274,7 +308,7 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
         />
 
         {/* Card Metadata & Lifetime Stats Section */}
-        <div className="mt-6 pt-4 border-t border-plug-border">
+        <div className="mt-6 pt-4 border-t border-plug-border" style={{ borderColor: theme.cardBorder }}>
           {/* Card facts as a definition list: label on the left, value on the right */}
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
             <dt className="text-plug-muted">Card</dt>

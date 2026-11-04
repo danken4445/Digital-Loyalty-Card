@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   ROUTES,
@@ -54,7 +55,9 @@ export function AddCardPanel({ tenantSlug, tenantName, rewardLabel, tagId }: Add
         return;
       }
 
-      router.push(json.data.redirectTo);
+      const separator = json.data.redirectTo.includes('?') ? '&' : '?';
+      const redirectWithAdded = `${json.data.redirectTo}${separator}added=1`;
+      router.push(redirectWithAdded);
       router.refresh();
     } catch {
       setErrorMessage('Network connection error. Please try again.');
@@ -77,6 +80,16 @@ export function AddCardPanel({ tenantSlug, tenantName, rewardLabel, tagId }: Add
       >
         {isLoading ? 'Adding...' : 'Add card'}
       </button>
+
+      <p className="mt-4 text-xs text-neutral-400 text-center">
+        By adding this card, you agree to{' '}
+        <Link
+          href={ROUTES.shopPrivacy(tenantSlug)}
+          className="text-neutral-300 hover:text-white underline underline-offset-2 transition-colors"
+        >
+          {tenantName}&apos;s Privacy Notice
+        </Link>
+      </p>
 
       {errorMessage && (
         <p

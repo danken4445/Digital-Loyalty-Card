@@ -141,19 +141,16 @@ export function calculateCardsCompleted(
   return rewardThreshold > 0 ? Math.floor(normalized / rewardThreshold) : 0;
 }
 
-const manilaMemberDateFormatter = new Intl.DateTimeFormat('en-PH', {
-  timeZone: SHOP_CONFIG.timezone,
-  year: 'numeric',
-  month: 'short',
-  day: 'numeric',
-});
-
 /**
  * Formats a join timestamp into a human-friendly date string for member display
- * (e.g. 'Nov 2, 2026') in Asia/Manila timezone.
+ * (e.g. 'Nov 2, 2026') in the given IANA timezone (defaults to Asia/Manila).
  * Pure function: timestamp is passed explicitly.
+ * Uses memoized Intl.DateTimeFormat instances.
  */
-export function formatMemberSince(timestamp: Date | string | number | null | undefined): string {
+export function formatMemberSince(
+  timestamp: Date | string | number | null | undefined,
+  timeZone: string = SHOP_CONFIG.timezone,
+): string {
   if (timestamp === null || timestamp === undefined || timestamp === '') {
     return 'Recently';
   }
@@ -162,7 +159,24 @@ export function formatMemberSince(timestamp: Date | string | number | null | und
     if (Number.isNaN(date.getTime())) {
       return 'Recently';
     }
-    return manilaMemberDateFormatter.format(date);
+    const key = `memberSince:${timeZone}`;
+    let formatter = formatterCache.get(key);
+    if (!formatter) {
+      if (formatterCache.size >= MAX_FORMATTER_CACHE_SIZE) {
+        const oldestKey = formatterCache.keys().next().value;
+        if (oldestKey) {
+          formatterCache.delete(oldestKey);
+        }
+      }
+      formatter = new Intl.DateTimeFormat('en-PH', {
+        timeZone,
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      });
+      formatterCache.set(key, formatter);
+    }
+    return formatter.format(date);
   } catch {
     return 'Recently';
   }
