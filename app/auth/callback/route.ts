@@ -1,8 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import type { EmailOtpType } from '@supabase/supabase-js';
 import { ensureCustomerRecord } from '@/lib/auth/customer';
-import { MERGE_INTENT_COOKIE_NAME, ROUTES } from '@/lib/contracts';
+import { MERGE_INTENT_COOKIE_NAME, ROUTES, type RpcContracts } from '@/lib/contracts';
 import { logSecurityEvent } from '@/lib/security/logger';
+import { isMergeNonceUsed } from '@/lib/security/mergeNonce';
 import { verifyMergeIntentToken } from '@/lib/security/mergeToken';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { createSupabaseServerClient, getVerifiedUser } from '@/lib/supabase/server';
@@ -15,13 +16,6 @@ const VALID_EMAIL_OTP_TYPES = new Set<EmailOtpType>([
   'email_change',
   'email',
 ]);
-
-interface MergeRpcClient {
-  rpc: (
-    fn: 'merge_anonymous_customer',
-    args: { p_source_customer: string; p_target_customer: string },
-  ) => Promise<{ data: string | null; error: { message: string } | null }>;
-}
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const code = request.nextUrl.searchParams.get('code');
@@ -77,23 +71,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         const verification = verifyMergeIntentToken(mergeCookie);
         if (verification.valid && verification.payload.sourceCustomerId !== user.id) {
           const admin = createSupabaseAdminClient();
-          const { data: existingNonce } = await admin
-            .from('audit_log')
-            .select('id')
-            .eq('action', 'customer_merge_token_used')
-            .eq('target', verification.payload.nonce)
-            .maybeSingle();
+          const { used: nonceUsed } = await isMergeNonceUsed(admin, verification.payload.nonce);
 
-          if (!existingNonce) {
-            const { data: rpcResult } = await (admin as unknown as MergeRpcClient).rpc(
-              'merge_anonymous_customer',
-              {
-                p_source_customer: verification.payload.sourceCustomerId,
-                p_target_customer: user.id,
-              },
-            );
+          if (!nonceUsed) {
+            const { data: rpcResult } = await admin.rpc('merge_wallets', {
+              p_source: verification.payload.sourceCustomerId,
+              p_target: user.id,
+            });
+            const mergeOutcome = rpcResult as RpcContracts['merge_wallets']['Returns'] | null;
 
-            if (rpcResult === 'merged') {
+            if (mergeOutcome?.result === 'merged') {
               await admin.rpc('log_audit_event', {
                 p_actor: user.id,
                 p_action: 'customer_merge_token_used',

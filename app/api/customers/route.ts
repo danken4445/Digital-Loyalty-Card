@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { z } from 'zod';
 
 import { ensureCustomerRecord } from '@/lib/auth/customer';
 import {
@@ -11,20 +10,8 @@ import {
 import { verifySameOriginRequest } from '@/lib/security/csrf';
 import { logSecurityEvent } from '@/lib/security/logger';
 import { checkPublicEndpointRateLimit, getClientIp } from '@/lib/security/ratelimit';
-import { verifyTurnstileToken } from '@/lib/security/turnstile';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { createSupabaseServerClient, getVerifiedUser } from '@/lib/supabase/server';
-
-interface DeleteCustomerRpcClient {
-  rpc: (
-    fn: 'delete_customer_data',
-    args: { p_customer: string },
-  ) => Promise<{ data: boolean | null; error: { message: string } | null }>;
-}
-
-const ensureCustomerBodySchema = z.object({
-  captchaToken: z.string().trim().min(1).max(2048).optional(),
-});
 
 export async function POST(
   request: Request,
@@ -38,39 +25,6 @@ export async function POST(
         message: 'Cross-origin request blocked.',
       },
       { status: 403 },
-    );
-  }
-
-  let body: unknown = {};
-  const contentLength = request.headers.get('content-length');
-
-  if (contentLength !== '0') {
-    try {
-      const text = await request.text();
-      if (text.trim().length > 0) {
-        body = JSON.parse(text);
-      }
-    } catch {
-      return NextResponse.json<ApiResponse<EnsureCustomerResponse>>(
-        {
-          ok: false,
-          error: 'invalid_input',
-          message: 'Invalid request payload.',
-        },
-        { status: 400 },
-      );
-    }
-  }
-
-  const parsed = ensureCustomerBodySchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json<ApiResponse<EnsureCustomerResponse>>(
-      {
-        ok: false,
-        error: 'invalid_input',
-        message: 'Invalid request payload.',
-      },
-      { status: 400 },
     );
   }
 
@@ -101,23 +55,6 @@ export async function POST(
         },
         { status: 429 },
       );
-    }
-
-    if (parsed.data.captchaToken) {
-      const verification = await verifyTurnstileToken(
-        parsed.data.captchaToken,
-        getClientIp(request),
-      );
-      if (!verification.success) {
-        return NextResponse.json<ApiResponse<EnsureCustomerResponse>>(
-          {
-            ok: false,
-            error: 'captcha_failed',
-            message: 'Security check failed. Please try again.',
-          },
-          { status: 403 },
-        );
-      }
     }
 
     await ensureCustomerRecord(user.id);
@@ -186,10 +123,7 @@ export async function DELETE(
     }
 
     const admin = createSupabaseAdminClient();
-    const { error: rpcError } = await (admin as unknown as DeleteCustomerRpcClient).rpc(
-      'delete_customer_data',
-      { p_customer: user.id },
-    );
+    const { error: rpcError } = await admin.rpc('delete_wallet', { p_customer: user.id });
 
     if (rpcError) {
       logSecurityEvent('error', 'customer_delete_failed', { customerId: user.id });

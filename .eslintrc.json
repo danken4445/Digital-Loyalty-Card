@@ -1,6 +1,13 @@
 {
   "extends": ["next/core-web-vitals", "next/typescript"],
   "rules": {
+    "no-restricted-syntax": [
+      "error",
+      {
+        "selector": "CallExpression[callee.property.name='from'][callee.object.name='admin']",
+        "message": "Service-role reads bypass RLS: read through createSupabaseServerClient() or call an RPC."
+      }
+    ],
     "@typescript-eslint/no-unused-vars": [
       "error",
       { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }

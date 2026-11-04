@@ -224,8 +224,8 @@ describe('Phase 6: Customer Backup, Recovery & Merge Test Suite', () => {
       if (rpcName === 'log_audit_event') {
         return { data: 'audit-log-uuid-1', error: null };
       }
-      if (rpcName === 'merge_anonymous_customer') {
-        return { data: 'merged', error: null };
+      if (rpcName === 'merge_wallets') {
+        return { data: { result: 'merged', cards_moved: 1, cards_combined: 0 }, error: null };
       }
       return { data: null, error: null };
     });
@@ -767,7 +767,7 @@ describe('Phase 6: Customer Backup, Recovery & Merge Test Suite', () => {
       expect(json.error).toBe('internal_error');
     });
 
-    it('returns HTTP 500 when merge_anonymous_customer RPC returns an error', async () => {
+    it('returns HTTP 500 when merge_wallets RPC returns an error', async () => {
       vi.mocked(getVerifiedUser).mockResolvedValue({
         id: TEST_TARGET_CUSTOMER_ID,
       } as User);
@@ -777,7 +777,7 @@ describe('Phase 6: Customer Backup, Recovery & Merge Test Suite', () => {
       tableQueryHandlers['audit_log'] = () => createMockSupabaseQuery(null, null);
 
       mockAdminClient.rpc.mockImplementation(async (rpcName: string) => {
-        if (rpcName === 'merge_anonymous_customer') {
+        if (rpcName === 'merge_wallets') {
           return { data: null, error: { message: 'Lock acquisition failure' } };
         }
         return { data: null, error: null };
@@ -806,10 +806,10 @@ describe('Phase 6: Customer Backup, Recovery & Merge Test Suite', () => {
       tableQueryHandlers['audit_log'] = () => createMockSupabaseQuery(null, null);
 
       mockAdminClient.rpc.mockImplementation(async (rpcName: string, args: any) => {
-        if (rpcName === 'merge_anonymous_customer') {
-          expect(args.p_source_customer).toBe(TEST_SOURCE_CUSTOMER_ID);
-          expect(args.p_target_customer).toBe(TEST_TARGET_CUSTOMER_ID);
-          return { data: 'merged', error: null };
+        if (rpcName === 'merge_wallets') {
+          expect(args.p_source).toBe(TEST_SOURCE_CUSTOMER_ID);
+          expect(args.p_target).toBe(TEST_TARGET_CUSTOMER_ID);
+          return { data: { result: 'merged', cards_moved: 1, cards_combined: 0 }, error: null };
         }
         if (rpcName === 'log_audit_event') {
           expect(args.p_actor).toBe(TEST_TARGET_CUSTOMER_ID);
@@ -887,8 +887,8 @@ describe('Phase 6: Customer Backup, Recovery & Merge Test Suite', () => {
       tableQueryHandlers['audit_log'] = () => createMockSupabaseQuery(null, null);
 
       mockAdminClient.rpc.mockImplementation(async (rpcName: string) => {
-        if (rpcName === 'merge_anonymous_customer') {
-          return { data: 'noop-same-user', error: null };
+        if (rpcName === 'merge_wallets') {
+          return { data: { result: 'noop-same-user', cards_moved: 0, cards_combined: 0 }, error: null };
         }
         return { data: null, error: null };
       });
@@ -1007,10 +1007,10 @@ describe('Phase 6: Customer Backup, Recovery & Merge Test Suite', () => {
       tableQueryHandlers['audit_log'] = () => createMockSupabaseQuery(null, null);
 
       mockAdminClient.rpc.mockImplementation(async (rpcName: string, args: any) => {
-        if (rpcName === 'merge_anonymous_customer') {
-          expect(args.p_source_customer).toBe(TEST_SOURCE_CUSTOMER_ID);
-          expect(args.p_target_customer).toBe(TEST_TARGET_CUSTOMER_ID);
-          return { data: 'merged', error: null };
+        if (rpcName === 'merge_wallets') {
+          expect(args.p_source).toBe(TEST_SOURCE_CUSTOMER_ID);
+          expect(args.p_target).toBe(TEST_TARGET_CUSTOMER_ID);
+          return { data: { result: 'merged', cards_moved: 1, cards_combined: 0 }, error: null };
         }
         if (rpcName === 'log_audit_event') {
           expect(args.p_actor).toBe(TEST_TARGET_CUSTOMER_ID);
@@ -1033,9 +1033,9 @@ describe('Phase 6: Customer Backup, Recovery & Merge Test Suite', () => {
       expect(ensureCustomerRecord).toHaveBeenCalledWith(TEST_TARGET_CUSTOMER_ID);
 
       // Verify merge RPC was called
-      expect(mockAdminClient.rpc).toHaveBeenCalledWith('merge_anonymous_customer', {
-        p_source_customer: TEST_SOURCE_CUSTOMER_ID,
-        p_target_customer: TEST_TARGET_CUSTOMER_ID,
+      expect(mockAdminClient.rpc).toHaveBeenCalledWith('merge_wallets', {
+        p_source: TEST_SOURCE_CUSTOMER_ID,
+        p_target: TEST_TARGET_CUSTOMER_ID,
       });
 
       // Verify audit log event was recorded
@@ -1072,7 +1072,7 @@ describe('Phase 6: Customer Backup, Recovery & Merge Test Suite', () => {
       expect(res.status).toBe(303);
 
       expect(mockAdminClient.rpc).not.toHaveBeenCalledWith(
-        'merge_anonymous_customer',
+        'merge_wallets',
         expect.anything(),
       );
 
@@ -1101,7 +1101,7 @@ describe('Phase 6: Customer Backup, Recovery & Merge Test Suite', () => {
       expect(res.status).toBe(303);
 
       expect(mockAdminClient.rpc).not.toHaveBeenCalledWith(
-        'merge_anonymous_customer',
+        'merge_wallets',
         expect.anything(),
       );
       expect(res.cookies.get(MERGE_INTENT_COOKIE_NAME)?.maxAge).toBe(0);

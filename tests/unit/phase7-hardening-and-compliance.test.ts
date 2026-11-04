@@ -271,7 +271,7 @@ describe('Phase 7: Hardening, Compliance, and Security Test Suite', () => {
     });
 
     mockAdminClient.rpc.mockImplementation(async (rpcName: string) => {
-      if (rpcName === 'delete_customer_data') {
+      if (rpcName === 'delete_wallet') {
         return { data: true, error: null };
       }
       return { data: null, error: null };
@@ -797,7 +797,7 @@ describe('Phase 7: Hardening, Compliance, and Security Test Suite', () => {
       });
     });
 
-    it('returns 500 internal_error when delete_customer_data RPC returns error', async () => {
+    it('returns 500 internal_error when delete_wallet RPC returns error', async () => {
       vi.mocked(getVerifiedUser).mockResolvedValue({
         id: TEST_CUSTOMER_ID,
         is_anonymous: true,
@@ -879,7 +879,7 @@ describe('Phase 7: Hardening, Compliance, and Security Test Suite', () => {
       expect(new Date(json.data.deletedAtIso).getTime()).not.toBeNaN();
 
       // Verify RPC was invoked with p_customer: user.id
-      expect(mockAdminClient.rpc).toHaveBeenCalledWith('delete_customer_data', {
+      expect(mockAdminClient.rpc).toHaveBeenCalledWith('delete_wallet', {
         p_customer: TEST_CUSTOMER_ID,
       });
 

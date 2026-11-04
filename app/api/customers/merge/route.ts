@@ -6,20 +6,14 @@ import {
   MERGE_INTENT_COOKIE_NAME,
   type ApiResponse,
   type MergeCustomerResponse,
-  type MergeResultCode,
+  type RpcContracts,
 } from '@/lib/contracts';
 import { verifySameOriginRequest } from '@/lib/security/csrf';
+import { isMergeNonceUsed } from '@/lib/security/mergeNonce';
 import { verifyMergeIntentToken } from '@/lib/security/mergeToken';
 import { checkPublicEndpointRateLimit, getClientIp } from '@/lib/security/ratelimit';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { getVerifiedUser } from '@/lib/supabase/server';
-
-interface MergeRpcClient {
-  rpc: (
-    fn: 'merge_anonymous_customer',
-    args: { p_source_customer: string; p_target_customer: string },
-  ) => Promise<{ data: MergeResultCode | null; error: { message: string } | null }>;
-}
 
 const mergeBodySchema = z.object({
   mergeToken: z.string().trim().min(1).max(2048).optional(),
@@ -133,14 +127,12 @@ export async function POST(
     }
 
     const admin = createSupabaseAdminClient();
-    const { data: existingNonce, error: nonceError } = await admin
-      .from('audit_log')
-      .select('id')
-      .eq('action', 'customer_merge_token_used')
-      .eq('target', verification.payload.nonce)
-      .maybeSingle();
+    const { used: nonceUsed, failed: nonceCheckFailed } = await isMergeNonceUsed(
+      admin,
+      verification.payload.nonce,
+    );
 
-    if (nonceError) {
+    if (nonceCheckFailed) {
       return NextResponse.json<ApiResponse<MergeCustomerResponse>>(
         {
           ok: false,
@@ -151,7 +143,7 @@ export async function POST(
       );
     }
 
-    if (existingNonce) {
+    if (nonceUsed) {
       return NextResponse.json<ApiResponse<MergeCustomerResponse>>(
         {
           ok: false,
@@ -164,16 +156,13 @@ export async function POST(
 
     await ensureCustomerRecord(targetUser.id);
 
-    // Call merge_anonymous_customer RPC
-    const { data: rpcResult, error: rpcError } = await (admin as unknown as MergeRpcClient).rpc(
-      'merge_anonymous_customer',
-      {
-        p_source_customer: verification.payload.sourceCustomerId,
-        p_target_customer: targetUser.id,
-      },
-    );
+    const { data: rpcResult, error: rpcError } = await admin.rpc('merge_wallets', {
+      p_source: verification.payload.sourceCustomerId,
+      p_target: targetUser.id,
+    });
+    const mergeOutcome = rpcResult as RpcContracts['merge_wallets']['Returns'] | null;
 
-    if (rpcError) {
+    if (rpcError || !mergeOutcome) {
       return NextResponse.json<ApiResponse<MergeCustomerResponse>>(
         {
           ok: false,
@@ -184,7 +173,7 @@ export async function POST(
       );
     }
 
-    const mergeResultCode = (rpcResult ?? 'merged') as MergeResultCode;
+    const mergeResultCode = mergeOutcome.result;
 
     if (mergeResultCode === 'merged') {
       await admin.rpc('log_audit_event', {
@@ -198,7 +187,7 @@ export async function POST(
       });
     }
 
-    // Totals across every card in the merged wallet (Task 7 moves this to merge_wallets' result)
+    // Totals summed over every card in the merged wallet (the user's card_balances)
     const walletCards = (await listWalletCards()) ?? [];
 
     const response = NextResponse.json<ApiResponse<MergeCustomerResponse>>(

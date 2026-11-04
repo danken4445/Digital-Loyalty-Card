@@ -457,8 +457,9 @@ describe('Phase 2 Customer Identity & Card Provisioning Test Suite', () => {
       });
     });
 
-    it('Test 5: Invalid Turnstile token returns HTTP 403 with captcha_failed', async () => {
+    it('Test 5: A failing captchaToken in the body is ignored (Supabase Auth is the only Turnstile verifier)', async () => {
       vi.mocked(getVerifiedUser).mockResolvedValueOnce(anonymousUser);
+      mockAdminRpc.mockResolvedValueOnce({ data: anonymousUser.id, error: null });
 
       const request = new Request('http://localhost:3000/api/customers', {
         method: 'POST',
@@ -469,13 +470,12 @@ describe('Phase 2 Customer Identity & Card Provisioning Test Suite', () => {
       const response = await POST(request);
       const json = await response.json();
 
-      expect(response.status).toBe(403);
-      expect(json).toEqual({
-        ok: false,
-        error: 'captcha_failed',
-        message: 'Security check failed. Please try again.',
+      expect(response.status).toBe(200);
+      expect(json.ok).toBe(true);
+      expect(json.data.customerId).toBe(anonymousUser.id);
+      expect(mockAdminRpc).toHaveBeenCalledWith('ensure_customer', {
+        p_customer: anonymousUser.id,
       });
-      expect(mockAdminRpc).not.toHaveBeenCalled();
     });
 
     it('Accepts valid Turnstile token and provisions successfully', async () => {
@@ -505,7 +505,9 @@ describe('Phase 2 Customer Identity & Card Provisioning Test Suite', () => {
       });
     });
 
-    it('Test 6: Malformed JSON body returns HTTP 400 with invalid_input', async () => {
+    it('Test 6: Malformed JSON body is ignored; the verified session alone provisions the card', async () => {
+      vi.mocked(getVerifiedUser).mockResolvedValueOnce(anonymousUser);
+      mockAdminRpc.mockResolvedValueOnce({ data: anonymousUser.id, error: null });
       const request = new Request('http://localhost:3000/api/customers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -515,16 +517,17 @@ describe('Phase 2 Customer Identity & Card Provisioning Test Suite', () => {
       const response = await POST(request);
       const json = await response.json();
 
-      expect(response.status).toBe(400);
-      expect(json).toEqual({
-        ok: false,
-        error: 'invalid_input',
-        message: 'Invalid request payload.',
+      expect(response.status).toBe(200);
+      expect(json.ok).toBe(true);
+      expect(json.data.customerId).toBe(anonymousUser.id);
+      expect(mockAdminRpc).toHaveBeenCalledWith('ensure_customer', {
+        p_customer: anonymousUser.id,
       });
-      expect(mockAdminRpc).not.toHaveBeenCalled();
     });
 
-    it('Non-string captchaToken returns HTTP 400 with invalid_input', async () => {
+    it('Non-string captchaToken is ignored', async () => {
+      vi.mocked(getVerifiedUser).mockResolvedValueOnce(anonymousUser);
+      mockAdminRpc.mockResolvedValueOnce({ data: anonymousUser.id, error: null });
       const request = new Request('http://localhost:3000/api/customers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -534,13 +537,12 @@ describe('Phase 2 Customer Identity & Card Provisioning Test Suite', () => {
       const response = await POST(request);
       const json = await response.json();
 
-      expect(response.status).toBe(400);
-      expect(json).toEqual({
-        ok: false,
-        error: 'invalid_input',
-        message: 'Invalid request payload.',
+      expect(response.status).toBe(200);
+      expect(json.ok).toBe(true);
+      expect(json.data.customerId).toBe(anonymousUser.id);
+      expect(mockAdminRpc).toHaveBeenCalledWith('ensure_customer', {
+        p_customer: anonymousUser.id,
       });
-      expect(mockAdminRpc).not.toHaveBeenCalled();
     });
 
     it('Empty body with Content-Length: 0 succeeds for authenticated user', async () => {

@@ -54,13 +54,8 @@ export function GetCardButton({ mode, tagId, returnTo = ROUTES.card }: GetCardBu
         }
       }
 
-      const response = await fetch(ROUTES.api.customers, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ captchaToken }),
-      });
+      // The Turnstile token is single-use and already consumed by Supabase Auth above.
+      const response = await fetch(ROUTES.api.customers, { method: 'POST' });
 
       if (!response.ok) {
         let errorDetail = 'Failed to provision your loyalty card. Please try again.';

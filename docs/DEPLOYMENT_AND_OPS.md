@@ -160,6 +160,7 @@ Cloudflare Turnstile protects customer card generation from spam bots while keep
 7. Click **Create**.
 8. Copy the **Site Key** (this will be `NEXT_PUBLIC_TURNSTILE_SITE_KEY`).
 9. Copy the **Secret Key** (this will be `TURNSTILE_SECRET_KEY`).
+10. In the Supabase dashboard, open **Authentication → Attack Protection**, enable **CAPTCHA protection**, choose **Turnstile**, and paste the same Secret Key. Supabase Auth is the only Turnstile verifier: the token is single-use, so the app's own routes no longer verify it.
 
 ### 5.2 Upstash Redis (Distributed Rate Limiting)
 
