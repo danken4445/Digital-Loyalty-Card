@@ -57,20 +57,26 @@ export function formatManilaDate(timestamp: Date | string | number): string {
   return manilaDateFormatter.format(date);
 }
 
-const manilaDateTimeFormatter = new Intl.DateTimeFormat('en-PH', {
-  timeZone: SHOP_CONFIG.timezone,
-  dateStyle: 'medium',
-  timeStyle: 'short',
-});
-
 /**
  * Formats a timestamp into a medium date and short time string (e.g. 'Nov 2, 2026, 3:30 PM')
- * in Asia/Manila timezone.
+ * in the given IANA timezone.
+ * Pure function: timestamp is passed explicitly.
+ */
+export function formatDateTimeInZone(timestamp: Date | string | number, timeZone: string): string {
+  const date = timestamp instanceof Date ? timestamp : new Date(timestamp);
+  return new Intl.DateTimeFormat('en-PH', {
+    timeZone,
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(date);
+}
+
+/**
+ * Formats a timestamp into a medium date and short time string in Asia/Manila timezone.
  * Pure function: timestamp is passed explicitly.
  */
 export function formatManilaDateTime(timestamp: Date | string | number): string {
-  const date = timestamp instanceof Date ? timestamp : new Date(timestamp);
-  return manilaDateTimeFormatter.format(date);
+  return formatDateTimeInZone(timestamp, SHOP_CONFIG.timezone);
 }
 
 /**

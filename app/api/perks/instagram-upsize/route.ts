@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getAuthenticatedCustomerCardState } from '@/lib/auth/customer';
 import type { ApiResponse, IssuedRedeemToken } from '@/lib/contracts';
 import { verifySameOriginRequest } from '@/lib/security/csrf';
-import { checkPublicEndpointRateLimit } from '@/lib/security/ratelimit';
+import { checkPublicEndpointRateLimit, getClientIp } from '@/lib/security/ratelimit';
 import { issueRedeemToken } from '@/lib/security/redeemToken';
 import { getVerifiedUser } from '@/lib/supabase/server';
 
@@ -38,7 +38,7 @@ export async function POST(
       );
     }
 
-    const ip = request.headers.get('x-forwarded-for');
+    const ip = getClientIp(request);
     const rl = await checkPublicEndpointRateLimit({
       endpoint: 'instagram-upsize-token',
       ip,

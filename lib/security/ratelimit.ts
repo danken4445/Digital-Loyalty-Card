@@ -26,6 +26,20 @@ export interface RateLimitResult {
   resetMs: number;
 }
 
+/**
+ * Resolves the caller's IP. On Cloudflare Workers `x-forwarded-for` is client-controllable,
+ * while `cf-connecting-ip` is set by Cloudflare, so it wins. The first `x-forwarded-for`
+ * hop is the local-development fallback.
+ */
+export function getClientIp(request: Request): string | null {
+  const cfIp = request.headers.get('cf-connecting-ip')?.trim();
+  if (cfIp) {
+    return cfIp;
+  }
+  const forwarded = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
+  return forwarded || null;
+}
+
 const WINDOW_MS = 60_000; // 1 minute sliding window
 const LIMITS: Record<RateLimitCheckInput['endpoint'], { perIp: number; perCustomer: number }> = {
   tap: { perIp: 60, perCustomer: 30 },

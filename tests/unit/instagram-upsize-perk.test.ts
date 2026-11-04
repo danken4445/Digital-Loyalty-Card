@@ -16,6 +16,10 @@ process.env.REDEEM_TOKEN_SECRET = TEST_SECRET;
 vi.mock('server-only', () => ({}));
 
 vi.mock('@/lib/security/ratelimit', () => ({
+  getClientIp: (request: Request) =>
+    request.headers.get('cf-connecting-ip') ??
+    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
+    null,
   checkPublicEndpointRateLimit: vi.fn().mockResolvedValue({
     allowed: true,
     limit: 30,

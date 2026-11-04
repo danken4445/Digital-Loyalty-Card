@@ -8,7 +8,7 @@ import {
 } from '@/lib/auth/staff';
 import type { ApiResponse, StaffTagActionResponse, TagRow, TagWithUrls } from '@/lib/contracts';
 import { verifySameOriginRequest } from '@/lib/security/csrf';
-import { checkPublicEndpointRateLimit } from '@/lib/security/ratelimit';
+import { checkPublicEndpointRateLimit, getClientIp } from '@/lib/security/ratelimit';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 
 const tagActionSchema = z.discriminatedUnion('action', [
@@ -46,7 +46,7 @@ export async function GET(request?: Request): Promise<NextResponse<ApiResponse<T
       );
     }
 
-    const ip = request?.headers?.get('x-forwarded-for') ?? null;
+    const ip = request ? getClientIp(request) : null;
     const rl = await checkPublicEndpointRateLimit({
       endpoint: 'staff-tags',
       ip,
@@ -130,7 +130,7 @@ export async function POST(
       );
     }
 
-    const ip = request.headers.get('x-forwarded-for');
+    const ip = getClientIp(request);
     const rl = await checkPublicEndpointRateLimit({
       endpoint: 'staff-tags',
       ip,

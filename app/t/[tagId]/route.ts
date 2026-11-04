@@ -6,7 +6,7 @@ import {
   type StampResultCode,
 } from '@/lib/contracts';
 import { verifyTap } from '@/lib/nfc/verifyTap';
-import { checkPublicEndpointRateLimit } from '@/lib/security/ratelimit';
+import { checkPublicEndpointRateLimit, getClientIp } from '@/lib/security/ratelimit';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { getVerifiedUser } from '@/lib/supabase/server';
 
@@ -15,7 +15,7 @@ export async function GET(
   context: { params: Promise<{ tagId: string }> },
 ): Promise<NextResponse> {
   const { tagId } = await context.params;
-  const ip = request.headers.get('x-forwarded-for');
+  const ip = getClientIp(request);
 
   const ipLimit = await checkPublicEndpointRateLimit({
     endpoint: 'tap',

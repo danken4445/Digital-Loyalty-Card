@@ -10,7 +10,7 @@ import {
 } from '@/lib/contracts';
 import { verifySameOriginRequest } from '@/lib/security/csrf';
 import { logSecurityEvent } from '@/lib/security/logger';
-import { checkPublicEndpointRateLimit } from '@/lib/security/ratelimit';
+import { checkPublicEndpointRateLimit, getClientIp } from '@/lib/security/ratelimit';
 import { verifyTurnstileToken } from '@/lib/security/turnstile';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { createSupabaseServerClient, getVerifiedUser } from '@/lib/supabase/server';
@@ -89,7 +89,7 @@ export async function POST(
 
     const rl = await checkPublicEndpointRateLimit({
       endpoint: 'customers',
-      ip: request.headers.get('x-forwarded-for'),
+      ip: getClientIp(request),
       customerId: user.id,
     });
     if (!rl.allowed) {
@@ -106,7 +106,7 @@ export async function POST(
     if (parsed.data.captchaToken) {
       const verification = await verifyTurnstileToken(
         parsed.data.captchaToken,
-        request.headers.get('x-forwarded-for'),
+        getClientIp(request),
       );
       if (!verification.success) {
         return NextResponse.json<ApiResponse<EnsureCustomerResponse>>(
@@ -171,7 +171,7 @@ export async function DELETE(
 
     const rl = await checkPublicEndpointRateLimit({
       endpoint: 'delete-customer',
-      ip: request.headers.get('x-forwarded-for'),
+      ip: getClientIp(request),
       customerId: user.id,
     });
     if (!rl.allowed) {

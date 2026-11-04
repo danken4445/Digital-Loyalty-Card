@@ -7,7 +7,7 @@ import {
 } from '@/lib/contracts';
 import { verifySameOriginRequest } from '@/lib/security/csrf';
 import { issueMergeIntentToken } from '@/lib/security/mergeToken';
-import { checkPublicEndpointRateLimit } from '@/lib/security/ratelimit';
+import { checkPublicEndpointRateLimit, getClientIp } from '@/lib/security/ratelimit';
 import { getVerifiedUser } from '@/lib/supabase/server';
 
 export async function POST(
@@ -40,7 +40,7 @@ export async function POST(
 
     const rl = await checkPublicEndpointRateLimit({
       endpoint: 'merge-intent',
-      ip: request.headers.get('x-forwarded-for'),
+      ip: getClientIp(request),
       customerId: user.id,
     });
 

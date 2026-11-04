@@ -10,7 +10,7 @@ import {
 } from '@/lib/contracts';
 import { verifySameOriginRequest } from '@/lib/security/csrf';
 import { verifyMergeIntentToken } from '@/lib/security/mergeToken';
-import { checkPublicEndpointRateLimit } from '@/lib/security/ratelimit';
+import { checkPublicEndpointRateLimit, getClientIp } from '@/lib/security/ratelimit';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { getVerifiedUser } from '@/lib/supabase/server';
 
@@ -55,7 +55,7 @@ export async function POST(
 
     const rl = await checkPublicEndpointRateLimit({
       endpoint: 'merge',
-      ip: request.headers.get('x-forwarded-for'),
+      ip: getClientIp(request),
       customerId: targetUser.id,
     });
 

@@ -4,7 +4,7 @@ import { logStaffAuditEvent, requireStaffSession } from '@/lib/auth/staff';
 import { STAMP_RULES } from '@/lib/config';
 import type { ApiResponse, RedeemResultCode, StaffRedeemResponse } from '@/lib/contracts';
 import { verifySameOriginRequest } from '@/lib/security/csrf';
-import { checkPublicEndpointRateLimit } from '@/lib/security/ratelimit';
+import { checkPublicEndpointRateLimit, getClientIp } from '@/lib/security/ratelimit';
 import { verifyRedeemToken } from '@/lib/security/redeemToken';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 
@@ -44,7 +44,7 @@ export async function POST(
       );
     }
 
-    const ip = request.headers.get('x-forwarded-for');
+    const ip = getClientIp(request);
     const rl = await checkPublicEndpointRateLimit({
       endpoint: 'staff-redeem',
       ip,

@@ -8,7 +8,7 @@ import {
   type StampResultCode,
 } from '@/lib/contracts';
 import { verifySameOriginRequest } from '@/lib/security/csrf';
-import { checkPublicEndpointRateLimit } from '@/lib/security/ratelimit';
+import { checkPublicEndpointRateLimit, getClientIp } from '@/lib/security/ratelimit';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 
 const manualStampSchema = z.object({
@@ -47,7 +47,7 @@ export async function POST(
       );
     }
 
-    const ip = request.headers.get('x-forwarded-for');
+    const ip = getClientIp(request);
     const rl = await checkPublicEndpointRateLimit({
       endpoint: 'staff-stamp',
       ip,
