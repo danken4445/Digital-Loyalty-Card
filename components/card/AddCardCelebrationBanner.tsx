@@ -37,7 +37,7 @@ export function AddCardCelebrationBanner() {
       role="status"
       aria-live="polite"
       data-testid="add-card-moment-banner"
-      className="banner-enter mb-3 w-full max-w-[390px] rounded-2xl border border-emerald-500/40 bg-emerald-950/80 px-4 py-3 text-sm text-emerald-200 flex items-center justify-between gap-3 shadow-lg shadow-black/40 backdrop-blur-md"
+      className="banner-enter mb-3 w-full max-w-[390px] rounded-2xl border border-emerald-500/40 bg-emerald-950/80 px-4 py-3 text-sm text-emerald-200 flex items-center justify-between gap-3"
     >
       <div className="flex items-center gap-2.5">
         <span

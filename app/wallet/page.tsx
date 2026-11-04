@@ -38,7 +38,7 @@ export default async function WalletPage({ searchParams }: WalletPageProps) {
       >
         <section
           aria-label="Your loyalty wallet"
-          className="w-full max-w-[390px] bg-plug-surface/95 border border-plug-border rounded-3xl p-6 sm:p-7 shadow-[0_24px_60px_rgba(0,0,0,0.8)] backdrop-blur-md flex flex-col items-center text-center"
+          className="w-full max-w-[390px] bg-plug-surface/95 border border-plug-border rounded-3xl p-6 sm:p-7 flex flex-col items-center text-center"
         >
           {isDeletedParam && (
             <div
@@ -93,7 +93,7 @@ export default async function WalletPage({ searchParams }: WalletPageProps) {
 
       <section
         aria-label="Wallet cards"
-        className="w-full max-w-[390px] bg-plug-surface/95 border border-plug-border rounded-3xl p-5 sm:p-6 shadow-[0_24px_60px_rgba(0,0,0,0.8)] backdrop-blur-md flex flex-col items-center text-center"
+        className="w-full max-w-[390px] bg-plug-surface/95 border border-plug-border rounded-3xl p-5 sm:p-6 flex flex-col items-center text-center"
       >
         <h1 className="font-display text-3xl font-bold uppercase leading-none tracking-wide text-white self-start text-left mb-4">
           Your loyalty wallet

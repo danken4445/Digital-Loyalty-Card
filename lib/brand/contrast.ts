@@ -112,6 +112,19 @@ export function getContrastRatio(color1: string, color2: string): number {
 }
 
 /**
+ * Accepts only https URLs and root-relative paths for tenant-supplied images, matching the
+ * CSP `img-src` (http, data: and script schemes are blocked or unsafe). Returns null otherwise.
+ */
+function sanitizeImageUrl(url: string | undefined | null): string | null {
+  const trimmed = url?.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith('/')) {
+    return trimmed.startsWith('//') || trimmed.startsWith('/\\') ? null : trimmed;
+  }
+  return /^https:\/\/[^\s/]/i.test(trimmed) ? trimmed : null;
+}
+
+/**
  * Resolves full card theme colors and metadata from a TenantBrand configuration.
  * Enforces WCAG AA contrast for text elements, falling back to #FFFFFF or #0A0A0A when needed.
  * Preserves Tenant #1 (The Caffeine Plug) defaults when properties are not specified.
@@ -157,15 +170,8 @@ export function resolveCardTheme(brand?: TenantBrand | null): ResolvedCardTheme 
     subtextColor = textColor;
   }
 
-  const logoUrl =
-    safeBrand.logoUrl && safeBrand.logoUrl.trim().length > 0
-      ? safeBrand.logoUrl.trim()
-      : DEFAULT_LOGO_URL;
-
-  const cardArtUrl =
-    safeBrand.cardArtUrl && safeBrand.cardArtUrl.trim().length > 0
-      ? safeBrand.cardArtUrl.trim()
-      : null;
+  const logoUrl = sanitizeImageUrl(safeBrand.logoUrl) ?? DEFAULT_LOGO_URL;
+  const cardArtUrl = sanitizeImageUrl(safeBrand.cardArtUrl);
 
   const tagline =
     safeBrand.tagline && safeBrand.tagline.trim().length > 0

@@ -316,9 +316,9 @@ export function WalletBackupModal({
           role="dialog"
           aria-modal="true"
           aria-labelledby="wallet-backup-modal-title"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80"
         >
-          <div className="relative w-full max-w-md rounded-3xl border border-plug-border bg-plug-surface p-6 shadow-2xl">
+          <div className="relative w-full max-w-md rounded-3xl border border-plug-border bg-plug-surface p-6">
             <button
               type="button"
               onClick={handleClose}

@@ -44,7 +44,7 @@ export function WalletCardStack({ cards }: WalletCardStackProps) {
             <li key={card.tenantId}>
               <Link
                 href={ROUTES.shop(card.tenantSlug)}
-                className="group relative block w-full rounded-2xl p-4 sm:p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                className="group relative block w-full rounded-2xl p-4 sm:p-5 transition-all duration-200 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
                 style={{
                   backgroundColor: theme.primaryColor,
                   border: `1px solid ${theme.cardBorder}`,
