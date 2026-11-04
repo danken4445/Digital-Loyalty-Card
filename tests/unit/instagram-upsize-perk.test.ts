@@ -59,24 +59,56 @@ vi.mock('@/lib/supabase/admin', () => ({
 }));
 
 vi.mock('@/lib/auth/customer', () => ({
-  getAuthenticatedCustomerCardState: vi.fn(),
+  getCustomerCardState: vi.fn(),
+}));
+
+vi.mock('@/lib/tenants/context', () => ({
+  getTenantBySlug: vi.fn(),
 }));
 
 import { issueRedeemToken, verifyRedeemToken } from '@/lib/security/redeemToken';
 import { getVerifiedUser } from '@/lib/supabase/server';
-import { getAuthenticatedCustomerCardState } from '@/lib/auth/customer';
+import { getCustomerCardState } from '@/lib/auth/customer';
+import { getTenantBySlug } from '@/lib/tenants/context';
 import { POST as upsizeTokenPost } from '@/app/api/perks/instagram-upsize/route';
 import { POST as staffRedeemPost } from '@/app/api/staff/redeem/route';
 import { InstagramUpsizePanel } from '@/components/card/InstagramUpsizePanel';
 import { SHOP_CONFIG } from '@/lib/config';
-import { ROUTES, TENANT_ONE_ID, type CustomerCardState } from '@/lib/contracts';
+import {
+  ROUTES,
+  TENANT_ONE_ID,
+  TENANT_ONE_SLUG,
+  type CustomerCardState,
+  type TenantContext,
+} from '@/lib/contracts';
 
 const TEST_STAFF_ID = '99999999-9999-9999-9999-999999999999';
 const TEST_CUSTOMER_ID = '11111111-1111-1111-1111-111111111111';
 
+const TEST_TENANT: TenantContext = {
+  id: TENANT_ONE_ID,
+  slug: TENANT_ONE_SLUG,
+  name: SHOP_CONFIG.name,
+  status: 'active',
+  settings: {
+    cooldownMinutes: 30,
+    dailyCap: 2,
+    rewardThreshold: 10,
+    tagThrottleSeconds: 5,
+    timezone: 'Asia/Manila',
+    currency: 'PHP',
+    rewardLabel: 'FREE COFFEE',
+    brand: {},
+    perks: {
+      instagram_follow_upsize: { label: 'Free upsize on any drink', handle: SHOP_CONFIG.instagramHandle },
+    },
+  },
+};
+
 function cardState(overrides: Partial<CustomerCardState> = {}): CustomerCardState {
   return {
     customerId: TEST_CUSTOMER_ID,
+    tenant: TEST_TENANT,
     isAnonymous: true,
     totalStamps: 0,
     stampsRedeemed: 0,
@@ -118,6 +150,7 @@ describe('Instagram follow upsize perk', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     tableData = {};
+    vi.mocked(getTenantBySlug).mockResolvedValue(TEST_TENANT);
     mockAdminClient.rpc.mockImplementation(async (rpcName: string) => {
       if (rpcName === 'claim_instagram_upsize') return { data: 'redeemed', error: null };
       if (rpcName === 'redeem_reward') return { data: 'redeemed', error: null };
@@ -158,16 +191,23 @@ describe('Instagram follow upsize perk', () => {
   describe(`POST ${ROUTES.api.instagramUpsizeToken}`, () => {
     it('returns 401 without a session', async () => {
       vi.mocked(getVerifiedUser).mockResolvedValue(null);
-      const res = await upsizeTokenPost(post(ROUTES.api.instagramUpsizeToken));
+      const res = await upsizeTokenPost(post(ROUTES.api.instagramUpsizeToken, { tenantSlug: TENANT_ONE_SLUG }));
       expect(res.status).toBe(401);
+    });
+
+    it('returns 400 invalid_input for an unknown shop', async () => {
+      vi.mocked(getVerifiedUser).mockResolvedValue({ id: TEST_CUSTOMER_ID } as User);
+      vi.mocked(getTenantBySlug).mockResolvedValue(null);
+      const res = await upsizeTokenPost(post(ROUTES.api.instagramUpsizeToken, { tenantSlug: 'nope' }));
+      expect(res.status).toBe(400);
     });
 
     it('returns 403 once the card has already claimed the upsize', async () => {
       vi.mocked(getVerifiedUser).mockResolvedValue({ id: TEST_CUSTOMER_ID } as User);
-      vi.mocked(getAuthenticatedCustomerCardState).mockResolvedValue(
+      vi.mocked(getCustomerCardState).mockResolvedValue(
         cardState({ instagramUpsizeClaimed: true }),
       );
-      const res = await upsizeTokenPost(post(ROUTES.api.instagramUpsizeToken));
+      const res = await upsizeTokenPost(post(ROUTES.api.instagramUpsizeToken, { tenantSlug: TENANT_ONE_SLUG }));
       expect(res.status).toBe(403);
       const json = await res.json();
       expect(json.message).toBe('This card has already used its Instagram upsize.');
@@ -175,8 +215,8 @@ describe('Instagram follow upsize perk', () => {
 
     it('issues an instagram-upsize token with zero stamps', async () => {
       vi.mocked(getVerifiedUser).mockResolvedValue({ id: TEST_CUSTOMER_ID } as User);
-      vi.mocked(getAuthenticatedCustomerCardState).mockResolvedValue(cardState());
-      const res = await upsizeTokenPost(post(ROUTES.api.instagramUpsizeToken));
+      vi.mocked(getCustomerCardState).mockResolvedValue(cardState());
+      const res = await upsizeTokenPost(post(ROUTES.api.instagramUpsizeToken, { tenantSlug: TENANT_ONE_SLUG }));
       expect(res.status).toBe(200);
       expect(res.headers.get('Cache-Control')).toContain('no-store');
       const json = await res.json();
@@ -260,7 +300,11 @@ describe('Instagram follow upsize perk', () => {
   describe('InstagramUpsizePanel', () => {
     it('invites the customer to follow and links to the Instagram profile', () => {
       const html = renderToStaticMarkup(
-        React.createElement(InstagramUpsizePanel, { claimed: false }),
+        React.createElement(InstagramUpsizePanel, {
+          claimed: false,
+          tenantSlug: TENANT_ONE_SLUG,
+          handle: SHOP_CONFIG.instagramHandle,
+        }),
       );
       expect(html).toContain(`href="${SHOP_CONFIG.instagramUrl}"`);
       expect(html).toContain('FREE UPSIZE');
@@ -270,7 +314,11 @@ describe('Instagram follow upsize perk', () => {
 
     it('shows a claimed state without claim actions once used', () => {
       const html = renderToStaticMarkup(
-        React.createElement(InstagramUpsizePanel, { claimed: true }),
+        React.createElement(InstagramUpsizePanel, {
+          claimed: true,
+          tenantSlug: TENANT_ONE_SLUG,
+          handle: SHOP_CONFIG.instagramHandle,
+        }),
       );
       expect(html).toContain('INSTAGRAM UPSIZE • CLAIMED');
       expect(html).not.toContain('<button');

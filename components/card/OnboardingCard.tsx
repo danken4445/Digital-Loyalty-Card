@@ -12,6 +12,10 @@ export interface OnboardingCardProps {
   lines: readonly string[];
   /** Optional message shown above the card (e.g. after deleting data) */
   notice?: ReactNode;
+  /** Shop name for the mascot alt text; defaults to the platform's original shop. */
+  shopName?: string;
+  /** Instagram handle shown under the card; null hides it, undefined uses the original shop's. */
+  instagramHandle?: string | null;
   /** The call to action, usually <GetCardButton /> */
   children: ReactNode;
 }
@@ -53,7 +57,15 @@ function StampRowPreview() {
  * Shared first-visit screen for /card (QR scan, no card yet) and /start (NFC tap, no card yet).
  * Same mascot, type and stamp-circle language as the active card so the hand-off feels continuous.
  */
-export function OnboardingCard({ pageLabel, title, lines, notice, children }: OnboardingCardProps) {
+export function OnboardingCard({
+  pageLabel,
+  title,
+  lines,
+  notice,
+  shopName = SHOP_CONFIG.name,
+  instagramHandle = SHOP_CONFIG.instagramHandle,
+  children,
+}: OnboardingCardProps) {
   return (
     <main
       aria-label={pageLabel}
@@ -64,7 +76,7 @@ export function OnboardingCard({ pageLabel, title, lines, notice, children }: On
       <section className="w-full max-w-[390px] bg-plug-surface/95 border border-plug-border rounded-3xl px-5 pb-6 pt-8 shadow-[0_24px_60px_rgba(0,0,0,0.8)] backdrop-blur-md flex flex-col items-center text-center">
         <Image
           src={BRAND_THEME.assets.mascotFull}
-          alt={`${SHOP_CONFIG.name} mascot`}
+          alt={`${shopName} mascot`}
           width={144}
           height={144}
           priority
@@ -97,9 +109,11 @@ export function OnboardingCard({ pageLabel, title, lines, notice, children }: On
         </Link>
       </section>
 
-      <p className="mt-5 font-display text-base font-bold tracking-wide text-plug-muted">
-        {SHOP_CONFIG.instagramHandle}
-      </p>
+      {instagramHandle && (
+        <p className="mt-5 font-display text-base font-bold tracking-wide text-plug-muted">
+          {instagramHandle}
+        </p>
+      )}
     </main>
   );
 }

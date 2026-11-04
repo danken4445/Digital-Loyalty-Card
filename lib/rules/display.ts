@@ -152,3 +152,32 @@ export function formatMemberSince(timestamp: Date | string | number | null | und
   }
 }
 
+
+/** Abbreviations Intl's locale data renders as "GMT+n" but that customers recognise. */
+const TIME_ZONE_ABBREVIATIONS: Readonly<Record<string, string>> = Object.freeze({
+  'Asia/Manila': 'PHT',
+  'Asia/Tokyo': 'JST',
+  'Asia/Seoul': 'KST',
+  'Asia/Singapore': 'SGT',
+  'Asia/Hong_Kong': 'HKT',
+});
+
+/**
+ * Short label for an IANA timezone, shown after a local time (e.g. "PHT", "JST", "EST").
+ * Falls back to Intl's short name (such as "GMT+7") for zones without a well-known abbreviation.
+ */
+export function formatTimeZoneAbbreviation(timeZone: string, at: Date | string | number = Date.now()): string {
+  const known = TIME_ZONE_ABBREVIATIONS[timeZone];
+  if (known) {
+    return known;
+  }
+  try {
+    const date = at instanceof Date ? at : new Date(at);
+    const part = new Intl.DateTimeFormat('en-US', { timeZone, timeZoneName: 'short' })
+      .formatToParts(date)
+      .find((p) => p.type === 'timeZoneName');
+    return part?.value ?? timeZone;
+  } catch {
+    return timeZone;
+  }
+}

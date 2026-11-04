@@ -3,7 +3,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { BRAND_THEME, SECURITY_CONFIG, SHOP_CONFIG } from '@/lib/config';
 import { ROUTES } from '@/lib/contracts';
-import { getAuthenticatedCustomerCardState } from '@/lib/auth/customer';
+import { getVerifiedUser } from '@/lib/supabase/server';
 import { DeleteCardButton } from '@/components/card/DeleteCardButton';
 
 export const metadata: Metadata = {
@@ -12,9 +12,10 @@ export const metadata: Metadata = {
 };
 
 export default async function PrivacyPage() {
-  let cardState = null;
+  let cardState: { customerId: string; isAnonymous: boolean } | null = null;
   try {
-    cardState = await getAuthenticatedCustomerCardState();
+    const user = await getVerifiedUser();
+    cardState = user ? { customerId: user.id, isAnonymous: Boolean(user.is_anonymous) } : null;
   } catch {
     cardState = null;
   }

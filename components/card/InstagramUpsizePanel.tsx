@@ -1,11 +1,26 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { INSTAGRAM_PERK, SHOP_CONFIG } from '@/lib/config';
-import { ROUTES, type ApiResponse, type IssuedRedeemToken } from '@/lib/contracts';
+import { INSTAGRAM_PERK } from '@/lib/config';
+import {
+  ROUTES,
+  type ApiResponse,
+  type IssuedRedeemToken,
+  type RedeemTokenRequest,
+} from '@/lib/contracts';
 
 export interface InstagramUpsizePanelProps {
   claimed: boolean;
+  /** The shop offering the perk; sent when requesting the claim QR code. */
+  tenantSlug: string;
+  /** The shop's Instagram handle (e.g. "@thecaffeineplug8400"); without it there is no follow link. */
+  handle?: string;
+  /** What the follower gets; defaults to the platform wording. */
+  perkLabel?: string;
+}
+
+function instagramUrl(handle: string): string {
+  return `https://www.instagram.com/${handle.replace(/^@/, '')}/`;
 }
 
 function InstagramGlyph() {
@@ -27,17 +42,21 @@ function InstagramGlyph() {
   );
 }
 
-function readFollowOpened(): boolean {
+function storageKey(tenantSlug: string): string {
+  return `${INSTAGRAM_PERK.followOpenedStorageKey}:${tenantSlug}`;
+}
+
+function readFollowOpened(tenantSlug: string): boolean {
   try {
-    return window.localStorage.getItem(INSTAGRAM_PERK.followOpenedStorageKey) === '1';
+    return window.localStorage.getItem(storageKey(tenantSlug)) === '1';
   } catch {
     return false;
   }
 }
 
-function rememberFollowOpened(): void {
+function rememberFollowOpened(tenantSlug: string): void {
   try {
-    window.localStorage.setItem(INSTAGRAM_PERK.followOpenedStorageKey, '1');
+    window.localStorage.setItem(storageKey(tenantSlug), '1');
   } catch {
     // Storage blocked (private mode); the claim button still works without it
   }
@@ -48,7 +67,12 @@ function rememberFollowOpened(): void {
  * claim only shows a signed QR; the barista checks the follow on the customer's phone and grants
  * the upsize from /staff/redeem.
  */
-export function InstagramUpsizePanel({ claimed }: InstagramUpsizePanelProps) {
+export function InstagramUpsizePanel({
+  claimed,
+  tenantSlug,
+  handle,
+  perkLabel = INSTAGRAM_PERK.rewardLabel,
+}: InstagramUpsizePanelProps) {
   const [followOpened, setFollowOpened] = useState<boolean>(false);
   const [tokenData, setTokenData] = useState<IssuedRedeemToken | null>(null);
   const [secondsLeft, setSecondsLeft] = useState<number>(0);
@@ -56,8 +80,8 @@ export function InstagramUpsizePanel({ claimed }: InstagramUpsizePanelProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    setFollowOpened(readFollowOpened());
-  }, []);
+    setFollowOpened(readFollowOpened(tenantSlug));
+  }, [tenantSlug]);
 
   useEffect(() => {
     if (!tokenData) {
@@ -72,7 +96,7 @@ export function InstagramUpsizePanel({ claimed }: InstagramUpsizePanelProps) {
   }, [tokenData]);
 
   const handleFollowClick = () => {
-    rememberFollowOpened();
+    rememberFollowOpened(tenantSlug);
     setFollowOpened(true);
   };
 
@@ -87,6 +111,7 @@ export function InstagramUpsizePanel({ claimed }: InstagramUpsizePanelProps) {
       const response = await fetch(ROUTES.api.instagramUpsizeToken, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenantSlug } satisfies RedeemTokenRequest),
       });
       const json = (await response.json()) as ApiResponse<IssuedRedeemToken>;
 
@@ -113,7 +138,7 @@ export function InstagramUpsizePanel({ claimed }: InstagramUpsizePanelProps) {
           INSTAGRAM UPSIZE • CLAIMED
         </span>
         <p className="text-[10px] font-mono uppercase tracking-wider text-plug-muted mt-2 max-w-[280px]">
-          Thanks for following {SHOP_CONFIG.instagramHandle}. Watch our feed for drops.
+          {handle ? `Thanks for following ${handle}. Watch our feed for drops.` : 'Thanks for following us.'}
         </p>
       </section>
     );
@@ -133,8 +158,9 @@ export function InstagramUpsizePanel({ claimed }: InstagramUpsizePanelProps) {
         Follow us, size up
       </h2>
       <p className="text-sm text-neutral-300 mt-2 max-w-[300px]">
-        Follow <span className="font-semibold text-white">{SHOP_CONFIG.instagramHandle}</span> on
-        Instagram and get a {INSTAGRAM_PERK.rewardLabel.toLowerCase()}.
+        Follow{' '}
+        {handle ? <span className="font-semibold text-white">{handle}</span> : 'us'} on Instagram and
+        get a {perkLabel.toLowerCase()}.
       </p>
 
       {tokenData ? (
@@ -187,22 +213,24 @@ export function InstagramUpsizePanel({ claimed }: InstagramUpsizePanelProps) {
         </div>
       ) : (
         <div className="w-full flex flex-col gap-2.5 mt-4">
-          <a
-            href={SHOP_CONFIG.instagramUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={handleFollowClick}
-            className={`w-full min-h-12 py-3 px-4 font-display font-black text-xs tracking-widest uppercase rounded-xl flex items-center justify-center gap-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black ${
-              followOpened
-                ? 'bg-plug-surface text-white border border-plug-border hover:border-zinc-500'
-                : 'bg-white text-black hover:bg-neutral-200'
-            }`}
-          >
-            <InstagramGlyph />
-            <span>
-              {followOpened ? 'OPEN INSTAGRAM AGAIN' : `FOLLOW ${SHOP_CONFIG.instagramHandle}`}
-            </span>
-          </a>
+          {handle && (
+            <a
+              href={instagramUrl(handle)}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={handleFollowClick}
+              className={`w-full min-h-12 py-3 px-4 font-display font-black text-xs tracking-widest uppercase rounded-xl flex items-center justify-center gap-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black ${
+                followOpened
+                  ? 'bg-plug-surface text-white border border-plug-border hover:border-zinc-500'
+                  : 'bg-white text-black hover:bg-neutral-200'
+              }`}
+            >
+              <InstagramGlyph />
+              <span>
+                {followOpened ? 'OPEN INSTAGRAM AGAIN' : `FOLLOW ${handle}`}
+              </span>
+            </a>
+          )}
 
           <button
             type="button"

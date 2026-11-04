@@ -7,7 +7,8 @@ import type { User } from '@supabase/supabase-js';
 vi.mock('server-only', () => ({}));
 
 import { verifyTurnstileToken } from '@/lib/security/turnstile';
-import { ensureCustomerRecord, getAuthenticatedCustomerCardState } from '@/lib/auth/customer';
+import { ensureCustomerRecord, getCustomerCardState } from '@/lib/auth/customer';
+import type { TenantContext } from '@/lib/contracts';
 import { POST } from '@/app/api/customers/route';
 import { createSupabaseServerClient, getVerifiedUser } from '@/lib/supabase/server';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
@@ -21,6 +22,24 @@ vi.mock('@/lib/supabase/server', () => ({
 vi.mock('@/lib/supabase/admin', () => ({
   createSupabaseAdminClient: vi.fn(),
 }));
+
+const TEST_TENANT: TenantContext = {
+  id: '7c1f0000-0000-4000-8000-000000000001',
+  slug: 'caffeine-plug',
+  name: 'The Caffeine Plug',
+  status: 'active',
+  settings: {
+    cooldownMinutes: 30,
+    dailyCap: 2,
+    rewardThreshold: 10,
+    tagThrottleSeconds: 5,
+    timezone: 'Asia/Manila',
+    currency: 'PHP',
+    rewardLabel: 'FREE COFFEE',
+    brand: {},
+    perks: {},
+  },
+};
 
 describe('Phase 2 Customer Identity & Card Provisioning Test Suite', () => {
   const mockAdminRpc = vi.fn();
@@ -148,17 +167,17 @@ describe('Phase 2 Customer Identity & Card Provisioning Test Suite', () => {
       );
     });
 
-    it('getAuthenticatedCustomerCardState returns null when unauthenticated', async () => {
+    it('getCustomerCardState returns null when unauthenticated', async () => {
       vi.mocked(getVerifiedUser).mockResolvedValueOnce(null);
 
-      const state = await getAuthenticatedCustomerCardState();
+      const state = await getCustomerCardState(TEST_TENANT);
 
       expect(state).toBeNull();
       expect(mockAdminRpc).not.toHaveBeenCalled();
       expect(mockFrom).not.toHaveBeenCalled();
     });
 
-    it('getAuthenticatedCustomerCardState returns hydrated card state for existing customer', async () => {
+    it('getCustomerCardState returns hydrated card state for existing customer', async () => {
       const mockUser: User = {
         id: '11111111-1111-1111-1111-111111111111',
         app_metadata: {},
@@ -174,8 +193,11 @@ describe('Phase 2 Customer Identity & Card Provisioning Test Suite', () => {
         error: null,
       });
 
-      mockMaybeSingle.mockResolvedValueOnce({
+      mockMaybeSingle
+        .mockResolvedValueOnce({ data: { added_at: '2026-10-15T08:00:00.000Z' }, error: null })
+        .mockResolvedValueOnce({
         data: {
+          tenant_id: TEST_TENANT.id,
           customer_id: mockUser.id,
           total_stamps: 4,
           stamps_redeemed: 0,
@@ -185,17 +207,18 @@ describe('Phase 2 Customer Identity & Card Provisioning Test Suite', () => {
         error: null,
       });
 
-      const state = await getAuthenticatedCustomerCardState();
+      const state = await getCustomerCardState(TEST_TENANT);
 
       expect(state).toEqual({
         customerId: mockUser.id,
+        tenant: TEST_TENANT,
         isAnonymous: true,
         email: null,
         totalStamps: 4,
         stampsRedeemed: 0,
         availableStamps: 4,
         lastStampedAt: '2026-11-02T03:00:00.000Z',
-        createdAt: mockUser.created_at,
+        createdAt: '2026-10-15T08:00:00.000Z',
         cardsCompleted: 0,
         instagramUpsizeClaimed: false,
       });
@@ -203,11 +226,13 @@ describe('Phase 2 Customer Identity & Card Provisioning Test Suite', () => {
       expect(mockAdminRpc).toHaveBeenCalledWith('ensure_customer', {
         p_customer: mockUser.id,
       });
-      expect(mockFrom).toHaveBeenCalledWith('customer_balances');
+      expect(mockFrom).toHaveBeenCalledWith('customer_cards');
+      expect(mockFrom).toHaveBeenCalledWith('card_balances');
+      expect(mockEq).toHaveBeenCalledWith('tenant_id', TEST_TENANT.id);
       expect(mockEq).toHaveBeenCalledWith('customer_id', mockUser.id);
     });
 
-    it('getAuthenticatedCustomerCardState returns 0 defaults when customer_balances row is not yet found', async () => {
+    it('getCustomerCardState returns 0 defaults when the card_balances row is not yet found', async () => {
       const mockUser: User = {
         id: '22222222-2222-2222-2222-222222222222',
         app_metadata: {},
@@ -223,28 +248,28 @@ describe('Phase 2 Customer Identity & Card Provisioning Test Suite', () => {
         error: null,
       });
 
-      mockMaybeSingle.mockResolvedValueOnce({
-        data: null,
-        error: null,
-      });
+      mockMaybeSingle
+        .mockResolvedValueOnce({ data: { added_at: '2026-10-15T08:00:00.000Z' }, error: null })
+        .mockResolvedValueOnce({ data: null, error: null });
 
-      const state = await getAuthenticatedCustomerCardState();
+      const state = await getCustomerCardState(TEST_TENANT);
 
       expect(state).toEqual({
         customerId: mockUser.id,
+        tenant: TEST_TENANT,
         isAnonymous: false,
         email: null,
         totalStamps: 0,
         stampsRedeemed: 0,
         availableStamps: 0,
         lastStampedAt: null,
-        createdAt: mockUser.created_at,
+        createdAt: '2026-10-15T08:00:00.000Z',
         cardsCompleted: 0,
         instagramUpsizeClaimed: false,
       });
     });
 
-    it('getAuthenticatedCustomerCardState reports instagramUpsizeClaimed when a perk_claims row exists', async () => {
+    it('getCustomerCardState reports instagramUpsizeClaimed when a perk_claims row exists', async () => {
       const mockUser: User = {
         id: '33333333-3333-3333-3333-333333333333',
         app_metadata: {},
@@ -258,17 +283,21 @@ describe('Phase 2 Customer Identity & Card Provisioning Test Suite', () => {
       mockAdminRpc.mockResolvedValueOnce({ data: mockUser.id, error: null });
 
       mockMaybeSingle
+        .mockResolvedValueOnce({ data: { added_at: '2026-10-15T08:00:00.000Z' }, error: null })
         .mockResolvedValueOnce({ data: null, error: null })
         .mockResolvedValueOnce({ data: { id: 'perk-claim-1' }, error: null });
 
-      const state = await getAuthenticatedCustomerCardState();
+      const state = await getCustomerCardState(TEST_TENANT);
 
-      expect(state?.instagramUpsizeClaimed).toBe(true);
+      expect(state).not.toBeNull();
+      expect(state).not.toBe('no-card');
+      expect((state as { instagramUpsizeClaimed?: boolean }).instagramUpsizeClaimed).toBe(true);
       expect(mockFrom).toHaveBeenCalledWith('perk_claims');
+      expect(mockEq).toHaveBeenCalledWith('tenant_id', TEST_TENANT.id);
       expect(mockEq).toHaveBeenCalledWith('perk', 'instagram_follow_upsize');
     });
 
-    it('getAuthenticatedCustomerCardState throws when query encounters database error', async () => {
+    it('getCustomerCardState throws when query encounters database error', async () => {
       const mockUser: User = {
         id: '33333333-3333-3333-3333-333333333333',
         app_metadata: {},
@@ -284,13 +313,15 @@ describe('Phase 2 Customer Identity & Card Provisioning Test Suite', () => {
         error: null,
       });
 
-      mockMaybeSingle.mockResolvedValueOnce({
-        data: null,
-        error: { message: 'relation customer_balances does not exist' },
-      });
+      mockMaybeSingle
+        .mockResolvedValueOnce({ data: { added_at: '2026-10-15T08:00:00.000Z' }, error: null })
+        .mockResolvedValueOnce({
+          data: null,
+          error: { message: 'relation card_balances does not exist' },
+        });
 
-      await expect(getAuthenticatedCustomerCardState()).rejects.toThrow(
-        'Failed to query customer balance for user "33333333-3333-3333-3333-333333333333": relation customer_balances does not exist',
+      await expect(getCustomerCardState(TEST_TENANT)).rejects.toThrow(
+        'Failed to query customer balance for user "33333333-3333-3333-3333-333333333333": relation card_balances does not exist',
       );
     });
   });

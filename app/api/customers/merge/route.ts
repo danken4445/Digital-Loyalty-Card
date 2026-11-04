@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { ensureCustomerRecord, getAuthenticatedCustomerCardState } from '@/lib/auth/customer';
+import { ensureCustomerRecord, listWalletCards } from '@/lib/auth/customer';
 import {
   MERGE_INTENT_COOKIE_NAME,
   type ApiResponse,
@@ -198,7 +198,8 @@ export async function POST(
       });
     }
 
-    const updatedCard = await getAuthenticatedCustomerCardState();
+    // Totals across every card in the merged wallet (Task 7 moves this to merge_wallets' result)
+    const walletCards = (await listWalletCards()) ?? [];
 
     const response = NextResponse.json<ApiResponse<MergeCustomerResponse>>(
       {
@@ -207,8 +208,8 @@ export async function POST(
           result: mergeResultCode,
           sourceCustomerId: verification.payload.sourceCustomerId,
           targetCustomerId: targetUser.id,
-          availableStampsAfter: updatedCard?.availableStamps ?? 0,
-          totalStampsAfter: updatedCard?.totalStamps ?? 0,
+          availableStampsAfter: walletCards.reduce((sum, card) => sum + card.availableStamps, 0),
+          totalStampsAfter: walletCards.reduce((sum, card) => sum + card.totalStamps, 0),
         },
       },
       {

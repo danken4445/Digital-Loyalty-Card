@@ -25,6 +25,13 @@ vi.mock('next/navigation', () => ({
     push: vi.fn(),
     refresh: vi.fn(),
   }),
+  notFound: vi.fn(() => {
+    throw new Error('NEXT_NOT_FOUND');
+  }),
+}));
+
+vi.mock('@/lib/tenants/context', () => ({
+  getTenantBySlug: vi.fn(),
 }));
 
 // In-memory cookie store for next/headers
@@ -128,7 +135,8 @@ vi.mock('@/lib/supabase/admin', () => ({
 // Mock customer helper functions
 vi.mock('@/lib/auth/customer', () => ({
   ensureCustomerRecord: vi.fn().mockResolvedValue('ensured-customer-id'),
-  getAuthenticatedCustomerCardState: vi.fn(),
+  getCustomerCardState: vi.fn(),
+  listWalletCards: vi.fn(),
 }));
 
 // Mock staff helper functions
@@ -219,12 +227,32 @@ import { POST as staffTagsPost } from '@/app/api/staff/tags/route';
 
 import { DeleteCardButton } from '@/components/card/DeleteCardButton';
 import PrivacyPage from '@/app/privacy/page';
-import CardPage from '@/app/card/page';
+import ShopPage from '@/app/s/[slug]/page';
 
 import { getVerifiedUser } from '@/lib/supabase/server';
 import { checkPublicEndpointRateLimit } from '@/lib/security/ratelimit';
-import { getAuthenticatedCustomerCardState } from '@/lib/auth/customer';
-import { MERGE_INTENT_COOKIE_NAME, type CustomerCardState } from '@/lib/contracts';
+import { getCustomerCardState } from '@/lib/auth/customer';
+import { getTenantBySlug } from '@/lib/tenants/context';
+import { MERGE_INTENT_COOKIE_NAME, TENANT_ONE_ID, type TenantContext } from '@/lib/contracts';
+
+const TEST_TENANT: TenantContext = {
+  id: TENANT_ONE_ID,
+  slug: 'caffeine-plug',
+  name: 'The Caffeine Plug',
+  status: 'active',
+  settings: {
+    cooldownMinutes: 30,
+    dailyCap: 2,
+    rewardThreshold: 10,
+    tagThrottleSeconds: 5,
+    timezone: 'Asia/Manila',
+    currency: 'PHP',
+    rewardLabel: 'Free Coffee',
+    brand: {},
+    perks: {},
+  },
+};
+const SHOP_PARAMS = Promise.resolve({ slug: 'caffeine-plug' });
 
 const TEST_CUSTOMER_ID = '33333333-3333-3333-3333-333333333333';
 
@@ -926,17 +954,10 @@ describe('Phase 7: Hardening, Compliance, and Security Test Suite', () => {
 
     describe('app/privacy/page.tsx', () => {
       it('renders complete privacy notice and data rights disclosures with active connected card badge', async () => {
-        const mockCardState: CustomerCardState = {
-          customerId: 'a1b2c3d4-1111-2222-3333-444455556666',
-          isAnonymous: true,
-          email: null,
-          availableStamps: 4,
-          totalStamps: 4,
-          stampsRedeemed: 0,
-          lastStampedAt: '2026-11-02T05:00:00Z',
-        };
-
-        vi.mocked(getAuthenticatedCustomerCardState).mockResolvedValue(mockCardState);
+        vi.mocked(getVerifiedUser).mockResolvedValue({
+          id: 'a1b2c3d4-1111-2222-3333-444455556666',
+          is_anonymous: true,
+        } as User);
 
         const pageElement = await PrivacyPage();
         const html = renderToStaticMarkup(pageElement);
@@ -972,17 +993,11 @@ describe('Phase 7: Hardening, Compliance, and Security Test Suite', () => {
       });
 
       it('renders backed up pass indicator when authenticated user has linked email', async () => {
-        const mockBackedUpCard: CustomerCardState = {
-          customerId: 'b2c3d4e5-9999-8888-7777-666655554444',
-          isAnonymous: false,
+        vi.mocked(getVerifiedUser).mockResolvedValue({
+          id: 'b2c3d4e5-9999-8888-7777-666655554444',
+          is_anonymous: false,
           email: 'customer@gmail.com',
-          availableStamps: 8,
-          totalStamps: 18,
-          stampsRedeemed: 10,
-          lastStampedAt: '2026-11-02T06:00:00Z',
-        };
-
-        vi.mocked(getAuthenticatedCustomerCardState).mockResolvedValue(mockBackedUpCard);
+        } as User);
 
         const pageElement = await PrivacyPage();
         const html = renderToStaticMarkup(pageElement);
@@ -993,7 +1008,7 @@ describe('Phase 7: Hardening, Compliance, and Security Test Suite', () => {
       });
 
       it('renders unauthenticated state with NO ACTIVE CARD SESSION badge and accessible erasure button', async () => {
-        vi.mocked(getAuthenticatedCustomerCardState).mockResolvedValue(null);
+        vi.mocked(getVerifiedUser).mockResolvedValue(null);
 
         const pageElement = await PrivacyPage();
         const html = renderToStaticMarkup(pageElement);
@@ -1006,11 +1021,13 @@ describe('Phase 7: Hardening, Compliance, and Security Test Suite', () => {
       });
     });
 
-    describe('app/card/page.tsx Integration', () => {
+    describe('app/s/[slug]/page.tsx Integration', () => {
       it('renders confirmation banner when redirected with /card?deleted=1 in unauthenticated state', async () => {
-        vi.mocked(getAuthenticatedCustomerCardState).mockResolvedValue(null);
+        vi.mocked(getTenantBySlug).mockResolvedValue(TEST_TENANT);
+        vi.mocked(getCustomerCardState).mockResolvedValue(null);
 
-        const pageElement = await CardPage({
+        const pageElement = await ShopPage({
+          params: SHOP_PARAMS,
           searchParams: Promise.resolve({ deleted: '1' }),
         });
         const html = renderToStaticMarkup(pageElement);
@@ -1018,13 +1035,15 @@ describe('Phase 7: Hardening, Compliance, and Security Test Suite', () => {
         expect(html).toContain('Your card and all associated data have been permanently erased.');
         expect(html).toContain('role="status"');
         expect(html).toContain('aria-live="polite"');
-        expect(html).toContain('Get your loyalty card');
+        expect(html).toContain('Get your The Caffeine Plug card');
       });
 
       it('does NOT render deleted confirmation banner when /card is loaded without deleted=1 param', async () => {
-        vi.mocked(getAuthenticatedCustomerCardState).mockResolvedValue(null);
+        vi.mocked(getTenantBySlug).mockResolvedValue(TEST_TENANT);
+        vi.mocked(getCustomerCardState).mockResolvedValue(null);
 
-        const pageElement = await CardPage({
+        const pageElement = await ShopPage({
+          params: SHOP_PARAMS,
           searchParams: Promise.resolve({}),
         });
         const html = renderToStaticMarkup(pageElement);
@@ -1032,7 +1051,7 @@ describe('Phase 7: Hardening, Compliance, and Security Test Suite', () => {
         expect(html).not.toContain(
           'Your card and all associated data have been permanently erased.',
         );
-        expect(html).toContain('Get your loyalty card');
+        expect(html).toContain('Get your The Caffeine Plug card');
       });
     });
   });

@@ -1,10 +1,16 @@
 import { NextResponse } from 'next/server';
-import { getAuthenticatedCustomerCardState } from '@/lib/auth/customer';
-import { TENANT_ONE_ID, type ApiResponse, type IssuedRedeemToken } from '@/lib/contracts';
+import { z } from 'zod';
+import { getCustomerCardState } from '@/lib/auth/customer';
+import type { ApiResponse, IssuedRedeemToken, RedeemTokenRequest } from '@/lib/contracts';
 import { verifySameOriginRequest } from '@/lib/security/csrf';
 import { checkPublicEndpointRateLimit, getClientIp } from '@/lib/security/ratelimit';
 import { issueRedeemToken } from '@/lib/security/redeemToken';
 import { getVerifiedUser } from '@/lib/supabase/server';
+import { getTenantBySlug } from '@/lib/tenants/context';
+
+const requestBodySchema = z.object({
+  tenantSlug: z.string().trim().min(1).max(64),
+}) satisfies z.ZodType<RedeemTokenRequest>;
 
 /**
  * Issues a 5-minute signed QR token for the one-time Instagram follow upsize. The token alone
@@ -56,7 +62,31 @@ export async function POST(
       );
     }
 
-    const cardState = await getAuthenticatedCustomerCardState();
+    const parsedBody = requestBodySchema.safeParse(await request.json().catch(() => null));
+    if (!parsedBody.success) {
+      return NextResponse.json<ApiResponse<IssuedRedeemToken>>(
+        {
+          ok: false,
+          error: 'invalid_input',
+          message: 'A valid shop is required.',
+        },
+        { status: 400 },
+      );
+    }
+
+    const tenant = await getTenantBySlug(parsedBody.data.tenantSlug);
+    if (!tenant || tenant.status === 'closed') {
+      return NextResponse.json<ApiResponse<IssuedRedeemToken>>(
+        {
+          ok: false,
+          error: 'invalid_input',
+          message: 'A valid shop is required.',
+        },
+        { status: 400 },
+      );
+    }
+
+    const cardState = await getCustomerCardState(tenant);
     if (!cardState) {
       return NextResponse.json<ApiResponse<IssuedRedeemToken>>(
         {
@@ -65,6 +95,28 @@ export async function POST(
           message: 'Active session required to claim the Instagram upsize.',
         },
         { status: 401 },
+      );
+    }
+
+    if (cardState === 'no-card') {
+      return NextResponse.json<ApiResponse<IssuedRedeemToken>>(
+        {
+          ok: false,
+          error: 'forbidden',
+          message: 'Add this shop to your wallet first.',
+        },
+        { status: 403 },
+      );
+    }
+
+    if (!tenant.settings.perks.instagram_follow_upsize) {
+      return NextResponse.json<ApiResponse<IssuedRedeemToken>>(
+        {
+          ok: false,
+          error: 'forbidden',
+          message: 'This shop does not offer the Instagram upsize.',
+        },
+        { status: 403 },
       );
     }
 
@@ -90,7 +142,7 @@ export async function POST(
       );
     }
 
-    const issued = await issueRedeemToken(user.id, TENANT_ONE_ID, { kind: 'instagram-upsize' });
+    const issued = await issueRedeemToken(user.id, tenant.id, { kind: 'instagram-upsize' });
 
     return NextResponse.json<ApiResponse<IssuedRedeemToken>>(
       {

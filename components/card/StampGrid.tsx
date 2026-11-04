@@ -10,6 +10,12 @@ export interface StampGridProps {
    * because the `?r=stamped` param is stripped after the first render.
    */
   justStampedSlot?: number | null;
+  /** Stamps needed for the reward (the shop's setting); defaults to the platform rule. */
+  rewardThreshold?: number;
+  /** Reward name printed on the last slot; defaults to the original shop's reward. */
+  rewardLabel?: string;
+  /** Slot printed "50% OFF"; null for shops without a milestone. Defaults to the platform rule. */
+  milestoneStep?: number | null;
 }
 
 /**
@@ -30,15 +36,21 @@ const BEAN_PATHS = [
   [-44, -2, -100],
 ] as const;
 
-function getSlotAriaLabel(slot: number, isFilled: boolean): string {
+function getSlotAriaLabel(
+  slot: number,
+  isFilled: boolean,
+  rewardThreshold: number,
+  rewardLabel: string,
+  milestoneStep: number | null,
+): string {
   const status = isFilled ? 'filled' : 'empty';
-  if (slot === STAMP_RULES.milestoneStep) {
-    return `Stamp 5 of 10, ${status} (50% off milestone)`;
+  if (slot === milestoneStep && slot !== rewardThreshold) {
+    return `Stamp ${slot} of ${rewardThreshold}, ${status} (50% off milestone)`;
   }
-  if (slot === STAMP_RULES.rewardThreshold) {
-    return `Stamp 10 of 10, ${status} (Free Coffee reward)`;
+  if (slot === rewardThreshold) {
+    return `Stamp ${slot} of ${rewardThreshold}, ${status} (${rewardLabel} reward)`;
   }
-  return `Stamp ${slot} of 10, ${status}`;
+  return `Stamp ${slot} of ${rewardThreshold}, ${status}`;
 }
 
 /** Takeaway cup with a coffee bean on the sleeve, matching the printed loyalty card. */
@@ -64,9 +76,14 @@ function CupIcon({ className }: { className: string }) {
 }
 
 /** Printed text for the two reward slots, as on the physical card. */
-function rewardSlotText(slot: number): string | null {
-  if (slot === STAMP_RULES.milestoneStep) return '50% OFF';
-  if (slot === STAMP_RULES.rewardThreshold) return 'FREE COFFEE';
+function rewardSlotText(
+  slot: number,
+  rewardThreshold: number,
+  rewardLabel: string,
+  milestoneStep: number | null,
+): string | null {
+  if (slot === milestoneStep && slot !== rewardThreshold) return '50% OFF';
+  if (slot === rewardThreshold) return rewardLabel.toUpperCase();
   return null;
 }
 
@@ -74,9 +91,15 @@ function rewardSlotText(slot: number): string | null {
  * Accessible 10-slot stamp card laid out like the printed Caffeine Plug card:
  * two rows of four cups, each row ending in a dashed reward circle.
  */
-export function StampGrid({ availableStamps, justStampedSlot = null }: StampGridProps) {
-  const progress = calculateStampProgress(availableStamps);
-  const slots = Array.from({ length: STAMP_RULES.rewardThreshold }, (_, index) => index + 1);
+export function StampGrid({
+  availableStamps,
+  justStampedSlot = null,
+  rewardThreshold = STAMP_RULES.rewardThreshold,
+  rewardLabel = 'Free Coffee',
+  milestoneStep = STAMP_RULES.milestoneStep,
+}: StampGridProps) {
+  const progress = calculateStampProgress(availableStamps, rewardThreshold);
+  const slots = Array.from({ length: rewardThreshold }, (_, index) => index + 1);
   const hasJustStamped =
     justStampedSlot !== null && justStampedSlot >= 1 && justStampedSlot <= progress.clampedStamps;
 
@@ -110,12 +133,12 @@ export function StampGrid({ availableStamps, justStampedSlot = null }: StampGrid
         </p>
       </div>
 
-      <ol aria-label="Loyalty stamp grid, 10 slots" className="grid grid-cols-5 gap-2.5">
+      <ol aria-label={`Loyalty stamp grid, ${rewardThreshold} slots`} className="grid grid-cols-5 gap-2.5">
         {slots.map((slot) => {
           const isFilled = slot <= progress.clampedStamps;
           const isJustStamped = hasJustStamped && slot === justStampedSlot;
-          const printedText = rewardSlotText(slot);
-          const tilt = SLOT_TILT_DEG[slot - 1] ?? 0;
+          const printedText = rewardSlotText(slot, rewardThreshold, rewardLabel, milestoneStep);
+          const tilt = SLOT_TILT_DEG[(slot - 1) % SLOT_TILT_DEG.length] ?? 0;
           const stampStyle = {
             '--stamp-tilt': `${tilt}deg`,
             transform: `rotate(${tilt}deg)`,
@@ -124,7 +147,7 @@ export function StampGrid({ availableStamps, justStampedSlot = null }: StampGrid
           return (
             <li
               key={slot}
-              aria-label={getSlotAriaLabel(slot, isFilled)}
+              aria-label={getSlotAriaLabel(slot, isFilled, rewardThreshold, rewardLabel, milestoneStep)}
               className={`relative aspect-square ${isJustStamped ? 'z-10' : ''}`}
             >
               {/* Empty slot, always drawn underneath so a new stamp lands on top of it */}
@@ -170,7 +193,7 @@ export function StampGrid({ availableStamps, justStampedSlot = null }: StampGrid
                 />
               )}
 
-              {isJustStamped && slot === STAMP_RULES.rewardThreshold && (
+              {isJustStamped && slot === rewardThreshold && (
                 <span
                   aria-hidden="true"
                   className="bean-burst absolute inset-0 pointer-events-none flex items-center justify-center"

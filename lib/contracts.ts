@@ -458,6 +458,8 @@ export interface EnsureCustomerResponse {
 
 export interface CustomerCardState {
   customerId: string;
+  /** The shop this card belongs to (Phase 12: one card per shop). */
+  tenant: TenantContext;
   isAnonymous: boolean;
   email?: string | null;
   totalStamps: number;

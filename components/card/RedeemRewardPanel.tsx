@@ -1,11 +1,20 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { ROUTES, type ApiResponse, type IssuedRedeemToken } from '@/lib/contracts';
+import {
+  ROUTES,
+  type ApiResponse,
+  type IssuedRedeemToken,
+  type RedeemTokenRequest,
+} from '@/lib/contracts';
 
 export interface RedeemRewardPanelProps {
   initialToken: IssuedRedeemToken;
   availableStamps: number;
+  /** The shop the reward belongs to; sent when refreshing the QR code. */
+  tenantSlug: string;
+  /** Reward name shown on the panel; defaults to the original shop's reward. */
+  rewardLabel?: string;
 }
 
 function formatCountdown(seconds: number): string {
@@ -21,6 +30,8 @@ function formatCountdown(seconds: number): string {
 export function RedeemRewardPanel({
   initialToken,
   availableStamps: _availableStamps,
+  tenantSlug,
+  rewardLabel = 'Free Coffee',
 }: RedeemRewardPanelProps) {
   const [tokenData, setTokenData] = useState<IssuedRedeemToken>(initialToken);
   const [secondsLeft, setSecondsLeft] = useState<number>(() =>
@@ -68,6 +79,7 @@ export function RedeemRewardPanel({
         headers: {
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({ tenantSlug } satisfies RedeemTokenRequest),
       });
 
       const json = (await response.json()) as ApiResponse<IssuedRedeemToken>;
@@ -110,13 +122,13 @@ export function RedeemRewardPanel({
 
   return (
     <section
-      aria-label="Free Coffee Reward Redemption"
+      aria-label={`${rewardLabel} Reward Redemption`}
       className="w-full mt-6 bg-plug-elevated/90 border-2 border-white rounded-2xl p-5 sm:p-6 shadow-[0_10px_35px_rgba(255,255,255,0.15)] flex flex-col items-center text-center relative overflow-hidden"
     >
       {/* Header Badge */}
       <div className="flex flex-col items-center text-center mb-4">
         <span className="text-[10px] font-mono font-black tracking-widest uppercase px-3 py-1 rounded-full bg-white text-black shadow-[0_0_15px_rgba(255,255,255,0.3)] mb-1.5 animate-pulse">
-          REWARD UNLOCKED • FREE COFFEE
+          {`REWARD UNLOCKED • ${rewardLabel.toUpperCase()}`}
         </span>
         <p className="text-xs font-mono uppercase tracking-wider text-plug-muted">
           Show this QR code to the barista

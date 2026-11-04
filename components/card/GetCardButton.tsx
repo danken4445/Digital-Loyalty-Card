@@ -9,9 +9,11 @@ import { TurnstileWidget } from '@/components/auth/TurnstileWidget';
 export interface GetCardButtonProps {
   mode: 'card' | 'start';
   tagId?: string | null;
+  /** Where to land after signing in when there is no tag claim to follow; defaults to the /card redirector. */
+  returnTo?: string;
 }
 
-export function GetCardButton({ mode, tagId }: GetCardButtonProps) {
+export function GetCardButton({ mode, tagId, returnTo = ROUTES.card }: GetCardButtonProps) {
   const router = useRouter();
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -101,7 +103,7 @@ export function GetCardButton({ mode, tagId }: GetCardButtonProps) {
           }
         }
 
-        router.push(ROUTES.card);
+        router.push(returnTo);
       }
       router.refresh();
     } catch (err: unknown) {

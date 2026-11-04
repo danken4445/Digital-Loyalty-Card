@@ -1,11 +1,16 @@
 import { NextResponse } from 'next/server';
-import { getAuthenticatedCustomerCardState } from '@/lib/auth/customer';
-import { STAMP_RULES } from '@/lib/config';
-import { TENANT_ONE_ID, type ApiResponse, type IssuedRedeemToken } from '@/lib/contracts';
+import { z } from 'zod';
+import { getCustomerCardState } from '@/lib/auth/customer';
+import type { ApiResponse, IssuedRedeemToken, RedeemTokenRequest } from '@/lib/contracts';
 import { verifySameOriginRequest } from '@/lib/security/csrf';
 import { checkPublicEndpointRateLimit, getClientIp } from '@/lib/security/ratelimit';
 import { issueRedeemToken } from '@/lib/security/redeemToken';
 import { getVerifiedUser } from '@/lib/supabase/server';
+import { getTenantBySlug } from '@/lib/tenants/context';
+
+const requestBodySchema = z.object({
+  tenantSlug: z.string().trim().min(1).max(64),
+}) satisfies z.ZodType<RedeemTokenRequest>;
 
 export async function POST(
   request: Request,
@@ -53,7 +58,31 @@ export async function POST(
       );
     }
 
-    const cardState = await getAuthenticatedCustomerCardState();
+    const parsedBody = requestBodySchema.safeParse(await request.json().catch(() => null));
+    if (!parsedBody.success) {
+      return NextResponse.json<ApiResponse<IssuedRedeemToken>>(
+        {
+          ok: false,
+          error: 'invalid_input',
+          message: 'A valid shop is required.',
+        },
+        { status: 400 },
+      );
+    }
+
+    const tenant = await getTenantBySlug(parsedBody.data.tenantSlug);
+    if (!tenant || tenant.status === 'closed') {
+      return NextResponse.json<ApiResponse<IssuedRedeemToken>>(
+        {
+          ok: false,
+          error: 'invalid_input',
+          message: 'A valid shop is required.',
+        },
+        { status: 400 },
+      );
+    }
+
+    const cardState = await getCustomerCardState(tenant);
     if (!cardState) {
       return NextResponse.json<ApiResponse<IssuedRedeemToken>>(
         {
@@ -65,18 +94,30 @@ export async function POST(
       );
     }
 
-    if (cardState.availableStamps < STAMP_RULES.rewardThreshold) {
+    if (cardState === 'no-card') {
       return NextResponse.json<ApiResponse<IssuedRedeemToken>>(
         {
           ok: false,
           error: 'forbidden',
-          message: 'At least 10 stamps are required to redeem a reward.',
+          message: 'Add this shop to your wallet first.',
         },
         { status: 403 },
       );
     }
 
-    const issued = await issueRedeemToken(user.id, TENANT_ONE_ID);
+    const { rewardThreshold } = tenant.settings;
+    if (cardState.availableStamps < rewardThreshold) {
+      return NextResponse.json<ApiResponse<IssuedRedeemToken>>(
+        {
+          ok: false,
+          error: 'forbidden',
+          message: `At least ${rewardThreshold} stamps are required to redeem a reward.`,
+        },
+        { status: 403 },
+      );
+    }
+
+    const issued = await issueRedeemToken(user.id, tenant.id);
 
     return NextResponse.json<ApiResponse<IssuedRedeemToken>>(
       {

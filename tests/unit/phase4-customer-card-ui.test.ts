@@ -22,6 +22,13 @@ vi.mock('next/navigation', () => ({
     push: vi.fn(),
     refresh: vi.fn(),
   }),
+  notFound: vi.fn(() => {
+    throw new Error('NEXT_NOT_FOUND');
+  }),
+}));
+
+vi.mock('@/lib/tenants/context', () => ({
+  getTenantBySlug: vi.fn(),
 }));
 
 // Mock server auth and customer state for route and page testing
@@ -31,7 +38,8 @@ vi.mock('@/lib/supabase/server', () => ({
 }));
 
 vi.mock('@/lib/auth/customer', () => ({
-  getAuthenticatedCustomerCardState: vi.fn(),
+  getCustomerCardState: vi.fn(),
+  listWalletCards: vi.fn(),
   ensureCustomerRecord: vi.fn(),
 }));
 
@@ -52,19 +60,44 @@ vi.mock('@/lib/security/ratelimit', () => ({
 import { deriveDisplayCode, issueRedeemToken, verifyRedeemToken } from '@/lib/security/redeemToken';
 import { POST } from '@/app/api/redeem-token/route';
 import { getVerifiedUser } from '@/lib/supabase/server';
-import { getAuthenticatedCustomerCardState } from '@/lib/auth/customer';
+import { getCustomerCardState } from '@/lib/auth/customer';
+import { getTenantBySlug } from '@/lib/tenants/context';
 import { checkPublicEndpointRateLimit } from '@/lib/security/ratelimit';
-import { STAMP_RESULT_CODES, TENANT_ONE_ID, type CustomerCardState } from '@/lib/contracts';
+import {
+  STAMP_RESULT_CODES,
+  TENANT_ONE_ID,
+  type CustomerCardState,
+  type TenantContext,
+} from '@/lib/contracts';
 import { StampGrid } from '@/components/card/StampGrid';
 import { RedeemRewardPanel } from '@/components/card/RedeemRewardPanel';
 import { StripResultParam } from '@/components/card/StripResultParam';
-import CardPage from '@/app/card/page';
+import ShopPage from '@/app/s/[slug]/page';
 import CardLoading from '@/app/card/loading';
 import CardError from '@/app/card/error';
 
 const TEST_SECRET = 'a'.repeat(32); // 32 characters minimum
 const TEST_CUSTOMER_ID = '11111111-1111-1111-1111-111111111111';
 const TEST_CUSTOMER_ID_2 = '22222222-2222-2222-2222-222222222222';
+
+const TEST_TENANT: TenantContext = {
+  id: TENANT_ONE_ID,
+  slug: 'caffeine-plug',
+  name: 'The Caffeine Plug',
+  status: 'active',
+  settings: {
+    cooldownMinutes: 30,
+    dailyCap: 2,
+    rewardThreshold: 10,
+    tagThrottleSeconds: 5,
+    timezone: 'Asia/Manila',
+    currency: 'PHP',
+    rewardLabel: 'Free Coffee',
+    brand: {},
+    perks: {},
+  },
+};
+const SHOP_PARAMS = Promise.resolve({ slug: 'caffeine-plug' });
 
 const mockRateLimitAllowed = {
   allowed: true,
@@ -85,6 +118,7 @@ describe('Phase 4 Customer Card UI & Signed Redemption Token Test Suite', () => 
     vi.clearAllMocks();
     process.env.REDEEM_TOKEN_SECRET = TEST_SECRET;
     vi.mocked(checkPublicEndpointRateLimit).mockResolvedValue(mockRateLimitAllowed);
+    vi.mocked(getTenantBySlug).mockResolvedValue(TEST_TENANT);
   });
 
   afterEach(() => {
@@ -385,7 +419,9 @@ describe('Phase 4 Customer Card UI & Signed Redemption Token Test Suite', () => 
         method: 'POST',
         headers: {
           'x-forwarded-for': '192.168.1.100',
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify({ tenantSlug: 'caffeine-plug' }),
       });
 
     it('returns 401 unauthenticated when getVerifiedUser() returns null', async () => {
@@ -425,7 +461,7 @@ describe('Phase 4 Customer Card UI & Signed Redemption Token Test Suite', () => 
         id: TEST_CUSTOMER_ID,
       } as any);
 
-      vi.mocked(getAuthenticatedCustomerCardState).mockResolvedValue(null);
+      vi.mocked(getCustomerCardState).mockResolvedValue(null);
 
       const res = await POST(makeRequest());
       expect(res.status).toBe(401);
@@ -445,13 +481,14 @@ describe('Phase 4 Customer Card UI & Signed Redemption Token Test Suite', () => 
 
       const cardState: CustomerCardState = {
         customerId: TEST_CUSTOMER_ID,
+        tenant: TEST_TENANT,
         isAnonymous: true,
         totalStamps: 0,
         stampsRedeemed: 0,
         availableStamps: 0,
         lastStampedAt: null,
       };
-      vi.mocked(getAuthenticatedCustomerCardState).mockResolvedValue(cardState);
+      vi.mocked(getCustomerCardState).mockResolvedValue(cardState);
 
       const res = await POST(makeRequest());
       expect(res.status).toBe(403);
@@ -471,13 +508,14 @@ describe('Phase 4 Customer Card UI & Signed Redemption Token Test Suite', () => 
 
       const cardState: CustomerCardState = {
         customerId: TEST_CUSTOMER_ID,
+        tenant: TEST_TENANT,
         isAnonymous: true,
         totalStamps: 9,
         stampsRedeemed: 0,
         availableStamps: 9,
         lastStampedAt: new Date().toISOString(),
       };
-      vi.mocked(getAuthenticatedCustomerCardState).mockResolvedValue(cardState);
+      vi.mocked(getCustomerCardState).mockResolvedValue(cardState);
 
       const res = await POST(makeRequest());
       expect(res.status).toBe(403);
@@ -497,13 +535,14 @@ describe('Phase 4 Customer Card UI & Signed Redemption Token Test Suite', () => 
 
       const cardState: CustomerCardState = {
         customerId: TEST_CUSTOMER_ID,
+        tenant: TEST_TENANT,
         isAnonymous: true,
         totalStamps: 10,
         stampsRedeemed: 0,
         availableStamps: 10,
         lastStampedAt: new Date().toISOString(),
       };
-      vi.mocked(getAuthenticatedCustomerCardState).mockResolvedValue(cardState);
+      vi.mocked(getCustomerCardState).mockResolvedValue(cardState);
 
       const res = await POST(makeRequest());
       expect(res.status).toBe(200);
@@ -532,13 +571,14 @@ describe('Phase 4 Customer Card UI & Signed Redemption Token Test Suite', () => 
 
       const cardState: CustomerCardState = {
         customerId: TEST_CUSTOMER_ID,
+        tenant: TEST_TENANT,
         isAnonymous: false,
         totalStamps: 12,
         stampsRedeemed: 0,
         availableStamps: 12,
         lastStampedAt: new Date().toISOString(),
       };
-      vi.mocked(getAuthenticatedCustomerCardState).mockResolvedValue(cardState);
+      vi.mocked(getCustomerCardState).mockResolvedValue(cardState);
 
       const res = await POST(makeRequest());
       expect(res.status).toBe(200);
@@ -556,7 +596,7 @@ describe('Phase 4 Customer Card UI & Signed Redemption Token Test Suite', () => 
         id: TEST_CUSTOMER_ID,
       } as any);
 
-      vi.mocked(getAuthenticatedCustomerCardState).mockRejectedValue(
+      vi.mocked(getCustomerCardState).mockRejectedValue(
         new Error('Sensitive database connection failed with credentials in trace'),
       );
 
@@ -663,6 +703,7 @@ describe('Phase 4 Customer Card UI & Signed Redemption Token Test Suite', () => 
           React.createElement(RedeemRewardPanel, {
             initialToken: token,
             availableStamps: 10,
+            tenantSlug: 'caffeine-plug',
           }),
         );
 
@@ -688,6 +729,7 @@ describe('Phase 4 Customer Card UI & Signed Redemption Token Test Suite', () => 
           React.createElement(RedeemRewardPanel, {
             initialToken: expiredToken,
             availableStamps: 10,
+            tenantSlug: 'caffeine-plug',
           }),
         );
 
@@ -793,16 +835,17 @@ describe('Phase 4 Customer Card UI & Signed Redemption Token Test Suite', () => 
       });
     });
 
-    describe('CardPage Server Component (app/card/page.tsx)', () => {
-      it('renders no-session onboarding view when getAuthenticatedCustomerCardState() returns null', async () => {
-        vi.mocked(getAuthenticatedCustomerCardState).mockResolvedValue(null);
+    describe('ShopPage Server Component (app/s/[slug]/page.tsx)', () => {
+      it('renders no-session onboarding view when getCustomerCardState() returns null', async () => {
+        vi.mocked(getCustomerCardState).mockResolvedValue(null);
 
-        const pageElement = await CardPage({
+        const pageElement = await ShopPage({
+          params: SHOP_PARAMS,
           searchParams: Promise.resolve({}),
         });
         const html = renderToStaticMarkup(pageElement);
 
-        expect(html).toContain('Get your loyalty card');
+        expect(html).toContain('Get your The Caffeine Plug card');
         expect(html).toContain('No app download. No form.');
         expect(html).toContain('GET MY CARD');
         expect(html).not.toContain('ACTIVE WALLET');
@@ -811,15 +854,17 @@ describe('Phase 4 Customer Card UI & Signed Redemption Token Test Suite', () => 
       it('renders active customer card view with 5 stamps without redemption panel', async () => {
         const cardState: CustomerCardState = {
           customerId: TEST_CUSTOMER_ID,
+          tenant: TEST_TENANT,
           isAnonymous: true,
           totalStamps: 5,
           stampsRedeemed: 0,
           availableStamps: 5,
           lastStampedAt: '2026-11-01T12:00:00.000Z',
         };
-        vi.mocked(getAuthenticatedCustomerCardState).mockResolvedValue(cardState);
+        vi.mocked(getCustomerCardState).mockResolvedValue(cardState);
 
-        const pageElement = await CardPage({
+        const pageElement = await ShopPage({
+          params: SHOP_PARAMS,
           searchParams: Promise.resolve({}),
         });
         const html = renderToStaticMarkup(pageElement);
@@ -838,6 +883,7 @@ describe('Phase 4 Customer Card UI & Signed Redemption Token Test Suite', () => 
       it('renders active customer card view with 10 stamps including reward redemption panel and completed cards counter', async () => {
         const cardState: CustomerCardState = {
           customerId: TEST_CUSTOMER_ID,
+          tenant: TEST_TENANT,
           isAnonymous: false,
           totalStamps: 10,
           stampsRedeemed: 0,
@@ -845,9 +891,10 @@ describe('Phase 4 Customer Card UI & Signed Redemption Token Test Suite', () => 
           lastStampedAt: '2026-11-01T12:00:00.000Z',
           createdAt: '2026-10-15T08:00:00.000Z',
         };
-        vi.mocked(getAuthenticatedCustomerCardState).mockResolvedValue(cardState);
+        vi.mocked(getCustomerCardState).mockResolvedValue(cardState);
 
-        const pageElement = await CardPage({
+        const pageElement = await ShopPage({
+          params: SHOP_PARAMS,
           searchParams: Promise.resolve({}),
         });
         const html = renderToStaticMarkup(pageElement);
@@ -865,6 +912,7 @@ describe('Phase 4 Customer Card UI & Signed Redemption Token Test Suite', () => 
       it('displays joined date and lifetime card completion counter accurately for multi-card customer', async () => {
         const cardState: CustomerCardState = {
           customerId: TEST_CUSTOMER_ID,
+          tenant: TEST_TENANT,
           isAnonymous: false,
           totalStamps: 25,
           stampsRedeemed: 20,
@@ -873,9 +921,10 @@ describe('Phase 4 Customer Card UI & Signed Redemption Token Test Suite', () => 
           createdAt: '2026-08-01T04:00:00.000Z',
           cardsCompleted: 2,
         };
-        vi.mocked(getAuthenticatedCustomerCardState).mockResolvedValue(cardState);
+        vi.mocked(getCustomerCardState).mockResolvedValue(cardState);
 
-        const pageElement = await CardPage({
+        const pageElement = await ShopPage({
+          params: SHOP_PARAMS,
           searchParams: Promise.resolve({}),
         });
         const html = renderToStaticMarkup(pageElement);
@@ -891,15 +940,17 @@ describe('Phase 4 Customer Card UI & Signed Redemption Token Test Suite', () => 
       it('renders StripResultParam banner when ?r=stamped is passed in searchParams', async () => {
         const cardState: CustomerCardState = {
           customerId: TEST_CUSTOMER_ID,
+          tenant: TEST_TENANT,
           isAnonymous: true,
           totalStamps: 1,
           stampsRedeemed: 0,
           availableStamps: 1,
           lastStampedAt: '2026-11-01T12:00:00.000Z',
         };
-        vi.mocked(getAuthenticatedCustomerCardState).mockResolvedValue(cardState);
+        vi.mocked(getCustomerCardState).mockResolvedValue(cardState);
 
-        const pageElement = await CardPage({
+        const pageElement = await ShopPage({
+          params: SHOP_PARAMS,
           searchParams: Promise.resolve({ r: 'stamped' }),
         });
         const html = renderToStaticMarkup(pageElement);
@@ -911,15 +962,17 @@ describe('Phase 4 Customer Card UI & Signed Redemption Token Test Suite', () => 
       it('renders StripResultParam banner when ?result=cooldown is passed in searchParams', async () => {
         const cardState: CustomerCardState = {
           customerId: TEST_CUSTOMER_ID,
+          tenant: TEST_TENANT,
           isAnonymous: true,
           totalStamps: 1,
           stampsRedeemed: 0,
           availableStamps: 1,
           lastStampedAt: '2026-11-01T12:00:00.000Z',
         };
-        vi.mocked(getAuthenticatedCustomerCardState).mockResolvedValue(cardState);
+        vi.mocked(getCustomerCardState).mockResolvedValue(cardState);
 
-        const pageElement = await CardPage({
+        const pageElement = await ShopPage({
+          params: SHOP_PARAMS,
           searchParams: Promise.resolve({ result: 'cooldown' }),
         });
         const html = renderToStaticMarkup(pageElement);

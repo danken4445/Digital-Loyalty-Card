@@ -26,6 +26,13 @@ vi.mock('next/navigation', () => ({
     push: vi.fn(),
     refresh: vi.fn(),
   }),
+  notFound: vi.fn(() => {
+    throw new Error('NEXT_NOT_FOUND');
+  }),
+}));
+
+vi.mock('@/lib/tenants/context', () => ({
+  getTenantBySlug: vi.fn(),
 }));
 
 // In-memory cookie store for next/headers
@@ -132,7 +139,8 @@ vi.mock('@/lib/supabase/admin', () => ({
 // Mock customer helper functions
 vi.mock('@/lib/auth/customer', () => ({
   ensureCustomerRecord: vi.fn().mockResolvedValue('ensured-customer-id'),
-  getAuthenticatedCustomerCardState: vi.fn(),
+  getCustomerCardState: vi.fn(),
+  listWalletCards: vi.fn(),
 }));
 
 // Import modules under test
@@ -141,12 +149,56 @@ import { POST as mergeIntentPost } from '@/app/api/customers/merge-intent/route'
 import { POST as mergePost } from '@/app/api/customers/merge/route';
 import { GET as authCallbackGet } from '@/app/auth/callback/route';
 import { BackupCardPanel } from '@/components/card/BackupCardPanel';
-import CardPage from '@/app/card/page';
+import ShopPage from '@/app/s/[slug]/page';
 
 import { getVerifiedUser } from '@/lib/supabase/server';
 import { checkPublicEndpointRateLimit } from '@/lib/security/ratelimit';
-import { ensureCustomerRecord, getAuthenticatedCustomerCardState } from '@/lib/auth/customer';
-import { MERGE_INTENT_COOKIE_NAME, ROUTES, type CustomerCardState } from '@/lib/contracts';
+import { ensureCustomerRecord, getCustomerCardState, listWalletCards } from '@/lib/auth/customer';
+import { getTenantBySlug } from '@/lib/tenants/context';
+import {
+  MERGE_INTENT_COOKIE_NAME,
+  ROUTES,
+  TENANT_ONE_ID,
+  type CustomerCardState,
+  type TenantContext,
+  type WalletCardSummary,
+} from '@/lib/contracts';
+
+const TEST_TENANT: TenantContext = {
+  id: TENANT_ONE_ID,
+  slug: 'caffeine-plug',
+  name: 'The Caffeine Plug',
+  status: 'active',
+  settings: {
+    cooldownMinutes: 30,
+    dailyCap: 2,
+    rewardThreshold: 10,
+    tagThrottleSeconds: 5,
+    timezone: 'Asia/Manila',
+    currency: 'PHP',
+    rewardLabel: 'Free Coffee',
+    brand: {},
+    perks: {},
+  },
+};
+const SHOP_PARAMS = Promise.resolve({ slug: 'caffeine-plug' });
+
+function walletOf(availableStamps: number, totalStamps: number): WalletCardSummary[] {
+  return [
+    {
+      tenantId: TENANT_ONE_ID,
+      tenantSlug: 'caffeine-plug',
+      tenantName: 'The Caffeine Plug',
+      brand: {},
+      rewardThreshold: 10,
+      rewardLabel: 'Free Coffee',
+      availableStamps,
+      totalStamps,
+      lastStampedAt: null,
+      addedAt: '2026-10-15T08:00:00.000Z',
+    },
+  ];
+}
 
 const TEST_SOURCE_CUSTOMER_ID = '11111111-1111-1111-1111-111111111111';
 const TEST_TARGET_CUSTOMER_ID = '22222222-2222-2222-2222-222222222222';
@@ -157,6 +209,7 @@ describe('Phase 6: Customer Backup, Recovery & Merge Test Suite', () => {
     process.env.REDEEM_TOKEN_SECRET = TEST_SECRET;
     mockCookieMap.clear();
     tableQueryHandlers = {};
+    vi.mocked(getTenantBySlug).mockResolvedValue(TEST_TENANT);
 
     vi.mocked(checkPublicEndpointRateLimit).mockResolvedValue({
       allowed: true,
@@ -769,15 +822,7 @@ describe('Phase 6: Customer Backup, Recovery & Merge Test Suite', () => {
         return { data: null, error: null };
       });
 
-      vi.mocked(getAuthenticatedCustomerCardState).mockResolvedValue({
-        customerId: TEST_TARGET_CUSTOMER_ID,
-        isAnonymous: false,
-        email: 'target@gmail.com',
-        availableStamps: 7,
-        totalStamps: 7,
-        stampsRedeemed: 0,
-        lastStampedAt: null,
-      });
+      vi.mocked(listWalletCards).mockResolvedValue(walletOf(7, 7));
 
       const request = new Request('http://localhost:3000/api/customers/merge', {
         method: 'POST',
@@ -815,15 +860,7 @@ describe('Phase 6: Customer Backup, Recovery & Merge Test Suite', () => {
 
       tableQueryHandlers['audit_log'] = () => createMockSupabaseQuery(null, null);
 
-      vi.mocked(getAuthenticatedCustomerCardState).mockResolvedValue({
-        customerId: TEST_TARGET_CUSTOMER_ID,
-        isAnonymous: false,
-        email: 'target@gmail.com',
-        availableStamps: 5,
-        totalStamps: 5,
-        stampsRedeemed: 0,
-        lastStampedAt: null,
-      });
+      vi.mocked(listWalletCards).mockResolvedValue(walletOf(5, 5));
 
       const request = new Request('http://localhost:3000/api/customers/merge', {
         method: 'POST',
@@ -856,14 +893,7 @@ describe('Phase 6: Customer Backup, Recovery & Merge Test Suite', () => {
         return { data: null, error: null };
       });
 
-      vi.mocked(getAuthenticatedCustomerCardState).mockResolvedValue({
-        customerId: TEST_SOURCE_CUSTOMER_ID,
-        isAnonymous: false,
-        availableStamps: 3,
-        totalStamps: 3,
-        stampsRedeemed: 0,
-        lastStampedAt: null,
-      });
+      vi.mocked(listWalletCards).mockResolvedValue(walletOf(3, 3));
 
       const request = new Request('http://localhost:3000/api/customers/merge', {
         method: 'POST',
@@ -1150,16 +1180,16 @@ describe('Phase 6: Customer Backup, Recovery & Merge Test Suite', () => {
       });
     });
 
-    describe('app/card/page.tsx Integration', () => {
+    describe('app/s/[slug]/page.tsx Integration', () => {
       it('renders onboarding view with GetCardButton when cardState is null (unauthenticated)', async () => {
-        vi.mocked(getAuthenticatedCustomerCardState).mockResolvedValue(null);
+        vi.mocked(getCustomerCardState).mockResolvedValue(null);
 
-        const pageElement = await CardPage({ searchParams: Promise.resolve({}) });
+        const pageElement = await ShopPage({ params: SHOP_PARAMS, searchParams: Promise.resolve({}) });
         const html = renderToStaticMarkup(pageElement);
 
-        expect(html).toContain('Get your loyalty card');
+        expect(html).toContain('Get your The Caffeine Plug card');
         expect(html).toContain('No app download. No form. Instant digital stamp card.');
-        expect(html).toContain('Collect 10 stamps for a free coffee');
+        expect(html).toContain('Collect 10 stamps');
 
         // BackupCardPanel is not rendered on onboarding screen
         expect(html).not.toContain('CARD BACKED UP • PROTECTED');
@@ -1169,6 +1199,7 @@ describe('Phase 6: Customer Backup, Recovery & Merge Test Suite', () => {
       it('renders active anonymous pass view with ANONYMOUS PASS badge and BackupCardPanel in anonymous mode', async () => {
         const mockAnonymousCard: CustomerCardState = {
           customerId: TEST_SOURCE_CUSTOMER_ID,
+          tenant: TEST_TENANT,
           isAnonymous: true,
           email: null,
           availableStamps: 4,
@@ -1177,9 +1208,9 @@ describe('Phase 6: Customer Backup, Recovery & Merge Test Suite', () => {
           lastStampedAt: '2026-11-02T02:00:00.000Z',
         };
 
-        vi.mocked(getAuthenticatedCustomerCardState).mockResolvedValue(mockAnonymousCard);
+        vi.mocked(getCustomerCardState).mockResolvedValue(mockAnonymousCard);
 
-        const pageElement = await CardPage({ searchParams: Promise.resolve({}) });
+        const pageElement = await ShopPage({ params: SHOP_PARAMS, searchParams: Promise.resolve({}) });
         const html = renderToStaticMarkup(pageElement);
 
         expect(html).toContain('ACTIVE WALLET');
@@ -1193,6 +1224,7 @@ describe('Phase 6: Customer Backup, Recovery & Merge Test Suite', () => {
       it('renders active backed up pass view with BACKED UP PASS badge and BackupCardPanel with protected status', async () => {
         const mockBackedUpCard: CustomerCardState = {
           customerId: TEST_TARGET_CUSTOMER_ID,
+          tenant: TEST_TENANT,
           isAnonymous: false,
           email: 'saved.user@gmail.com',
           availableStamps: 8,
@@ -1201,9 +1233,9 @@ describe('Phase 6: Customer Backup, Recovery & Merge Test Suite', () => {
           lastStampedAt: '2026-11-02T03:00:00.000Z',
         };
 
-        vi.mocked(getAuthenticatedCustomerCardState).mockResolvedValue(mockBackedUpCard);
+        vi.mocked(getCustomerCardState).mockResolvedValue(mockBackedUpCard);
 
-        const pageElement = await CardPage({ searchParams: Promise.resolve({}) });
+        const pageElement = await ShopPage({ params: SHOP_PARAMS, searchParams: Promise.resolve({}) });
         const html = renderToStaticMarkup(pageElement);
 
         expect(html).toContain('ACTIVE WALLET');
