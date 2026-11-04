@@ -88,20 +88,15 @@ export async function enforceConsolePageAccess(
   minRole: StaffRole = 'staff',
   nextPath?: string,
 ): Promise<{ staff: StaffSession; tenantId: string }> {
-  const auth = await requireStaffSession();
-  if (!auth.authorized) {
-    if (auth.reason === 'forbidden') {
-      redirect(`${ROUTES.staff.login}?error=forbidden`);
-    }
-    redirect(
-      `${ROUTES.staff.login}?next=${encodeURIComponent(nextPath ?? ROUTES.staff.settings(slug))}`,
-    );
-  }
-
   try {
     return await requireConsoleAccess(slug, minRole);
   } catch (err: unknown) {
-    if (err instanceof ConsoleAccessError && err.status === 403) {
+    if (err instanceof ConsoleAccessError) {
+      if (err.status === 401) {
+        redirect(
+          `${ROUTES.staff.login}?next=${encodeURIComponent(nextPath ?? ROUTES.staff.settings(slug))}`,
+        );
+      }
       redirect(`${ROUTES.staff.login}?error=forbidden`);
     }
     throw err;

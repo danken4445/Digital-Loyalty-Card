@@ -364,6 +364,34 @@ describe('Phase 14 Task 7: Branding, Tags Tab, CSV Export, Locations', () => {
     expect(validRes.status).toBe(200);
     const validBody = await validRes.json();
     expect(validBody.ok).toBe(true);
+
+    // Accept partial brand patch (only primaryColor) without overwriting other fields
+    mockAdminClient.rpc.mockResolvedValueOnce({ data: 'updated', error: null });
+    const partialReq = new Request('http://localhost:3000/api/staff/shop-a/brand', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json', origin: 'http://localhost:3000' },
+      body: JSON.stringify({
+        primaryColor: '#123456',
+      }),
+    });
+    const partialRes = await brandPatch(partialReq, { params: Promise.resolve({ slug: 'shop-a' }) });
+    expect(partialRes.status).toBe(200);
+    expect(mockAdminClient.rpc).toHaveBeenLastCalledWith('update_tenant_brand', {
+      p_actor: expect.any(String),
+      p_tenant: expect.any(String),
+      p_brand: {
+        primaryColor: '#123456',
+      },
+    });
+
+    // Reject empty brand patch
+    const emptyReq = new Request('http://localhost:3000/api/staff/shop-a/brand', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json', origin: 'http://localhost:3000' },
+      body: JSON.stringify({}),
+    });
+    const emptyRes = await brandPatch(emptyReq, { params: Promise.resolve({ slug: 'shop-a' }) });
+    expect(emptyRes.status).toBe(400);
   });
 
   // 5. brand_preview_flags_failed_contrast

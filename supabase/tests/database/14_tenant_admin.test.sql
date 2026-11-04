@@ -11,7 +11,7 @@ set search_path to extensions, public;
 grant usage on schema extensions to anon, authenticated, service_role;
 grant execute on all functions in schema extensions to anon, authenticated, service_role;
 
-select plan(60);
+select plan(65);
 
 -- ------------------------------------------------------------------------------
 -- Fixtures
@@ -611,6 +611,41 @@ select is(
     ),
     'updated',
     'brand_rejects_bad_color_and_foreign_url: valid brand accepted'
+);
+
+-- Partial brand update preserves omitted existing fields
+select is(
+    public.update_tenant_brand(
+        '14000000-0000-4000-8000-000000000002',
+        '14111111-0000-4000-8000-000000000001',
+        '{"primaryColor": "#abcdef"}'::jsonb
+    ),
+    'updated',
+    'brand_partial_update: partial update with only primaryColor succeeds'
+);
+
+select is(
+    (select brand->>'primaryColor' from public.tenant_settings where tenant_id = '14111111-0000-4000-8000-000000000001'),
+    '#abcdef',
+    'brand_partial_update: primaryColor updated'
+);
+
+select is(
+    (select brand->>'accentColor' from public.tenant_settings where tenant_id = '14111111-0000-4000-8000-000000000001'),
+    '#ffffff',
+    'brand_partial_update: accentColor preserved'
+);
+
+select is(
+    (select brand->>'tagline' from public.tenant_settings where tenant_id = '14111111-0000-4000-8000-000000000001'),
+    'Best Coffee',
+    'brand_partial_update: tagline preserved'
+);
+
+select is(
+    (select brand->>'logoUrl' from public.tenant_settings where tenant_id = '14111111-0000-4000-8000-000000000001'),
+    '/images/logo.png',
+    'brand_partial_update: logoUrl preserved'
 );
 
 -- ------------------------------------------------------------------------------

@@ -213,6 +213,7 @@ describe('Phase 14 Minors & Suspended-Shop UX (Task 9)', () => {
       expect(signedOutHtml.toLowerCase()).toContain('paused');
       // Must not render active get-card button link/button in unpaused form
       expect(signedOutHtml).not.toContain('GetCardButton');
+      expect(signedOutHtml).toContain('Existing cardholders can still redeem earned rewards.');
 
       // (b) Signed in user without card at suspended shop
       vi.mocked(getCustomerCardState).mockResolvedValue('no-card');
@@ -312,6 +313,25 @@ describe('Phase 14 Minors & Suspended-Shop UX (Task 9)', () => {
       expect(html.toLowerCase()).toContain('redemption');
       expect(html.toLowerCase()).toContain('closed');
       expect(issueRedeemToken).not.toHaveBeenCalled();
+    });
+
+    it('signed-out visitor onboarding view displays closed message without existing cardholder redemption copy when expired', async () => {
+      const expiredSuspendedTenant = makeTenant({
+        status: 'suspended',
+        suspendedAt: new Date(Date.now() - 31 * 24 * 60 * 60 * 1000).toISOString(),
+      });
+      vi.mocked(getTenantBySlug).mockResolvedValue(expiredSuspendedTenant);
+      vi.mocked(getCustomerCardState).mockResolvedValue(null);
+
+      const html = renderToStaticMarkup(
+        await ShopPage({
+          params: Promise.resolve({ slug: 'tokyo-roast' }),
+          searchParams: Promise.resolve({}),
+        }),
+      );
+
+      expect(html).toContain('This shop is temporarily paused and reward redemption has closed.');
+      expect(html).not.toContain('Existing cardholders can still redeem earned rewards.');
     });
   });
 

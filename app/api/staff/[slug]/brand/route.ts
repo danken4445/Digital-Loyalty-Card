@@ -212,6 +212,17 @@ export async function PATCH(
     cleanBrand.cardArtUrl = validatedCardArtUrl || undefined;
   }
 
+  if (Object.keys(cleanBrand).length === 0) {
+    return NextResponse.json<ApiResponse<string>>(
+      {
+        ok: false,
+        error: 'invalid_input',
+        message: 'At least one brand setting must be provided.',
+      },
+      { status: 400, headers: NO_STORE_HEADERS },
+    );
+  }
+
   const admin = createSupabaseAdminClient();
   const { data: rpcResult, error: rpcErr } = await admin.rpc('update_tenant_brand', {
     p_actor: staff.userId,

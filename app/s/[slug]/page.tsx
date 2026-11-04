@@ -90,10 +90,14 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
           originalShop={tenant.id === TENANT_ONE_ID}
           instagramHandle={instagramHandle ?? null}
           theme={theme}
-          lines={[
-            'This shop is temporarily paused and is not currently issuing new stamp cards.',
-            'Existing cardholders can still redeem earned rewards.',
-          ]}
+          lines={
+            isExpired
+              ? ['This shop is temporarily paused and reward redemption has closed.']
+              : [
+                  'This shop is temporarily paused and is not currently issuing new stamp cards.',
+                  'Existing cardholders can still redeem earned rewards.',
+                ]
+          }
           notice={
             <div
               role="status"

@@ -98,7 +98,7 @@ vi.mock('@/lib/supabase/admin', () => ({
 }));
 
 // Import modules under test
-import { requireConsoleAccess } from '@/lib/console/guard';
+import { requireConsoleAccess, enforceConsolePageAccess } from '@/lib/console/guard';
 import { PATCH as rulesPatch } from '@/app/api/staff/[slug]/rules/route';
 import { POST as rulesPreviewPost } from '@/app/api/staff/[slug]/rules/preview/route';
 import { POST as invitesPost } from '@/app/api/staff/[slug]/invites/route';
@@ -497,5 +497,34 @@ describe('Phase 14 Task 6: Owner Console Shell, Rules, Staff, Invites', () => {
     expect(body.ok).toBe(false);
     expect(body.error).toBe('internal_error');
     spy.mockRestore();
+  });
+
+  describe('enforceConsolePageAccess streamlined guard', () => {
+    it('returns staff and tenantId when authorized', async () => {
+      setupStandardUserMemberships();
+      const access = await enforceConsolePageAccess('shop-a', 'owner');
+      expect(access.tenantId).toBe(SHOP_A.id);
+      expect(access.staff.role).toBe('owner');
+    });
+
+    it('redirects unauthenticated users to staff login with next param', async () => {
+      verifiedUserMock = null;
+      await expect(enforceConsolePageAccess('shop-a', 'staff')).rejects.toThrow(
+        `NEXT_REDIRECT: ${ROUTES.staff.login}?next=${encodeURIComponent(ROUTES.staff.settings('shop-a'))}`,
+      );
+    });
+
+    it('redirects forbidden users (insufficient role) to staff login with error=forbidden', async () => {
+      setupStandardUserMemberships();
+      // User is only manager in shop-b, requires owner
+      await expect(enforceConsolePageAccess('shop-b', 'owner')).rejects.toThrow(
+        `NEXT_REDIRECT: ${ROUTES.staff.login}?error=forbidden`,
+      );
+    });
+
+    it('throws not found when user has no membership for slug', async () => {
+      setupStandardUserMemberships();
+      await expect(enforceConsolePageAccess('unknown-slug', 'staff')).rejects.toThrow('NEXT_NOT_FOUND');
+    });
   });
 });
