@@ -97,9 +97,11 @@ export function WalletBackupModal({
     );
   }
 
+  // Helper for origin callback URLs. Always carries a query string because the email templates
+  // append `&token_hash=...` to the redirect URL.
   const getCallbackUrl = (): string => {
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    return `${origin}${ROUTES.authCallback}?next=${encodeURIComponent(ROUTES.wallet)}`;
+    return `${origin}${ROUTES.authCallback}?next=${encodeURIComponent(ROUTES.card)}`;
   };
 
   const prepareMergeIntent = async (): Promise<void> => {

@@ -82,10 +82,11 @@ export function BackupCardPanel({
     );
   }
 
-  // Helper for origin callback URLs (omits redundant ?next=/card so exact Redirect URL allowlists match)
+  // Helper for origin callback URLs. Always carries a query string because the email templates
+  // append `&token_hash=...` to the redirect URL.
   const getCallbackUrl = (): string => {
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    return `${origin}${ROUTES.authCallback}`;
+    return `${origin}${ROUTES.authCallback}?next=${encodeURIComponent(ROUTES.card)}`;
   };
 
   // Prepares the server-side signed merge intent cookie before session change

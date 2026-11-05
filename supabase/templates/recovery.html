@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="supported-color-schemes" content="dark" />
+    <title>Reset Your Password — Odyssey Digital Loyalty</title>
+  </head>
+  <body
+    style="
+      margin: 0;
+      padding: 0;
+      background-color: #152839;
+      color: #ffffff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    "
+  >
+    <table
+      role="presentation"
+      width="100%"
+      cellpadding="0"
+      cellspacing="0"
+      border="0"
+      style="background-color: #152839; padding: 32px 16px;"
+    >
+      <tr>
+        <td align="center">
+          <!-- Main Card Container -->
+          <table
+            role="presentation"
+            width="100%"
+            cellpadding="0"
+            cellspacing="0"
+            border="0"
+            style="
+              max-width: 440px;
+              background-color: #0e1b28;
+              border: 1px solid #2a3d51;
+              border-radius: 24px;
+              padding: 32px 24px;
+            "
+          >
+            <!-- Brand Header (Hosted on Supabase Public Storage) -->
+            <tr>
+              <td align="center" style="padding-bottom: 20px;">
+                <img
+                  src="{{ .SiteURL }}/brand/odyssey-monogram-reverse.png"
+                  alt="ODYSSEY"
+                  width="120"
+                  height="59"
+                  style="
+                    display: block;
+                    width: 120px;
+                    height: auto;
+                  "
+                />
+              </td>
+            </tr>
+
+            <!-- Status Pill -->
+            <tr>
+              <td align="center" style="padding-bottom: 16px;">
+                <span
+                  style="
+                    display: inline-block;
+                    background-color: #ff6f07;
+                    color: #152839;
+                    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+                    font-size: 10px;
+                    font-weight: 900;
+                    letter-spacing: 0.14em;
+                    text-transform: uppercase;
+                    padding: 5px 12px;
+                    border-radius: 9999px;
+                  "
+                >
+                  ACCOUNT SECURITY &bull; PASSWORD RESET
+                </span>
+              </td>
+            </tr>
+
+            <!-- Headline -->
+            <tr>
+              <td
+                align="center"
+                style="
+                  font-family: Impact, 'Arial Black', -apple-system, BlinkMacSystemFont, sans-serif;
+                  font-size: 26px;
+                  font-weight: 900;
+                  letter-spacing: 0.06em;
+                  text-transform: uppercase;
+                  color: #ffffff;
+                  padding-bottom: 8px;
+                "
+              >
+                RESET YOUR PASSWORD
+              </td>
+            </tr>
+
+            <!-- Tagline -->
+            <tr>
+              <td
+                align="center"
+                style="
+                  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+                  font-size: 11px;
+                  letter-spacing: 0.1em;
+                  text-transform: uppercase;
+                  color: #a1a1aa;
+                  padding-bottom: 24px;
+                "
+              >
+                NFC DIGITAL LOYALTY CARDS FOR LOCAL SHOPS
+              </td>
+            </tr>
+
+            <!-- Divider -->
+            <tr>
+              <td style="border-top: 1px solid #2a3d51; padding-bottom: 24px;"></td>
+            </tr>
+
+            <!-- Body Copy -->
+            <tr>
+              <td
+                align="center"
+                style="
+                  font-size: 14px;
+                  line-height: 1.6;
+                  color: #d4d4d8;
+                  padding-bottom: 22px;
+                "
+              >
+                Tap the button below to choose a new password for
+                <strong style="color: #ffffff;">{{ .Email }}</strong>
+                The link works once and expires soon.
+              </td>
+            </tr>
+
+            <!-- Primary CTA Button -->
+            <tr>
+              <td align="center" style="padding-bottom: 24px;">
+                <a
+                  href="{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=recovery&next=%2Fauth%2Freset-password"
+                  target="_blank"
+                  style="
+                    display: inline-block;
+                    width: 100%;
+                    box-sizing: border-box;
+                    background-color: #ff6f07;
+                    color: #152839;
+                    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+                    font-size: 13px;
+                    font-weight: 900;
+                    letter-spacing: 0.14em;
+                    text-transform: uppercase;
+                    text-decoration: none;
+                    text-align: center;
+                    padding: 15px 24px;
+                    border-radius: 14px;
+                    border: 2px solid #ff6f07;
+                  "
+                >
+                  SET NEW PASSWORD
+                </a>
+              </td>
+            </tr>
+
+            <!-- Info Box -->
+            <tr>
+              <td
+                style="
+                  background-color: #1b3248;
+                  border: 1px solid #2a3d51;
+                  border-radius: 14px;
+                  padding: 14px 16px;
+                  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+                  font-size: 11px;
+                  line-height: 1.5;
+                  color: #a1a1aa;
+                  text-align: center;
+                "
+              >
+                ODYSSEY
+              </td>
+            </tr>
+
+            <!-- Fallback Link -->
+            <tr>
+              <td
+                align="center"
+                style="
+                  padding-top: 24px;
+                  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+                  font-size: 11px;
+                  line-height: 1.5;
+                  color: #71717a;
+                  word-break: break-all;
+                "
+              >
+                Button not working? Copy and paste this link into your browser:<br />
+                <a
+                  href="{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=recovery&next=%2Fauth%2Freset-password"
+                  style="color: #a1a1aa; text-decoration: underline;"
+                >{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=recovery&next=%2Fauth%2Freset-password</a>
+              </td>
+            </tr>
+
+            <!-- Security Note -->
+            <tr>
+              <td
+                align="center"
+                style="
+                  padding-top: 20px;
+                  font-size: 11px;
+                  line-height: 1.5;
+                  color: #71717a;
+                "
+              >
+                If you didn&rsquo;t request a password reset, you can safely ignore this email.
+              </td>
+            </tr>
+          </table>
+
+          <!-- Footer -->
+          <table
+            role="presentation"
+            width="100%"
+            cellpadding="0"
+            cellspacing="0"
+            border="0"
+            style="max-width: 440px; padding-top: 16px;"
+          >
+            <tr>
+              <td
+                align="center"
+                style="
+                  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+                  font-size: 10px;
+                  letter-spacing: 0.14em;
+                  text-transform: uppercase;
+                  color: #71717a;
+                "
+              >
+                ODYSSEY &bull; NFC DIGITAL LOYALTY CARD
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

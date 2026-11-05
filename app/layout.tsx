@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Space_Grotesk, Oswald } from 'next/font/google';
-import { SHOP_CONFIG } from '@/lib/config';
+import { PLATFORM_CONFIG } from '@/lib/config';
+import { AuthHashHandler } from '@/components/auth/AuthHashHandler';
 import './globals.css';
 
 const spaceGrotesk = Space_Grotesk({
@@ -19,14 +20,14 @@ const oswald = Oswald({
 
 export const metadata: Metadata = {
   title: {
-    default: `${SHOP_CONFIG.name} — Loyalty Card`,
-    template: `%s | ${SHOP_CONFIG.name}`,
+    default: PLATFORM_CONFIG.name,
+    template: `%s | ${PLATFORM_CONFIG.name}`,
   },
-  description: SHOP_CONFIG.tagline,
-  applicationName: SHOP_CONFIG.name,
+  description: PLATFORM_CONFIG.tagline,
+  applicationName: PLATFORM_CONFIG.name,
   icons: {
-    icon: '/brand/logo-circle-dark.png',
-    apple: '/brand/logo-circle-dark.png',
+    icon: PLATFORM_CONFIG.assets.icon,
+    apple: PLATFORM_CONFIG.assets.icon,
   },
 };
 
@@ -44,6 +45,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${spaceGrotesk.variable} ${oswald.variable}`}>
       <body className="bg-[#0A0A0A] text-white antialiased min-h-dvh font-sans selection:bg-white selection:text-black">
+        <AuthHashHandler />
         {children}
       </body>
     </html>

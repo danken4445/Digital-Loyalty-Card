@@ -805,6 +805,8 @@ export const ROUTES = Object.freeze({
   startWithTag: (tagId: string) => `/start?t=${encodeURIComponent(tagId)}`,
   tap: (tagId: string) => `/t/${encodeURIComponent(tagId)}`,
   authCallback: '/auth/callback',
+  /** Set-a-new-password screen after a recovery link (outside /staff so any signed-in account can reach it). */
+  resetPassword: '/auth/reset-password',
   privacy: '/privacy',
   staff: {
     root: '/staff',

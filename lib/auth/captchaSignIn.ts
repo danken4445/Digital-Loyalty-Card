@@ -7,7 +7,12 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  */
 
 /** Only the auth surface is needed, so any typed or untyped Supabase client fits. */
-type AuthClient = { auth: Pick<SupabaseClient['auth'], 'signInWithPassword' | 'signInWithOtp'> };
+type AuthClient = {
+  auth: Pick<
+    SupabaseClient['auth'],
+    'signInWithPassword' | 'signInWithOtp' | 'resetPasswordForEmail'
+  >;
+};
 
 export function signInStaffWithPassword(
   supabase: AuthClient,
@@ -30,5 +35,15 @@ export function signInWithEmailLink(
       emailRedirectTo: params.emailRedirectTo,
       captchaToken: params.captchaToken,
     },
+  });
+}
+
+export function requestPasswordReset(
+  supabase: AuthClient,
+  params: { email: string; redirectTo: string; captchaToken: string },
+) {
+  return supabase.auth.resetPasswordForEmail(params.email, {
+    redirectTo: params.redirectTo,
+    captchaToken: params.captchaToken,
   });
 }
