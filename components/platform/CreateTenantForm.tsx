@@ -9,6 +9,7 @@ export function CreateTenantForm() {
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [ownerEmail, setOwnerEmail] = useState('');
+  const [ownerPassword, setOwnerPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -37,6 +38,11 @@ export function CreateTenantForm() {
       return;
     }
 
+    if (ownerPassword && ownerPassword.trim().length < 8) {
+      setErrorMessage('Initial password must be at least 8 characters if provided.');
+      return;
+    }
+
     setSubmitting(true);
 
     try {
@@ -49,6 +55,7 @@ export function CreateTenantForm() {
           name: name.trim(),
           slug: trimmedSlug,
           ownerEmail: ownerEmail.trim(),
+          ownerPassword: ownerPassword.trim() || undefined,
         }),
       });
 
@@ -90,7 +97,7 @@ export function CreateTenantForm() {
           maxLength={80}
           value={name}
           onChange={handleNameChange}
-          placeholder="e.g. The Caffeine Plug"
+          placeholder="e.g. Bean There Café"
           className="w-full rounded-xl border border-plug-border bg-plug-elevated px-4 py-3 text-sm text-white placeholder-neutral-500 transition-colors focus:border-white focus:outline-none"
         />
       </div>
@@ -129,6 +136,24 @@ export function CreateTenantForm() {
           value={ownerEmail}
           onChange={(e) => setOwnerEmail(e.target.value)}
           placeholder="owner@example.com"
+          className="w-full rounded-xl border border-plug-border bg-plug-elevated px-4 py-3 text-sm text-white placeholder-neutral-500 transition-colors focus:border-white focus:outline-none"
+        />
+      </div>
+
+      <div>
+        <label htmlFor="owner-password" className="block text-sm font-semibold text-white">
+          Owner Initial Password <span className="text-xs text-plug-muted font-normal">(Optional)</span>
+        </label>
+        <p className="mb-2 text-xs text-plug-muted">
+          Set an initial password so the shop owner can log in immediately at /staff/login with email &amp; password without needing a magic link (minimum 8 characters).
+        </p>
+        <input
+          id="owner-password"
+          type="password"
+          minLength={8}
+          value={ownerPassword}
+          onChange={(e) => setOwnerPassword(e.target.value)}
+          placeholder="•••••••••••• (min. 8 characters)"
           className="w-full rounded-xl border border-plug-border bg-plug-elevated px-4 py-3 text-sm text-white placeholder-neutral-500 transition-colors focus:border-white focus:outline-none"
         />
       </div>

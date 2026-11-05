@@ -83,3 +83,15 @@ export async function enforcePlatformPageAccess(
 
   return auth.admin;
 }
+
+/**
+ * Sanitizes open redirect destinations for MFA gate flows.
+ */
+export function resolveSafeMfaDestination(nextParam?: string | null): string {
+  return nextParam &&
+    nextParam.startsWith('/') &&
+    !nextParam.startsWith('//') &&
+    !nextParam.startsWith('/\\')
+    ? nextParam
+    : ROUTES.platform.root;
+}

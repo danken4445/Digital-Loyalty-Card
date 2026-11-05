@@ -57,6 +57,35 @@ export async function requireStaffSession(): Promise<StaffAuthResult> {
     };
   }
 
+  // Auto-accept any pending invites for this verified staff/owner email
+  if (user.email) {
+    try {
+      const adminClient = createSupabaseAdminClient();
+      const cleanEmail = user.email.toLowerCase().trim();
+      const { data: pendingInvites } = await adminClient
+        .from('tenant_invites')
+        .select('id, tenant_id, role')
+        .eq('email', cleanEmail)
+        .is('accepted_at', null)
+        .gt('expires_at', new Date().toISOString());
+
+      if (pendingInvites && pendingInvites.length > 0) {
+        for (const invite of pendingInvites) {
+          await adminClient.rpc('accept_invite', {
+            p_user: user.id,
+            p_invite: invite.id,
+            p_display_name:
+              (user.user_metadata?.display_name as string | undefined) ??
+              user.email.split('@')[0] ??
+              '',
+          });
+        }
+      }
+    } catch {
+      // Best-effort auto-accept; do not fail request if invite accept check errors
+    }
+  }
+
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from('tenant_members')

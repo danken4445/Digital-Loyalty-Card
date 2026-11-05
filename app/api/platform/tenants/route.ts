@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { requirePlatformAdmin } from '@/lib/auth/platform';
 import type { ApiErrorCode, ApiResponse, PlatformCreateTenantResult } from '@/lib/contracts';
 import { verifySameOriginRequest } from '@/lib/security/csrf';
+import { logSecurityEvent } from '@/lib/security/logger';
 import { checkPublicEndpointRateLimit, getClientIp } from '@/lib/security/ratelimit';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 
@@ -19,6 +20,11 @@ const createTenantSchema = z.object({
     .regex(/^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$/, 'Invalid tenant slug format.'),
   name: z.string().trim().min(1).max(80),
   ownerEmail: z.string().trim().email('Invalid owner email address.'),
+  ownerPassword: z
+    .string()
+    .min(8, 'Password must be at least 8 characters.')
+    .optional()
+    .or(z.literal('')),
 });
 
 export async function POST(
@@ -98,7 +104,7 @@ export async function POST(
       );
     }
 
-    const { slug, name, ownerEmail } = parsed.data;
+    const { slug, name, ownerEmail, ownerPassword } = parsed.data;
 
     const adminClient = createSupabaseAdminClient();
     const { data, error } = await adminClient.rpc('platform_create_tenant', {
@@ -126,6 +132,46 @@ export async function POST(
     };
 
     if (rpcResult.result === 'created') {
+      if (ownerPassword && ownerPassword.trim().length >= 8 && rpcResult.inviteId) {
+        try {
+          const { data: userList } = await adminClient.auth.admin.listUsers();
+          const existingUser = userList?.users?.find(
+            (u) => u.email?.toLowerCase().trim() === ownerEmail.toLowerCase().trim(),
+          );
+
+          let userId: string;
+          if (existingUser) {
+            userId = existingUser.id;
+            await adminClient.auth.admin.updateUserById(userId, {
+              password: ownerPassword.trim(),
+              email_confirm: true,
+            });
+          } else {
+            const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
+              email: ownerEmail.trim(),
+              password: ownerPassword.trim(),
+              email_confirm: true,
+            });
+            if (createError || !newUser?.user) {
+              throw createError ?? new Error('User creation failed');
+            }
+            userId = newUser.user.id;
+          }
+
+          // Auto-accept the invite immediately so the owner has active membership
+          await adminClient.rpc('accept_invite', {
+            p_user: userId,
+            p_invite: rpcResult.inviteId,
+            p_display_name: name.trim(),
+          });
+        } catch (pwErr) {
+          logSecurityEvent('warn', 'platform_create_tenant_password_setup_failed', {
+            ownerEmail,
+            reason: pwErr instanceof Error ? pwErr.message : 'unknown',
+          });
+        }
+      }
+
       return NextResponse.json<ApiResponse<PlatformCreateTenantResult>>(
         {
           ok: true,

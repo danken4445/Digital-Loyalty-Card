@@ -68,6 +68,13 @@ function createMockQuery(table: string) {
 
 const mockAdminClient = {
   rpc: vi.fn(),
+  auth: {
+    admin: {
+      listUsers: vi.fn().mockResolvedValue({ data: { users: [] }, error: null }),
+      createUser: vi.fn().mockResolvedValue({ data: { user: { id: 'new-user-1' } }, error: null }),
+      updateUserById: vi.fn().mockResolvedValue({ data: { user: { id: 'updated-user-1' } }, error: null }),
+    },
+  },
 };
 
 const mockServerClient = {
@@ -96,7 +103,7 @@ vi.mock('@/lib/supabase/admin', () => ({
 }));
 
 // Route and module imports under test
-import { requirePlatformAdmin, enforcePlatformPageAccess } from '@/lib/auth/platform';
+import { requirePlatformAdmin, enforcePlatformPageAccess, resolveSafeMfaDestination } from '@/lib/auth/platform';
 import { POST as createTenantPost } from '@/app/api/platform/tenants/route';
 import { POST as tenantStatusPost } from '@/app/api/platform/tenants/[slug]/status/route';
 import { POST as supportPost } from '@/app/api/platform/support/route';
@@ -210,14 +217,14 @@ describe('Phase 14 Task 5: Platform Admin Guard, Routes, and Pages', () => {
     });
 
     // Helper sanitization checks
-    expect(PlatformMfaPage.resolveSafeMfaDestination('https://evil.com')).toBe(ROUTES.platform.root);
-    expect(PlatformMfaPage.resolveSafeMfaDestination('//evil.com')).toBe(ROUTES.platform.root);
-    expect(PlatformMfaPage.resolveSafeMfaDestination('/\\evil.com')).toBe(ROUTES.platform.root);
-    expect(PlatformMfaPage.resolveSafeMfaDestination('javascript:alert(1)')).toBe(ROUTES.platform.root);
-    expect(PlatformMfaPage.resolveSafeMfaDestination(undefined)).toBe(ROUTES.platform.root);
-    expect(PlatformMfaPage.resolveSafeMfaDestination(null)).toBe(ROUTES.platform.root);
-    expect(PlatformMfaPage.resolveSafeMfaDestination('')).toBe(ROUTES.platform.root);
-    expect(PlatformMfaPage.resolveSafeMfaDestination('/platform/tenants/alpha')).toBe(
+    expect(resolveSafeMfaDestination('https://evil.com')).toBe(ROUTES.platform.root);
+    expect(resolveSafeMfaDestination('//evil.com')).toBe(ROUTES.platform.root);
+    expect(resolveSafeMfaDestination('/\\evil.com')).toBe(ROUTES.platform.root);
+    expect(resolveSafeMfaDestination('javascript:alert(1)')).toBe(ROUTES.platform.root);
+    expect(resolveSafeMfaDestination(undefined)).toBe(ROUTES.platform.root);
+    expect(resolveSafeMfaDestination(null)).toBe(ROUTES.platform.root);
+    expect(resolveSafeMfaDestination('')).toBe(ROUTES.platform.root);
+    expect(resolveSafeMfaDestination('/platform/tenants/alpha')).toBe(
       '/platform/tenants/alpha',
     );
 
@@ -318,6 +325,33 @@ describe('Phase 14 Task 5: Platform Admin Guard, Routes, and Pages', () => {
     expect(validBody.data.result).toBe('created');
     expect(validBody.data.tenantId).toBe('11111111-1111-1111-1111-111111111111');
     expect(validRes.headers.get('Cache-Control')).toContain('no-store');
+
+    // Test with initial owner password
+    const validWithPasswordReq = new Request('http://localhost:3000/api/platform/tenants', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        origin: 'http://localhost:3000',
+      },
+      body: JSON.stringify({
+        slug: 'beta-cafe',
+        name: 'Beta Cafe',
+        ownerEmail: 'owner@beta.local',
+        ownerPassword: 'SecretPassword123!',
+      }),
+    });
+    const withPasswordRes = await createTenantPost(validWithPasswordReq);
+    expect(withPasswordRes.status).toBe(201);
+    expect(mockAdminClient.auth.admin.createUser).toHaveBeenCalledWith({
+      email: 'owner@beta.local',
+      password: 'SecretPassword123!',
+      email_confirm: true,
+    });
+    expect(mockAdminClient.rpc).toHaveBeenCalledWith('accept_invite', {
+      p_user: 'new-user-1',
+      p_invite: '22222222-2222-2222-2222-222222222222',
+      p_display_name: 'Beta Cafe',
+    });
   });
 
   it('status_route_requires_reason', async () => {

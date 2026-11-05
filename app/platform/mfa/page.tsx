@@ -1,20 +1,12 @@
 import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { PlatformMfaPanel } from '@/components/platform/PlatformMfaPanel';
+import { resolveSafeMfaDestination } from '@/lib/auth/platform';
 import { ROUTES } from '@/lib/contracts';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { createSupabaseServerClient, getVerifiedUser } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
-
-export function resolveSafeMfaDestination(nextParam?: string | null): string {
-  return nextParam &&
-    nextParam.startsWith('/') &&
-    !nextParam.startsWith('//') &&
-    !nextParam.startsWith('/\\')
-    ? nextParam
-    : ROUTES.platform.root;
-}
 
 interface MfaPageProps {
   searchParams: Promise<{ next?: string }>;
