@@ -1,5 +1,7 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { PLATFORM_CONFIG } from '@/lib/config';
 import { ROUTES, type PlatformAdminSession } from '@/lib/contracts';
 
 export interface PlatformShellProps {
@@ -31,8 +33,15 @@ export function PlatformShell({
           <div className="flex items-center gap-6">
             <Link
               href={ROUTES.platform.root}
-              className="font-display text-xl font-bold uppercase tracking-wider text-white transition-colors hover:text-neutral-300"
+              className="flex items-center gap-3 font-display text-xl font-bold uppercase tracking-wider text-white transition-colors hover:text-neutral-300"
             >
+              <Image
+                src={PLATFORM_CONFIG.assets.monogramReverse}
+                alt={`${PLATFORM_CONFIG.shortName} logo`}
+                width={52}
+                height={25}
+                className="h-auto w-[52px]"
+              />
               Platform Ops
             </Link>
             <nav className="hidden items-center gap-4 sm:flex" aria-label="Platform navigation">

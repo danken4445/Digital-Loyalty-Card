@@ -5,13 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="dark" />
     <meta name="supported-color-schemes" content="dark" />
-    <title>Back Up Your Loyalty Card — The Caffeine Plug</title>
+    <title>Back Up Your Loyalty Card — Odyssey Digital Loyalty</title>
   </head>
   <body
     style="
       margin: 0;
       padding: 0;
-      background-color: #0a0a0a;
+      background-color: #152839;
       color: #ffffff;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
       -webkit-font-smoothing: antialiased;
@@ -23,7 +23,7 @@
       cellpadding="0"
       cellspacing="0"
       border="0"
-      style="background-color: #0a0a0a; padding: 32px 16px;"
+      style="background-color: #152839; padding: 32px 16px;"
     >
       <tr>
         <td align="center">
@@ -36,8 +36,8 @@
             border="0"
             style="
               max-width: 440px;
-              background-color: #121214;
-              border: 1px solid #27272a;
+              background-color: #0e1b28;
+              border: 1px solid #2a3d51;
               border-radius: 24px;
               padding: 32px 24px;
             "
@@ -46,19 +46,14 @@
             <tr>
               <td align="center" style="padding-bottom: 20px;">
                 <img
-                  src="https://oauwcwzkokdnotwjkihp.supabase.co/storage/v1/object/public/brand/logo-circle-dark.png"
-                  alt="The Caffeine Plug"
-                  width="88"
-                  height="88"
+                  src="{{ .SiteURL }}/brand/odyssey-monogram-reverse.png"
+                  alt="ODYSSEY"
+                  width="120"
+                  height="59"
                   style="
                     display: block;
-                    width: 88px;
-                    height: 88px;
-                    border-radius: 9999px;
-                    background-color: #ffffff;
-                    color: #0a0a0a;
-                    padding: 4px;
-                    border: 2px solid #27272a;
+                    width: 120px;
+                    height: auto;
                   "
                 />
               </td>
@@ -70,8 +65,8 @@
                 <span
                   style="
                     display: inline-block;
-                    background-color: #ffffff;
-                    color: #0a0a0a;
+                    background-color: #ff6f07;
+                    color: #152839;
                     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
                     font-size: 10px;
                     font-weight: 900;
@@ -117,13 +112,13 @@
                   padding-bottom: 24px;
                 "
               >
-                YOUR DAILY DOSE, STRAIGHT FROM THE PLUG
+                NFC DIGITAL LOYALTY CARDS FOR LOCAL SHOPS
               </td>
             </tr>
 
             <!-- Divider -->
             <tr>
-              <td style="border-top: 1px solid #27272a; padding-bottom: 24px;"></td>
+              <td style="border-top: 1px solid #2a3d51; padding-bottom: 24px;"></td>
             </tr>
 
             <!-- Body Copy -->
@@ -147,14 +142,14 @@
             <tr>
               <td align="center" style="padding-bottom: 24px;">
                 <a
-                  href="{{ .ConfirmationURL }}"
+                  href="{{ if .RedirectTo }}{{ .RedirectTo }}&{{ else }}{{ .SiteURL }}/auth/callback?{{ end }}token_hash={{ .TokenHash }}&type=email_change"
                   target="_blank"
                   style="
                     display: inline-block;
                     width: 100%;
                     box-sizing: border-box;
-                    background-color: #ffffff;
-                    color: #0a0a0a;
+                    background-color: #ff6f07;
+                    color: #152839;
                     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
                     font-size: 13px;
                     font-weight: 900;
@@ -164,7 +159,7 @@
                     text-align: center;
                     padding: 15px 24px;
                     border-radius: 14px;
-                    border: 2px solid #ffffff;
+                    border: 2px solid #ff6f07;
                   "
                 >
                   CONFIRM &amp; BACK UP MY CARD
@@ -176,8 +171,8 @@
             <tr>
               <td
                 style="
-                  background-color: #1c1c1f;
-                  border: 1px solid #27272a;
+                  background-color: #1b3248;
+                  border: 1px solid #2a3d51;
                   border-radius: 14px;
                   padding: 14px 16px;
                   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
@@ -206,9 +201,9 @@
               >
                 Button not working? Copy and paste this link into your browser:<br />
                 <a
-                  href="{{ .ConfirmationURL }}"
+                  href="{{ if .RedirectTo }}{{ .RedirectTo }}&{{ else }}{{ .SiteURL }}/auth/callback?{{ end }}token_hash={{ .TokenHash }}&type=email_change"
                   style="color: #a1a1aa; text-decoration: underline;"
-                >{{ .ConfirmationURL }}</a>
+                >{{ if .RedirectTo }}{{ .RedirectTo }}&{{ else }}{{ .SiteURL }}/auth/callback?{{ end }}token_hash={{ .TokenHash }}&type=email_change</a>
               </td>
             </tr>
 
@@ -248,7 +243,7 @@
                   color: #71717a;
                 "
               >
-                THE CAFFEINE PLUG &bull; @THECAFFEINEPLUG8400
+                ODYSSEY &bull; NFC DIGITAL LOYALTY CARD
               </td>
             </tr>
           </table>

@@ -14,7 +14,7 @@ vi.mock('@/lib/supabase/admin', () => ({
 }));
 
 import { GET } from '@/app/api/health/route';
-import { SHOP_CONFIG } from '@/lib/config';
+import { PLATFORM_CONFIG, SHOP_CONFIG } from '@/lib/config';
 import type { ApiResponse, HealthCheckResponse } from '@/lib/contracts';
 // @ts-expect-error TS7016: Untyped .mjs executable script
 import { generateCounterQrAssets } from '../../scripts/generate-counter-qr.mjs';
@@ -33,8 +33,8 @@ describe('Phase 8: Deployment, Health Probe & Counter QR Assets', () => {
       }
 
       expect(json.data.status).toBe('ok');
-      expect(json.data.service).toBe(SHOP_CONFIG.name);
-      expect(json.data.service).toBe('The Caffeine Plug');
+      expect(json.data.service).toBe(PLATFORM_CONFIG.name);
+      expect(json.data.service).toBe('Odyssey NFC Digital Loyalty Card');
       expect(json.data.timezone).toBe(SHOP_CONFIG.timezone);
       expect(json.data.timezone).toBe('Asia/Manila');
 

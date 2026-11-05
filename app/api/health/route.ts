@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { SHOP_CONFIG } from '@/lib/config';
+import { PLATFORM_CONFIG, SHOP_CONFIG } from '@/lib/config';
 import type { ApiResponse, HealthCheckResponse } from '@/lib/contracts';
 
 export async function GET(): Promise<NextResponse<ApiResponse<HealthCheckResponse>>> {
@@ -38,7 +38,7 @@ export async function GET(): Promise<NextResponse<ApiResponse<HealthCheckRespons
       ok: true,
       data: {
         status,
-        service: SHOP_CONFIG.name,
+        service: PLATFORM_CONFIG.name,
         timestampIso: new Date().toISOString(),
         timezone: SHOP_CONFIG.timezone,
         cleanup,

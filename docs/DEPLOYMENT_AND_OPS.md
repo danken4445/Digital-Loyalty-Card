@@ -76,12 +76,20 @@ Follow these numbered steps to set up your hosted Supabase database:
      ```text
      https://card.thecaffeineplug.ph
      ```
-   - In the **Redirect URLs** list, click **Add URL** and add:
+   - In the **Redirect URLs** list, click **Add URL** and add each of these (using wildcards so query destinations like `?next=/staff` are allowed):
      ```text
      https://card.thecaffeineplug.ph/auth/callback
+     https://card.thecaffeineplug.ph/auth/callback**
      http://localhost:3000/auth/callback
+     http://localhost:3000/auth/callback**
+     http://127.0.0.1:3000/auth/callback
+     http://127.0.0.1:3000/auth/callback**
+     https://digital-loyalty-card.danken4445.workers.dev/auth/callback
+     https://digital-loyalty-card.danken4445.workers.dev/auth/callback**
      ```
    - Click **Save**.
+   - **Password-reset email template (hosted projects):** `supabase/config.toml` only applies to local Supabase. On the hosted project, go to **Authentication** -> **Email Templates** -> **Reset Password**, paste the contents of `supabase/templates/recovery.html`, and set the subject to `Reset your password — Odyssey Digital Loyalty`. Without this, Supabase sends its default link, which lands on the site root instead of `/auth/reset-password`. The **Site URL** above must be the live origin, because the template builds its link from `{{ .SiteURL }}`.
+   - Staff and owners request a reset from **Forgot password?** on `/staff/login`. A reset link opens `/auth/reset-password`, where they set a new password.
 
 5. **Configure Google OAuth ("Back Up With Google"):**
    - In [Google Cloud Console -> Credentials](https://console.cloud.google.com/apis/credentials), create an **OAuth 2.0 Client ID** (Web application).
@@ -98,13 +106,13 @@ Follow these numbered steps to set up your hosted Supabase database:
    - When an anonymous customer chooses **"Back Up with Email"**, Supabase sends the **Change Email Address** template (`email_change`). When a customer chooses **"Recover Existing Card"**, Supabase sends the **Magic Link** template (`magic_link`).
    - In the Supabase dashboard, go to **Authentication** -> **Emails** (or **Email Templates**):
      - **Template 1 — Change Email Address (`Back Up with Email`):**
-       - **Subject:** `Back up your Loyalty Card — The Caffeine Plug`
+       - **Subject:** `Back up your Loyalty Card — Odyssey Digital Loyalty`
        - **Body (Source HTML):** Copy and paste the contents of `supabase/templates/email_change.html`.
      - **Template 2 — Magic Link (`Recover Existing Card`):**
-       - **Subject:** `Recover your Loyalty Card — The Caffeine Plug`
+       - **Subject:** `Recover your Loyalty Card — Odyssey Digital Loyalty`
        - **Body (Source HTML):** Copy and paste the contents of `supabase/templates/magic_link.html`.
      - **Template 3 — Confirm sign up:**
-       - **Subject:** `Confirm your Loyalty Card — The Caffeine Plug`
+       - **Subject:** `Confirm your Loyalty Card — Odyssey Digital Loyalty`
        - **Body (Source HTML):** Copy and paste the contents of `supabase/templates/confirmation.html`.
      - Click **Save** on each template.
 
@@ -403,7 +411,7 @@ By default, Supabase applies strict default hourly email rate limits (e.g. 30 em
 2. Toggle **Enable Custom SMTP** to **ON**.
 3. Fill in:
    - **Sender email:** `loyalty@thecaffeineplug.ph` (must match your authenticated domain).
-   - **Sender name:** `The Caffeine Plug`
+   - **Sender name:** `Odyssey Digital Loyalty`
    - **Host:** e.g. `smtp.resend.com` or `smtp.sendgrid.net`
    - **Port:** `587`
    - **Username:** your SMTP username (e.g. `resend` or `apikey`)

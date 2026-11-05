@@ -15,6 +15,28 @@ export const SHOP_CONFIG = Object.freeze({
   timezone: 'Asia/Manila',
 });
 
+/**
+ * The platform operator (ODYSSEY). Used by every screen that is not specific to one shop:
+ * staff sign-in, password reset, platform console, browser tab title and auth emails.
+ * Shop-specific screens take their name and look from the tenant's own settings instead.
+ */
+export const PLATFORM_CONFIG = Object.freeze({
+  name: 'Odyssey NFC Digital Loyalty Card',
+  shortName: 'ODYSSEY',
+  tagline: 'NFC digital loyalty cards for local shops',
+  assets: {
+    /** Reversed (light letters) monogram for dark backgrounds */
+    monogramReverse: '/brand/odyssey-monogram-reverse.svg',
+    monogramColor: '/brand/odyssey-monogram-color.svg',
+    icon: '/brand/odyssey-icon.png',
+  },
+  palette: {
+    navy: '#152839',
+    orange: '#FF6F07',
+    warmWhite: '#F9F8F3',
+  },
+});
+
 export const STAMP_RULES = Object.freeze({
   /** Stamps required to unlock a free coffee reward (authoritative in SQL) */
   rewardThreshold: 10,

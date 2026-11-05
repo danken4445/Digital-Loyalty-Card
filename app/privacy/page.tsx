@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
-import { BRAND_THEME, SECURITY_CONFIG } from '@/lib/config';
+import { PLATFORM_CONFIG, SECURITY_CONFIG } from '@/lib/config';
 import { ROUTES } from '@/lib/contracts';
 import { getVerifiedUser } from '@/lib/supabase/server';
 import { DeleteCardButton } from '@/components/card/DeleteCardButton';
@@ -63,14 +63,14 @@ export default async function PrivacyPage() {
 
         {/* Header & Brand Identity */}
         <header className="flex flex-col items-center text-center">
-          <div className="relative w-16 h-16 rounded-full p-1 bg-plug-elevated border border-plug-border flex items-center justify-center overflow-hidden">
+          <div className="relative w-20 h-16 rounded-xl p-1 bg-odyssey-navy border border-white/10 flex items-center justify-center overflow-hidden">
             <Image
-              src={BRAND_THEME.assets.logoCircleDark}
-              alt="DigitalLoyalty circular logo"
-              width={60}
-              height={60}
+              src={PLATFORM_CONFIG.assets.monogramReverse}
+              alt="ODYSSEY logo"
+              width={56}
+              height={27}
               priority
-              className="rounded-full object-contain"
+              className="h-auto w-14 object-contain"
             />
           </div>
 
@@ -83,7 +83,7 @@ export default async function PrivacyPage() {
           </p>
 
           <p className="text-[10px] uppercase tracking-widest text-neutral-400 mt-0.5">
-            DIGITALLOYALTY PLATFORM &bull; DIGITAL WALLET IDENTITY
+            ODYSSEY DIGITAL LOYALTY PLATFORM &bull; DIGITAL WALLET IDENTITY
           </p>
 
           {/* Active Card / Wallet Status Badge */}

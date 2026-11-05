@@ -5,6 +5,13 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        odyssey: {
+          navy: '#152839',
+          deep: '#0E1B28',
+          orange: '#FF6F07',
+          warm: '#F9F8F3',
+          slate: '#45546A',
+        },
         plug: {
           black: '#0A0A0A',
           white: '#FFFFFF',

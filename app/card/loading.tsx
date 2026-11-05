@@ -1,7 +1,7 @@
 export default function CardLoading() {
   return (
     <main
-      aria-label="Loading The Caffeine Plug Loyalty Card"
+      aria-label="Loading your loyalty card"
       className="min-h-dvh w-full bg-topo-pattern bg-street-grid flex flex-col items-center justify-between px-4 py-6 sm:py-10"
     >
       {/* Top Header Label */}
@@ -64,7 +64,7 @@ export default function CardLoading() {
 
       {/* Streetwear Footer */}
       <footer className="w-full max-w-[390px] text-center text-[10px] font-mono tracking-widest text-plug-muted uppercase pt-4">
-        <span>THE CAFFEINE PLUG &copy; 2026</span>
+        <span>ODYSSEY &copy; 2026</span>
       </footer>
     </main>
   );
