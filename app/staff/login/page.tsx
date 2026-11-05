@@ -15,7 +15,11 @@ export default async function StaffLoginPage({ searchParams }: StaffLoginPagePro
   const rawNext = Array.isArray(params?.next) ? params.next[0] : params?.next;
   const isValidNext =
     typeof rawNext === 'string' &&
-    (rawNext === ROUTES.staff.root || rawNext.startsWith('/staff/')) &&
+    (rawNext === ROUTES.staff.root ||
+      rawNext.startsWith('/staff/') ||
+      // Platform admins sign in here too and must land back on the console, not /staff.
+      rawNext === ROUTES.platform.root ||
+      rawNext.startsWith('/platform/')) &&
     !rawNext.startsWith(ROUTES.staff.login);
   const nextPath = isValidNext ? rawNext : ROUTES.staff.root;
 
@@ -28,7 +32,7 @@ export default async function StaffLoginPage({ searchParams }: StaffLoginPagePro
   }
 
   return (
-    <main className="flex min-h-dvh flex-col items-center justify-center bg-topo-pattern px-4 py-12 text-white">
+    <main className="flex min-h-dvh flex-col items-center justify-center bg-odyssey-navy px-4 py-12 text-white">
       <StaffLoginForm nextPath={nextPath} initialError={initialError} />
     </main>
   );

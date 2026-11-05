@@ -22,8 +22,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const tokenHash = request.nextUrl.searchParams.get('token_hash');
   const rawOtpType = request.nextUrl.searchParams.get('type');
   const rawNext = request.nextUrl.searchParams.get('next');
+  const errorParam =
+    request.nextUrl.searchParams.get('error') ||
+    request.nextUrl.searchParams.get('error_description');
 
   let nextPath: string = ROUTES.card;
+  const isRecoveryLink = rawOtpType === 'recovery';
   if (
     rawNext &&
     rawNext.startsWith('/') &&
@@ -33,10 +37,29 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     nextPath = rawNext;
   }
 
+  // Handle remote error passed back by auth provider/Supabase
+  if (errorParam) {
+    logSecurityEvent('warn', 'auth_callback_remote_error', {
+      error: errorParam,
+      next: rawNext ?? undefined,
+    });
+    if (rawNext?.startsWith('/staff')) {
+      return NextResponse.redirect(
+        new URL(`${ROUTES.staff.login}?error=${encodeURIComponent(errorParam)}`, request.url),
+        303,
+      );
+    }
+  }
+
   if (code) {
     try {
       const supabase = await createSupabaseServerClient();
-      await supabase.auth.exchangeCodeForSession(code);
+      const { error } = await supabase.auth.exchangeCodeForSession(code);
+      if (error) {
+        logSecurityEvent('error', 'auth_callback_code_exchange_failed', {
+          reason: error.message,
+        });
+      }
     } catch (error) {
       logSecurityEvent('error', 'auth_callback_code_exchange_failed', {
         reason: error instanceof Error ? error.message : 'unknown_error',
@@ -49,10 +72,18 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   ) {
     try {
       const supabase = await createSupabaseServerClient();
-      await supabase.auth.verifyOtp({
+      const { error } = await supabase.auth.verifyOtp({
         token_hash: tokenHash,
         type: rawOtpType as EmailOtpType,
       });
+      if (error) {
+        logSecurityEvent('error', 'auth_callback_otp_verify_failed', {
+          reason: error.message,
+        });
+      } else if (isRecoveryLink) {
+        // A verified recovery link always ends on the set-new-password screen.
+        nextPath = ROUTES.resetPassword;
+      }
     } catch (error) {
       logSecurityEvent('error', 'auth_callback_otp_verify_failed', {
         reason: error instanceof Error ? error.message : 'unknown_error',
@@ -61,9 +92,83 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }
 
   const user = await getVerifiedUser();
+
+  // An expired or already-used recovery link must not fall through to the customer wallet.
+  if (isRecoveryLink && !user) {
+    return NextResponse.redirect(
+      new URL(
+        `${ROUTES.staff.login}?error=${encodeURIComponent('This reset link is invalid or has expired. Request a new one.')}`,
+        request.url,
+      ),
+      303,
+    );
+  }
+
   const mergeCookie = request.cookies.get(MERGE_INTENT_COOKIE_NAME)?.value;
 
   if (user) {
+    // 1. If user is staff/owner or has pending invites, auto-accept and route appropriately
+    if (user.email && !user.is_anonymous) {
+      try {
+        const adminClient = createSupabaseAdminClient();
+        const cleanEmail = user.email.toLowerCase().trim();
+        const { data: pendingInvites } = await adminClient
+          .from('tenant_invites')
+          .select('id, tenant_id, role')
+          .eq('email', cleanEmail)
+          .is('accepted_at', null)
+          .gt('expires_at', new Date().toISOString());
+
+        if (pendingInvites && pendingInvites.length > 0) {
+          for (const invite of pendingInvites) {
+            await adminClient.rpc('accept_invite', {
+              p_user: user.id,
+              p_invite: invite.id,
+              p_display_name:
+                (user.user_metadata?.display_name as string | undefined) ??
+                user.email.split('@')[0] ??
+                '',
+            });
+          }
+          if (!rawNext) {
+            nextPath = ROUTES.staff.root;
+          }
+        }
+      } catch (inviteErr) {
+        logSecurityEvent('warn', 'auth_callback_accept_invite_failed', {
+          userId: user.id,
+          reason: inviteErr instanceof Error ? inviteErr.message : 'unknown',
+        });
+      }
+    }
+
+    // 2. Direct existing staff without customer cards to /staff if no explicit destination was requested
+    if (!rawNext && nextPath === ROUTES.card) {
+      try {
+        const supabase = await createSupabaseServerClient();
+        const { data: staffMemberships } = await supabase
+          .from('tenant_members')
+          .select('tenant_id')
+          .eq('user_id', user.id)
+          .eq('active', true)
+          .limit(1);
+
+        if (staffMemberships && staffMemberships.length > 0) {
+          const { data: customerCards } = await supabase
+            .from('customer_cards')
+            .select('tenant_id')
+            .eq('customer_id', user.id)
+            .limit(1);
+
+          if (!customerCards || customerCards.length === 0) {
+            nextPath = ROUTES.staff.root;
+          }
+        }
+      } catch {
+        // Fall back to default nextPath
+      }
+    }
+
     try {
       await ensureCustomerRecord(user.id);
 

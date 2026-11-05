@@ -3,11 +3,15 @@
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { useState } from 'react';
-import { BRAND_THEME, SHOP_CONFIG } from '@/lib/config';
+import { PLATFORM_CONFIG } from '@/lib/config';
 import { ROUTES } from '@/lib/contracts';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import { TurnstileWidget } from '@/components/auth/TurnstileWidget';
-import { signInStaffWithPassword, signInWithEmailLink } from '@/lib/auth/captchaSignIn';
+import {
+  requestPasswordReset,
+  signInStaffWithPassword,
+  signInWithEmailLink,
+} from '@/lib/auth/captchaSignIn';
 
 export interface StaffLoginFormProps {
   nextPath?: string;
@@ -51,6 +55,49 @@ export function StaffLoginForm({ nextPath, initialError }: StaffLoginFormProps) 
     }
   }
 
+  async function handleForgotPassword() {
+    const cleanEmail = email.trim();
+    if (!cleanEmail) {
+      setErrorMessage('Enter your email above first, then request a reset link.');
+      return;
+    }
+    if (!captchaToken) {
+      setErrorMessage('Complete the security check below, then request a reset link.');
+      return;
+    }
+    const token = captchaToken;
+    setCaptchaToken(null);
+    setLoading(true);
+    setErrorMessage(null);
+    setStatusMessage(null);
+
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const configuredSiteUrl = (process.env.NEXT_PUBLIC_SITE_URL || window.location.origin).replace(
+        /\/+$/,
+        '',
+      );
+      const { error } = await requestPasswordReset(supabase, {
+        email: cleanEmail,
+        redirectTo: `${configuredSiteUrl}${ROUTES.authCallback}?next=${encodeURIComponent(ROUTES.resetPassword)}`,
+        captchaToken: token,
+      });
+      if (error) {
+        setErrorMessage(error.message);
+        return;
+      }
+      // Same message whether or not the account exists, so this cannot be used to probe emails.
+      setStatusMessage(
+        `If ${cleanEmail} has an account, a password reset link is on its way. Check your inbox.`,
+      );
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Could not send the reset link.');
+    } finally {
+      setLoading(false);
+      setWidgetKey((k) => k + 1);
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!captchaToken) {
@@ -85,7 +132,10 @@ export function StaffLoginForm({ nextPath, initialError }: StaffLoginFormProps) 
           process.env.NEXT_PUBLIC_SITE_URL || window.location.origin
         ).replace(/\/+$/, '');
 
-        const emailRedirectTo = `${configuredSiteUrl}${destination}`;
+        const emailRedirectTo =
+          destination && destination !== ROUTES.staff.root
+            ? `${configuredSiteUrl}${ROUTES.authCallback}?next=${encodeURIComponent(destination)}`
+            : `${configuredSiteUrl}${ROUTES.authCallback}?next=${encodeURIComponent(ROUTES.staff.root)}`;
 
         const { error } = await signInWithEmailLink(supabase, {
           email: cleanEmail,
@@ -114,23 +164,23 @@ export function StaffLoginForm({ nextPath, initialError }: StaffLoginFormProps) 
   }
 
   return (
-    <div className="w-full max-w-md rounded-2xl border border-plug-border bg-plug-surface p-6 text-white shadow-2xl sm:p-8">
+    <div className="w-full max-w-md rounded-2xl border border-white/10 bg-odyssey-deep p-6 text-white shadow-2xl sm:p-8">
       {/* Brand Header */}
       <div className="mb-6 flex items-center gap-4">
         <Image
-          src={BRAND_THEME.assets.logoCircleDark}
-          alt={`${SHOP_CONFIG.name} logo`}
-          width={56}
-          height={56}
+          src={PLATFORM_CONFIG.assets.monogramReverse}
+          alt={`${PLATFORM_CONFIG.shortName} logo`}
+          width={92}
+          height={45}
           priority
-          className="h-14 w-14 shrink-0 rounded-full border border-plug-border"
+          className="h-auto w-[92px] shrink-0"
         />
         <div>
           <h1 className="font-display text-3xl font-bold uppercase leading-none tracking-wide text-white">
             Staff Access
           </h1>
           <p className="mt-1.5 text-sm text-neutral-300">
-            Sign in with your barista or owner account.
+            Sign in with your shop or platform account.
           </p>
         </div>
       </div>
@@ -163,14 +213,14 @@ export function StaffLoginForm({ nextPath, initialError }: StaffLoginFormProps) 
         <div
           role="status"
           aria-live="polite"
-          className="mb-6 rounded-xl border border-white/30 bg-plug-elevated p-4 text-xs font-medium text-white"
+          className="mb-6 rounded-xl border border-white/30 bg-odyssey-navy p-4 text-xs font-medium text-white"
         >
           {statusMessage}
         </div>
       )}
 
       {/* Mode Toggle */}
-      <div className="mb-6 flex rounded-xl border border-plug-border bg-plug-black p-1">
+      <div className="mb-6 flex rounded-xl border border-white/10 bg-odyssey-navy p-1">
         <button
           type="button"
           onClick={() => {
@@ -179,7 +229,7 @@ export function StaffLoginForm({ nextPath, initialError }: StaffLoginFormProps) 
             setStatusMessage(null);
           }}
           className={`flex-1 min-h-11 rounded-lg text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white ${
-            mode === 'password' ? 'bg-white text-black' : 'text-plug-muted hover:text-white'
+            mode === 'password' ? 'bg-odyssey-orange text-odyssey-navy' : 'text-neutral-300 hover:text-white'
           }`}
         >
           Password
@@ -192,7 +242,7 @@ export function StaffLoginForm({ nextPath, initialError }: StaffLoginFormProps) 
             setStatusMessage(null);
           }}
           className={`flex-1 min-h-11 rounded-lg text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white ${
-            mode === 'magic-link' ? 'bg-white text-black' : 'text-plug-muted hover:text-white'
+            mode === 'magic-link' ? 'bg-odyssey-orange text-odyssey-navy' : 'text-neutral-300 hover:text-white'
           }`}
         >
           Magic Link
@@ -212,8 +262,8 @@ export function StaffLoginForm({ nextPath, initialError }: StaffLoginFormProps) 
             onChange={(e) => setEmail(e.target.value)}
             required
             autoComplete="email"
-            placeholder="barista@thecaffeineplug.ph"
-            className="mt-1.5 w-full min-h-12 rounded-xl border border-plug-border bg-plug-black px-3 py-2 text-sm text-white placeholder-neutral-600 transition-colors focus-visible:border-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+            placeholder="you@yourshop.com"
+            className="mt-1.5 w-full min-h-12 rounded-xl border border-white/15 bg-odyssey-navy px-3 py-2 text-sm text-white placeholder-neutral-600 transition-colors focus-visible:border-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
           />
         </div>
 
@@ -233,8 +283,16 @@ export function StaffLoginForm({ nextPath, initialError }: StaffLoginFormProps) 
               required
               autoComplete="current-password"
               placeholder="••••••••••••"
-              className="mt-1.5 w-full min-h-12 rounded-xl border border-plug-border bg-plug-black px-3 py-2 text-sm text-white placeholder-neutral-600 transition-colors focus-visible:border-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+              className="mt-1.5 w-full min-h-12 rounded-xl border border-white/15 bg-odyssey-navy px-3 py-2 text-sm text-white placeholder-neutral-600 transition-colors focus-visible:border-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
             />
+            <button
+              type="button"
+              onClick={handleForgotPassword}
+              disabled={loading}
+              className="mt-2 inline-flex min-h-11 items-center text-xs font-semibold text-neutral-300 underline underline-offset-2 hover:text-white disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+            >
+              Forgot password?
+            </button>
           </div>
         )}
 
@@ -252,7 +310,7 @@ export function StaffLoginForm({ nextPath, initialError }: StaffLoginFormProps) 
           type="submit"
           disabled={loading || !captchaToken}
           aria-busy={loading}
-          className="mt-2 w-full inline-flex min-h-12 items-center justify-center rounded-xl border border-white bg-white px-4 py-2.5 text-sm font-bold text-plug-black transition-transform active:scale-[0.99] hover:bg-neutral-200 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-plug-black"
+          className="mt-2 w-full inline-flex min-h-12 items-center justify-center rounded-xl border border-odyssey-orange bg-odyssey-orange px-4 py-2.5 text-sm font-bold text-odyssey-navy transition-transform active:scale-[0.99] hover:bg-[#ff8530] disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-odyssey-deep"
         >
           {loading
             ? 'Authenticating...'

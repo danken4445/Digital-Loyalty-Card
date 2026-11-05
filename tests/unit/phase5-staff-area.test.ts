@@ -1736,7 +1736,7 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
           }),
         );
 
-        expect(html).toContain('THE CAFFEINE PLUG');
+        expect(html).toContain(testStaffSession.tenantName);
         expect(html).toContain('STAFF OPS');
         expect(html).toContain('Maria Santos');
         expect(html).toContain('STAFF');

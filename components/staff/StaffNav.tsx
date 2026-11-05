@@ -4,7 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { BRAND_THEME } from '@/lib/config';
+import { PLATFORM_CONFIG } from '@/lib/config';
 import { BILLING_VIEWER_ROLES, ROUTES, type StaffRole, type StaffSession } from '@/lib/contracts';
 import { StaffTenantSwitcher } from '@/components/staff/StaffTenantSwitcher';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
@@ -21,18 +21,23 @@ interface NavItem {
   roles?: readonly StaffRole[];
 }
 
-const NAV_ITEMS: readonly NavItem[] = [
-  { name: 'Overview', href: ROUTES.staff.root },
-  { name: 'Redeem Reward', href: ROUTES.staff.redeem },
-  { name: 'Manual Stamp', href: ROUTES.staff.manualStamp },
-  { name: 'NFC Tags', href: ROUTES.staff.tags },
-  { name: 'Activity & Audit', href: ROUTES.staff.activity },
-  { name: 'Plan & Billing', href: ROUTES.staff.billing, roles: BILLING_VIEWER_ROLES },
-] as const;
-
 export function StaffNav({ staff, currentPath }: StaffNavProps) {
   const router = useRouter();
   const [isSigningOut, setIsSigningOut] = useState(false);
+
+  const navItems: readonly NavItem[] = [
+    { name: 'Overview', href: ROUTES.staff.root },
+    { name: 'Redeem Reward', href: ROUTES.staff.redeem },
+    { name: 'Manual Stamp', href: ROUTES.staff.manualStamp },
+    { name: 'NFC Tags', href: ROUTES.staff.tags },
+    { name: 'Activity & Audit', href: ROUTES.staff.activity },
+    {
+      name: 'Shop Settings',
+      href: ROUTES.staff.settings(staff.tenantSlug),
+      roles: ['owner', 'manager'],
+    },
+    { name: 'Plan & Billing', href: ROUTES.staff.billing, roles: BILLING_VIEWER_ROLES },
+  ];
 
   async function handleSignOut() {
     setIsSigningOut(true);
@@ -57,14 +62,14 @@ export function StaffNav({ staff, currentPath }: StaffNavProps) {
           className="flex min-h-11 min-w-0 items-center gap-2.5 rounded-lg"
         >
           <Image
-            src={BRAND_THEME.assets.logoCircleDark}
+            src={PLATFORM_CONFIG.assets.monogramReverse}
             alt=""
-            width={32}
-            height={32}
-            className="h-8 w-8 shrink-0 rounded-full border border-plug-border"
+            width={52}
+            height={25}
+            className="h-auto w-[52px] shrink-0"
           />
           <span className="truncate font-display text-lg font-bold uppercase leading-none tracking-wide">
-            THE CAFFEINE PLUG <span className="hidden text-plug-muted sm:inline">STAFF OPS</span>
+            {staff.tenantName} <span className="hidden text-plug-muted sm:inline">STAFF OPS</span>
           </span>
         </Link>
 
@@ -96,19 +101,21 @@ export function StaffNav({ staff, currentPath }: StaffNavProps) {
       <nav aria-label="Staff Portal Navigation" className="mx-auto max-w-5xl px-2 sm:px-4">
         {/* Scrolls sideways on narrow phones instead of wrapping to a second row */}
         <ul className="flex items-center gap-1 overflow-x-auto py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {NAV_ITEMS.filter((item) => !item.roles || item.roles.includes(staff.role)).map(
+          {navItems.filter((item) => !item.roles || item.roles.includes(staff.role)).map(
             (item) => {
-              const isActive = currentPath === item.href;
+              const isSettingsTab = item.href.includes('/settings');
+              const isActive = isSettingsTab
+                ? Boolean(currentPath?.startsWith(`/staff/${staff.tenantSlug}/settings`))
+                : currentPath === item.href;
               return (
                 <li key={item.href} className="shrink-0">
                   <Link
                     href={item.href}
                     aria-current={isActive ? 'page' : undefined}
-                    className={`inline-flex min-h-11 items-center rounded-full px-4 text-sm font-medium transition-colors ${
-                      isActive
+                    className={`inline-flex min-h-11 items-center rounded-full px-4 text-sm font-medium transition-colors ${isActive
                         ? 'bg-white text-plug-black'
                         : 'text-plug-muted hover:bg-plug-elevated hover:text-white'
-                    }`}
+                      }`}
                   >
                     {item.name}
                   </Link>
