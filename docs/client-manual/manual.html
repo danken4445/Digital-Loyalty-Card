@@ -1,0 +1,597 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Digital Loyalty — Shop Owner &amp; Staff Manual</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  /* ODYSSEY Brand Bible v1.0: Navy structure, orange energy, Warm White space.
+     Colour balance ~60 light / 25 navy / 10 neutral / 5 orange. Orange text on light = Ember only. */
+  :root {
+    --navy: #152839;      /* Odyssey Navy: structure, headings, body text */
+    --orange: #FF6F07;    /* Voyage Orange: decoration and accents only on light backgrounds */
+    --warm: #F9F8F3;      /* Warm White */
+    --ember: #B8470A;     /* orange for text on light backgrounds */
+    --slate: #45546A;     /* secondary text */
+    --harbor: #5F6A7C;    /* meta text */
+    --mist: #DCE1E8;      /* dividers */
+    --sand: #ECE7DE;      /* warm panels */
+    --white: #FFFFFF;
+  }
+  @page {
+    size: A4;
+    margin: 22mm 18mm 20mm 18mm;
+    @top-left { content: "ODYSSEY · Digital Loyalty"; font: 600 7.5pt Inter, Arial, sans-serif; color: #5F6A7C; letter-spacing: .12em; text-transform: uppercase; }
+    @top-right { content: "Shop Owner & Staff Manual"; font: 600 7.5pt Inter, Arial, sans-serif; color: #5F6A7C; letter-spacing: .12em; text-transform: uppercase; }
+    @bottom-left { content: "v1.0 · November 2026"; font: 500 7.5pt Inter, Arial, sans-serif; color: #5F6A7C; }
+    @bottom-right { content: counter(page, decimal-leading-zero); font: 700 7.5pt Inter, Arial, sans-serif; color: #152839; }
+  }
+  @page cover {
+    margin: 0;
+    @top-left { content: none; } @top-right { content: none; }
+    @bottom-left { content: none; } @bottom-right { content: none; }
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { margin: 0; font: 400 9.5pt/1.5 Inter, system-ui, Arial, sans-serif; color: var(--navy); background: var(--white); }
+
+  /* Cover: Odyssey Navy, reversed stacked logo with 2X clear space */
+  .cover { page: cover; height: 297mm; width: 210mm; background: var(--navy); color: var(--warm); position: relative; padding: 26mm 22mm; break-after: page; overflow: hidden; }
+  .cover .logo { height: 30mm; display: block; }
+  .cover .eyebrow { font: 600 8.5pt Inter; letter-spacing: .14em; text-transform: uppercase; color: var(--orange); margin: 52mm 0 4mm; }
+  .cover h1 { font: 700 38pt/1.08 Poppins, Arial, sans-serif; margin: 0 0 6mm; letter-spacing: -.01em; color: var(--warm); }
+  .cover .sub { font-size: 13pt; line-height: 1.5; color: #C9D1DC; max-width: 135mm; }
+  .cover .mast { display: flex; gap: 5mm; margin-top: 12mm; max-width: 82mm; }
+  .cover .mast i { width: 1.2mm; background: var(--orange); border-radius: 1mm; flex: none; }
+  .cover .mast p { margin: 0; color: #C9D1DC; font-size: 10pt; }
+  .cover .card-art { position: absolute; right: 22mm; top: 188mm; width: 88mm; height: 54mm; border-radius: 5mm; background: var(--warm); padding: 6mm;
+                     box-shadow: inset 0 0 0 1.2mm #0c1925, inset 0 0 0 1.75mm var(--orange); }
+  .cover .card-art .label { font: 600 6.5pt Inter; letter-spacing: .14em; color: var(--harbor); text-transform: uppercase; }
+  .cover .card-art .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 3mm; margin-top: 6mm; }
+  .cover .card-art .grid span { aspect-ratio: 1; border-radius: 50%; border: .5mm solid var(--navy); }
+  .cover .card-art .grid span.on { background: var(--navy); }
+  .cover .card-art .grid span.next { background: var(--orange); border-color: var(--orange); }
+  .cover .meta { position: absolute; left: 22mm; bottom: 24mm; font-size: 8.5pt; color: #9AA6B8; line-height: 1.8; }
+  .cover .meta strong { color: var(--warm); font-weight: 600; }
+  .cover .sail { position: absolute; right: -1px; bottom: -1px; width: 70mm; height: 70mm; }
+
+  /* Back cover */
+  .back { page: cover; height: 297mm; width: 210mm; background: var(--navy); color: var(--warm); position: relative; padding: 26mm 22mm; break-before: page; }
+  .back .logo { height: 30mm; display: block; }
+  .back h2 { font: 500 16pt/1.3 Poppins, Arial, sans-serif; color: var(--warm); margin: 60mm 0 4mm; max-width: 130mm; }
+  .back p { color: #C9D1DC; font-size: 10pt; max-width: 130mm; }
+  .back .contact { margin-top: 10mm; display: grid; grid-template-columns: 30mm 1fr; row-gap: 3mm; font-size: 10pt; }
+  .back .contact span:nth-child(odd) { font: 600 7.5pt Inter; letter-spacing: .12em; text-transform: uppercase; color: var(--orange); padding-top: .8mm; }
+  .back .foot { position: absolute; left: 22mm; right: 22mm; bottom: 20mm; font-size: 8pt; color: #9AA6B8; border-top: .25mm solid #2c4257; padding-top: 4mm; }
+
+  /* Headings: Poppins for headings, Inter eyebrows */
+  h2.chapter { break-before: page; font: 700 22pt/1.15 Poppins, Arial, sans-serif; color: var(--navy); margin: 0 0 2.5mm; letter-spacing: -.005em; }
+  h2.chapter .num { display: block; font: 600 8pt Inter; letter-spacing: .14em; color: var(--ember); margin-bottom: 2.5mm; text-transform: uppercase; }
+  .lede { font-size: 11pt; line-height: 1.5; color: var(--slate); margin: 0 0 5mm; padding-bottom: 4mm; border-bottom: .25mm solid var(--mist); }
+  h3 { font: 500 12.5pt/1.3 Poppins, Arial, sans-serif; color: var(--navy); margin: 5.5mm 0 1.8mm; break-after: avoid; }
+  h4 { font: 500 10.5pt/1.3 Poppins, Arial, sans-serif; color: var(--navy); margin: 4mm 0 1.5mm; break-after: avoid; }
+  p { margin: 0 0 2.5mm; }
+  code, .path { font-family: Consolas, "DejaVu Sans Mono", monospace; font-size: 8.5pt; background: var(--warm); border: .25mm solid var(--mist); padding: .2mm 1.2mm; border-radius: 1mm; color: var(--navy); white-space: nowrap; }
+  .ui { font-weight: 600; color: var(--navy); }
+
+  /* Steps: navy discs, Warm White numerals */
+  ol.steps { list-style: none; counter-reset: s; padding: 0; margin: 2mm 0 4mm; }
+  ol.steps > li { counter-increment: s; position: relative; padding: 0 0 2mm 10mm; break-inside: avoid; }
+  ol.steps > li::before { content: counter(s); position: absolute; left: 0; top: .2mm; width: 6mm; height: 6mm; border-radius: 50%; background: var(--navy); color: var(--warm); font: 600 8pt/6mm Inter; text-align: center; }
+  ul { margin: 1mm 0 3mm; padding-left: 4.5mm; }
+  ul li { margin-bottom: 1.2mm; }
+  ul li::marker { color: var(--harbor); }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; margin: 2mm 0 5mm; font-size: 9pt; }
+  thead { display: table-header-group; }
+  tr { break-inside: avoid; }
+  th { text-align: left; font: 600 7pt Inter; letter-spacing: .1em; text-transform: uppercase; color: var(--harbor); border-bottom: .5mm solid var(--navy); padding: 2mm 2.5mm; }
+  td { border-bottom: .25mm solid var(--mist); padding: 1.8mm 2.5mm; vertical-align: top; }
+  td:first-child { font-weight: 600; color: var(--navy); }
+  .yes { color: var(--navy); font-weight: 700; }
+  .no { color: #A8B1BE; }
+
+  /* Pill tags (bible .tag): navy = OK, Ember outline = caution, Ember fill = stop */
+  .badge { display: inline-block; font: 700 6.5pt Inter; letter-spacing: .1em; text-transform: uppercase; padding: .9mm 2.2mm; border-radius: 10mm; white-space: nowrap; vertical-align: middle;
+           background: var(--navy); color: var(--warm); }
+  .badge.ok { background: var(--navy); color: var(--warm); }
+  .badge.warn { background: var(--white); color: var(--ember); box-shadow: inset 0 0 0 .35mm var(--ember); }
+  .badge.stop { background: var(--ember); color: var(--white); }
+
+  /* Callouts: Sand panel (note), mast rule (tip), counter frame (important) */
+  .note, .tip, .important { margin: 3mm 0 5mm; break-inside: avoid; }
+  .note { background: var(--sand); border-radius: 3mm; padding: 4mm 5mm; }
+  .tip { position: relative; padding: .5mm 0 .5mm 6mm; }
+  .tip::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 1.2mm; border-radius: 1mm; background: var(--orange); }
+  .important { background: var(--white); border-radius: 3.5mm; padding: 4.5mm 5.5mm; box-shadow: inset 0 0 0 1.2mm var(--navy), inset 0 0 0 1.75mm var(--orange); }
+  .note b:first-child, .tip b:first-child, .important b:first-child { display: block; font: 600 7pt Inter; letter-spacing: .12em; text-transform: uppercase; margin-bottom: 1mm; color: var(--ember); }
+
+  /* Layout helpers */
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 6mm; }
+  .box { background: var(--warm); border-radius: 3mm; padding: 4mm 5mm; break-inside: avoid; }
+  .box h4 { margin-top: 0; }
+
+  /* Account sheet */
+  .fill { display: grid; grid-template-columns: 52mm 1fr; margin: 4mm 0 6mm; }
+  .fill div { padding: 4mm 0 2mm; border-bottom: .25mm solid #A8B1BE; }
+  .fill div:nth-child(odd) { font-weight: 600; color: var(--navy); border-bottom-color: var(--mist); }
+  .fill .hint { display: block; font-weight: 400; font-size: 8pt; color: var(--harbor); }
+
+  /* Contents */
+  .toc { list-style: none; padding: 0; margin: 4mm 0; }
+  .toc li { display: flex; align-items: baseline; padding: 2.8mm 0; border-bottom: .25mm solid var(--mist); }
+  .toc .n { width: 12mm; color: var(--ember); font: 600 8.5pt Inter; letter-spacing: .1em; }
+  .toc .t { flex: 1; color: var(--navy); font: 500 11pt Poppins, Arial, sans-serif; }
+  .toc .d { color: var(--harbor); font-size: 8.5pt; }
+
+  /* Linked steps (bible §06): rounded shapes sharing one wall, last step in orange */
+  .flow { display: grid; grid-template-columns: repeat(5, 1fr); margin: 4mm 0 6mm; break-inside: avoid; }
+  .flow .stage { padding: 0 1mm; text-align: center; }
+  .flow .stage .circ { height: 11mm; margin: 0 -1px 2.5mm 0; border: .9mm solid var(--navy); background: var(--white); display: flex; align-items: center; justify-content: center; font: 700 10pt Poppins; color: var(--navy); }
+  .flow .stage:first-child .circ { border-radius: 4mm 0 0 4mm; }
+  .flow .stage:not(:first-child) .circ { border-left: 0; }
+  .flow .stage:last-child .circ { border-radius: 0 4mm 4mm 0; background: var(--orange); }
+  .flow .stage b { display: block; color: var(--navy); font: 500 9pt Poppins; }
+  .flow .stage span { display: block; color: var(--slate); font-size: 8pt; line-height: 1.35; margin-top: 1mm; }
+
+  /* Quick reference: counter frame */
+  .qref { border-radius: 4mm; padding: 7mm; background: var(--white); box-shadow: inset 0 0 0 1.2mm var(--navy), inset 0 0 0 1.75mm var(--orange); }
+  .qref h3 { margin-top: 0; }
+  .qref .two > div { break-inside: avoid; }
+  .cutline { text-align: center; color: var(--harbor); font-size: 8pt; margin: 3mm 0; letter-spacing: .1em; }
+  .signoff { display: flex; align-items: center; justify-content: space-between; margin-top: 8mm; padding-top: 4mm; border-top: .25mm solid var(--mist); font-size: 8pt; color: var(--harbor); }
+  .signoff img { height: 9mm; }
+</style>
+</head>
+<body>
+
+<!-- ============ COVER ============ -->
+<section class="cover">
+  <img class="logo" src="assets/odyssey-logo-stacked-reverse.svg" alt="ODYSSEY">
+  <div class="eyebrow">Digital Loyalty</div>
+  <h1>Shop Owner &amp;<br>Staff Manual</h1>
+  <p class="sub">How to set up your shop, give stamps, redeem rewards and keep track of your loyalty programme, step by step.</p>
+  <div class="mast"><i></i><p>Written for shop owners, managers and baristas. Keep it with your counter equipment.</p></div>
+  <div class="card-art">
+    <div class="label">Your shop · Loyalty card</div>
+    <div class="grid">
+      <span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span>
+      <span class="on"></span><span class="next"></span><span></span><span></span><span></span>
+    </div>
+  </div>
+  <div class="meta">
+    <strong>Version</strong> 1.0 · November 2026<br>
+    <strong>Product</strong> Digital Loyalty: NFC and QR stamp cards, no app download<br>
+    <strong>Prepared by</strong> ODYSSEY
+  </div>
+</section>
+
+<!-- ============ ACCOUNT SHEET ============ -->
+<h2 class="chapter" style="break-before: auto;"><span class="num">BEFORE YOU START</span>Your account details</h2>
+<p class="lede">Your account manager fills in this page when your shop is set up. Keep it somewhere safe. You'll need these addresses throughout this manual.</p>
+
+<div class="fill">
+  <div>Shop name</div><div>&nbsp;</div>
+  <div>Shop ID (slug)<span class="hint">Short name used in your addresses</span></div><div>&nbsp;</div>
+  <div>Loyalty site address<span class="hint">Written as <i>yoursite</i> in this manual</span></div><div>&nbsp;</div>
+  <div>Customer card page<span class="hint">yoursite/s/<i>your-slug</i></span></div><div>&nbsp;</div>
+  <div>Staff sign-in<span class="hint">yoursite/staff/login</span></div><div>&nbsp;</div>
+  <div>Owner console<span class="hint">yoursite/staff/<i>your-slug</i>/settings</span></div><div>&nbsp;</div>
+  <div>Owner email (sign-in)</div><div>&nbsp;</div>
+  <div>Plan chosen</div><div>&nbsp;</div>
+  <div>Support contact</div><div>&nbsp;</div>
+  <div>Go-live date</div><div>&nbsp;</div>
+</div>
+
+<div class="tip"><b>Tip</b>Bookmark the <span class="ui">Staff sign-in</span> and <span class="ui">Owner console</span> addresses on every shop device. You reach the owner console by its address; there's no link to it from the staff home screen.</div>
+
+<!-- ============ CONTENTS ============ -->
+<h2 class="chapter"><span class="num">CONTENTS</span>What's inside</h2>
+<ul class="toc">
+  <li><span class="n">01</span><span class="t">How the programme works</span><span class="d">The customer journey and your team's roles</span></li>
+  <li><span class="n">02</span><span class="t">Signing in</span><span class="d">First login, everyday login, several shops</span></li>
+  <li><span class="n">03</span><span class="t">Setting up your shop</span><span class="d">Rules, brand, branches, team, plan</span></li>
+  <li><span class="n">04</span><span class="t">NFC tags &amp; counter QR</span><span class="d">Create, write, lock, test and replace tags</span></li>
+  <li><span class="n">05</span><span class="t">At the counter</span><span class="d">Stamps, rewards, perks, manual stamps</span></li>
+  <li><span class="n">06</span><span class="t">Your customers' experience</span><span class="d">What they see and can do</span></li>
+  <li><span class="n">07</span><span class="t">Monitoring your shop</span><span class="d">Activity, warning flags, usage, exports</span></li>
+  <li><span class="n">08</span><span class="t">Troubleshooting &amp; FAQ</span><span class="d">Common situations and what to do</span></li>
+  <li><span class="n">09</span><span class="t">Counter quick reference</span><span class="d">One page to print and keep at the till</span></li>
+</ul>
+
+<!-- ============ 01 ============ -->
+<h2 class="chapter"><span class="num">01</span>How the programme works</h2>
+<p class="lede">Your customers carry a digital stamp card on their phone. There's no app to install and no form to fill in. Your baristas tap a small NFC card on the customer's phone to add a stamp.</p>
+
+<h3>The customer journey</h3>
+<div class="flow">
+  <div class="stage"><div class="circ">1</div><b>Tap or scan</b><span>Barista taps the shop's NFC card, or the customer scans the counter QR</span></div>
+  <div class="stage"><div class="circ">2</div><b>Card opens</b><span>The card opens in the phone's browser in seconds</span></div>
+  <div class="stage"><div class="circ">3</div><b>Collect stamps</b><span>One tap per qualifying purchase</span></div>
+  <div class="stage"><div class="circ">4</div><b>Claim reward</b><span>Customer shows a 5-minute reward QR</span></div>
+  <div class="stage"><div class="circ">5</div><b>Redeem</b><span>Barista verifies the code and serves the reward</span></div>
+</div>
+
+<h3>Built-in fraud protection</h3>
+<p>The system enforces your rules automatically. You don't need to police them at the counter.</p>
+<ul>
+  <li><span class="ui">Cooldown:</span> a minimum time between two stamps for the same customer.</li>
+  <li><span class="ui">Daily cap:</span> the most stamps one customer can collect per day.</li>
+  <li><span class="ui">Tag throttle:</span> stops the same NFC card being tapped repeatedly within a few seconds.</li>
+  <li><span class="ui">Single-use reward codes:</span> each reward QR expires after 5 minutes and works only once, so screenshots can't be reused.</li>
+</ul>
+
+<h3>Your team's roles</h3>
+<table>
+  <thead><tr><th>Task</th><th>Staff</th><th>Manager</th><th>Owner</th></tr></thead>
+  <tbody>
+    <tr><td>Redeem rewards and perks</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+    <tr><td>Give a manual stamp</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+    <tr><td>View activity, warning flags, tag addresses and the team list</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+    <tr><td>Create, replace and switch off NFC tags</td><td class="no">—</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+    <tr><td>Edit card branding and download data exports</td><td class="no">—</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+    <tr><td>View rules, plan and monthly usage; preview rule changes</td><td class="no">—</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+    <tr><td>Save rule changes</td><td class="no">—</td><td class="no">—</td><td class="yes">✓</td></tr>
+    <tr><td>Invite people and change roles</td><td class="no">—</td><td class="no">—</td><td class="yes">✓</td></tr>
+    <tr><td>Manage branches</td><td class="no">—</td><td class="no">—</td><td class="yes">✓</td></tr>
+    <tr><td>Choose the billing plan</td><td class="no">—</td><td class="no">—</td><td class="yes">✓</td></tr>
+  </tbody>
+</table>
+
+<!-- ============ 02 ============ -->
+<h2 class="chapter"><span class="num">02</span>Signing in</h2>
+<p class="lede">Everyone on your team signs in at the same page, <span class="path">yoursite/staff/login</span>, with their own email address. Please don't share logins: every action is recorded against the person who did it.</p>
+
+<h3>First sign-in (new owners and new team members)</h3>
+<ol class="steps">
+  <li>Your invitation is created for one exact email address, by your account manager (for owners) or by your shop owner (for team members). Invitations expire after <span class="ui">14 days</span>.</li>
+  <li>Open <span class="path">yoursite/staff/login</span> and choose the <span class="ui">Magic Link</span> tab.</li>
+  <li>Enter <b>exactly the invited email address</b>, wait for the security check to finish, then tap <span class="ui">Send Magic Link</span>.</li>
+  <li>Open the email and tap the sign-in link. This creates and confirms your login.</li>
+  <li>The first time, you may see <i>"Access denied: This account does not have active staff permissions."</i> That's normal. Tell your account manager (or your shop owner) that you've signed in, and they'll activate your access.</li>
+  <li>Once you're activated, sign in again and you'll land on the <span class="ui">Operations Console</span>.</li>
+</ol>
+<div class="important"><b>Important</b>Invitations are not sent by email automatically. After someone is invited, let them know personally and tell them which email address to use.</div>
+
+<h3>Everyday sign-in</h3>
+<p>Open <span class="path">yoursite/staff/login</span>, choose <span class="ui">Password</span> (if you've been given one) or <span class="ui">Magic Link</span>, wait for the security check, and sign in. On a shared device, tap <span class="ui">Sign Out</span> at the top right when you're done.</p>
+
+<h3>Working at more than one shop</h3>
+<p>If you belong to several shops, a <span class="ui">Shop</span> drop-down appears at the top of the staff screens. Choose the shop you're serving before you redeem or stamp. Everything you do applies to the selected shop.</p>
+
+<h3>The staff home screen</h3>
+<table>
+  <thead><tr><th>Menu item</th><th>Use it for</th></tr></thead>
+  <tbody>
+    <tr><td>Redeem Reward</td><td>Scanning a customer's reward or perk code (the everyday task)</td></tr>
+    <tr><td>Manual Stamp</td><td>Adding a stamp when a customer's phone can't tap</td></tr>
+    <tr><td>NFC Tags</td><td>Viewing and copying tag addresses (managers can also create tags)</td></tr>
+    <tr><td>Activity &amp; Audit</td><td>Recent stamps and rewards, plus warning flags</td></tr>
+    <tr><td>Plan &amp; Billing</td><td>Monthly usage and plan (owners and managers only)</td></tr>
+  </tbody>
+</table>
+
+<!-- ============ 03 ============ -->
+<h2 class="chapter"><span class="num">03</span>Setting up your shop</h2>
+<p class="lede">Owners and managers set the shop up in the <b>owner console</b> at <span class="path">yoursite/staff/<i>your-slug</i>/settings</span>. The console has six tabs across the top: Rules, Brand, Staff, Tags, Export and Branches.</p>
+
+<div class="note"><b>Your starting settings</b>Every new shop starts with: 10 stamps for one reward called "FREE COFFEE", a 30-minute cooldown, a cap of 2 stamps per customer per day, and a 5-second tag throttle. You can change any of these.</div>
+
+<h3>Rules tab</h3>
+<p>Managers can view the rules and preview changes. Only the owner can save them.</p>
+<table>
+  <thead><tr><th>Setting</th><th>Allowed range</th><th>What it does</th></tr></thead>
+  <tbody>
+    <tr><td>Reward Threshold</td><td>3–50 stamps</td><td>Stamps needed to earn one reward</td></tr>
+    <tr><td>Reward Label</td><td>Up to 40 characters</td><td>The reward name customers see, for example <i>FREE COFFEE</i></td></tr>
+    <tr><td>Cooldown Period</td><td>0–1440 minutes</td><td>Minimum time between two stamps for one customer</td></tr>
+    <tr><td>Daily Cap</td><td>1–20 stamps</td><td>Most stamps one customer can collect per day</td></tr>
+    <tr><td>Tag Anti-Burst Throttle</td><td>0–60 seconds</td><td>Minimum gap between two taps on the same NFC card</td></tr>
+  </tbody>
+</table>
+<ol class="steps">
+  <li>Change the values you want.</li>
+  <li>Run the <span class="ui">preview</span>. The <span class="ui">Customer Impact Preview</span> shows how many existing cards become eligible for a reward straight away, and how many are still collecting.</li>
+  <li>Save. You'll see <i>"Rules successfully updated."</i> The new rules apply to the next tap.</li>
+</ol>
+<div class="tip"><b>Tip</b>Lowering the reward threshold can make many customers eligible at once. Check the preview, and brief your baristas before you save.</div>
+
+<h3>Brand tab</h3>
+<ol class="steps">
+  <li>Choose a <span class="ui">Primary Card Color</span> (the background) and an <span class="ui">Accent Color</span> (stamps and text) as colour codes, for example <code>#0A0A0A</code>.</li>
+  <li>Add a short <span class="ui">Shop Tagline</span>.</li>
+  <li>Upload your <span class="ui">Shop Logo</span> and, if you like, <span class="ui">Card Art</span>. Use PNG, JPEG or WebP files of 512 KB or less; SVG isn't accepted.</li>
+  <li>Check the <span class="ui">Live Card Preview</span>, then save.</li>
+</ol>
+<p>If your two colours are too similar to read easily, the card automatically switches to a readable colour pair.</p>
+
+<h3>Branches tab (owner only)</h3>
+<p>Your shop starts with one branch. Add a branch for each physical location so you can see where each stamp was given.</p>
+<ol class="steps">
+  <li>Under <span class="ui">Add New Branch Location</span>, enter a name (for example <i>Ayala Malls Manila Bay</i>) and, optionally, an address.</li>
+  <li>Use <span class="ui">Edit Details</span> to rename a branch, or untick <span class="ui">Active</span> to stop stamping there.</li>
+</ol>
+<p>All branches share one card by default: the same stamps, rules and limits wherever the customer visits.</p>
+<div class="important"><b>Permanent action</b><span class="ui">Give this branch its own card</span> turns a branch into a separate shop with its own card, rules, team and billing. Customers keep their existing stamps on the main card and start a new card at that branch. <b>This can't be undone.</b> Talk to your account manager first.</div>
+
+<h3>Staff tab</h3>
+<ol class="steps">
+  <li>Under <span class="ui">Invite New Team Member</span> (owner only), enter the person's email address and choose <span class="ui">Staff</span>, <span class="ui">Manager</span> or <span class="ui">Owner</span>, then tap <span class="ui">Send Invite</span>.</li>
+  <li>Tell the person their invitation is ready, and follow <i>First sign-in</i> in chapter 02.</li>
+  <li>Under <span class="ui">Team Members</span>, change someone's role from the drop-down, or tap <span class="ui">Deactivate</span> when they leave. Their history is kept, and you can tap <span class="ui">Reactivate</span> later.</li>
+  <li>Each invitation shows as <span class="ui">Pending</span>, <span class="ui">Accepted</span> or <span class="ui">Expired</span>.</li>
+</ol>
+
+<h3>Plan &amp; Billing</h3>
+<p>You only pay for <b>active customers</b>: customers who collected at least one stamp that month. Customers who only hold your card are free.</p>
+<table>
+  <thead><tr><th>Plan</th><th>Monthly fee</th><th>Per active customer</th><th>Best for</th></tr></thead>
+  <tbody>
+    <tr><td>Pay as you go</td><td>₱0</td><td>₱10</td><td>New or seasonal shops</td></tr>
+    <tr><td>Starter 50</td><td>₱350 (includes 50)</td><td>₱7 after 50</td><td>Small, steady shops</td></tr>
+    <tr><td>Growth 200</td><td>₱1,000 (includes 200)</td><td>₱5 after 200</td><td>Busy shops</td></tr>
+    <tr><td>Worry-free cap</td><td>₱0</td><td>₱8, never more than ₱1,200 a month</td><td>Shops that want a fixed ceiling</td></tr>
+  </tbody>
+</table>
+<ul>
+  <li>On <span class="ui">Plan &amp; Billing</span> you can see this month's active customers and your <span class="ui">Bill so far</span>. During your trial it reads <span class="ui">Would cost</span>, and you aren't charged.</li>
+  <li>Type a number into <span class="ui">"If I had ___ active customers"</span> to compare the plans.</li>
+  <li>Only the owner can choose a plan. After your first choice, a change starts at the beginning of next month, so each month has one price.</li>
+</ul>
+
+<!-- ============ 04 ============ -->
+<h2 class="chapter"><span class="num">04</span>NFC tags &amp; counter QR</h2>
+<p class="lede">An NFC tag is a small card or sticker your barista taps on the customer's phone. Each tag carries one web address that belongs to your shop. Managers and owners create the tags. Allow about five minutes per tag.</p>
+
+<div class="two">
+  <div class="box">
+    <h4>What you need</h4>
+    <ul>
+      <li><b>NXP NTAG215</b> cards or stickers. Don't use NTAG213 (too small) or Mifare Classic (iPhones can't read them).</li>
+      <li>A phone with NFC switched on</li>
+      <li>The free <b>NFC Tools</b> app (or NXP TagWriter)</li>
+      <li>An acrylic stand for the counter QR</li>
+    </ul>
+  </div>
+  <div class="box">
+    <h4>Good practice</h4>
+    <ul>
+      <li>Give each tag a clear label, for example <i>Counter Register #1</i>.</li>
+      <li>Always lock the tag after writing it.</li>
+      <li>Keep tags behind the counter, out of customers' reach.</li>
+      <li>Keep one spare tag ready to write.</li>
+    </ul>
+  </div>
+</div>
+
+<h3>Step 1: Create the tag</h3>
+<ol class="steps">
+  <li>Open the console's <span class="ui">Tags</span> tab (<span class="path">yoursite/staff/<i>your-slug</i>/settings/tags</span>).</li>
+  <li>Under <span class="ui">Provision New NFC Tag</span>, type a <span class="ui">Tag Label</span> and choose the branch under <span class="ui">Assign Branch Location</span>.</li>
+  <li>Tap create. The new tag appears under its branch.</li>
+  <li>Tap <span class="ui">Copy</span> next to its <span class="ui">Production Tap URL</span>.</li>
+</ol>
+
+<h3>Step 2: Write the tag</h3>
+<ol class="steps">
+  <li>Open NFC Tools and go to <span class="ui">Write</span> → <span class="ui">Add a record</span> → <span class="ui">URL / URI</span>.</li>
+  <li>Paste the address you copied and tap <span class="ui">OK</span>.</li>
+  <li>Tap <span class="ui">Write</span> and hold the tag against the phone: the top of the back on an iPhone, the centre of the back on Android. Hold it still until the phone confirms.</li>
+</ol>
+
+<h3>Step 3: Lock the tag</h3>
+<div class="important"><b>Don't skip this</b>Anyone with a free app can rewrite an unlocked tag and point it somewhere else.</div>
+<ul>
+  <li><b>Recommended:</b> NFC Tools → <span class="ui">Other</span> → <span class="ui">Set Password</span>. You can still rewrite the tag later with the password, so keep the password in a safe place.</li>
+  <li><b>Permanent:</b> NFC Tools → <span class="ui">Other</span> → <span class="ui">Lock tag</span>. The tag can never be changed again.</li>
+</ul>
+
+<h3>Step 4: Test the tag</h3>
+<ol class="steps">
+  <li>Close NFC Tools and tap the tag on a phone.</li>
+  <li>The shop card should open showing <span class="badge ok">STAMP COLLECTED</span>.</li>
+  <li>Tap again with the same phone. You should see <span class="badge warn">COOLDOWN ACTIVE</span>, which shows the protection is working.</li>
+</ol>
+
+<h3>Replacing a lost, damaged or shared tag</h3>
+<p>If a tag goes missing, or you think someone has copied its address, replace it at once. This takes about 10 seconds.</p>
+<ol class="steps">
+  <li>In the <span class="ui">Tags</span> tab, find the tag and tap <span class="ui">Rotate</span>.</li>
+  <li>The old address stops working immediately, and a new tag with the same label appears.</li>
+  <li>Write the new address onto a fresh tag (or unlock and rewrite the old one), then lock it.</li>
+</ol>
+<p>To stop a tag without replacing it, tap <span class="ui">Deactivate</span>.</p>
+
+<h3>The counter QR</h3>
+<p>The counter QR lets first-time customers get their card while they wait. It points to your customer card page, <span class="path">yoursite/s/<i>your-slug</i></span>.</p>
+<ul>
+  <li>Your account manager can supply print-ready QR artwork. You can also make one yourself with any QR code generator, using your customer card page address.</li>
+  <li>Print the QR at <b>100% scale</b>, not "fit to page", and place it where customers queue.</li>
+</ul>
+
+<!-- ============ 05 ============ -->
+<h2 class="chapter"><span class="num">05</span>At the counter</h2>
+<p class="lede">These are the everyday tasks for your baristas. Chapter 09 has a one-page version to print and keep at the till.</p>
+
+<h3>A new customer</h3>
+<ul>
+  <li><b>Quickest:</b> tap the NFC tag on their phone. A first-timer sees <i>"Claim your first stamp"</i>, taps the get-card button, and the first stamp is added automatically.</li>
+  <li><b>Or:</b> they scan the counter QR and tap <span class="ui">GET MY CARD</span>. The card starts with 0 stamps.</li>
+  <li>Customers don't install an app or fill in a form.</li>
+</ul>
+
+<h3>Giving a stamp</h3>
+<p>Hold the tag flat against the phone: the <b>top back edge</b> of an iPhone, or the <b>centre back</b> of an Android phone. If nothing happens on Android, ask the customer to turn on NFC in their quick settings. Then check the banner on their screen:</p>
+<table>
+  <thead><tr><th style="width:42mm">Banner</th><th>What it means and what to do</th></tr></thead>
+  <tbody>
+    <tr><td><span class="badge ok">STAMP COLLECTED</span></td><td>Done. One stamp was added.</td></tr>
+    <tr><td><span class="badge warn">COOLDOWN ACTIVE</span></td><td>The customer got a stamp too recently. They can get the next one after the cooldown.</td></tr>
+    <tr><td><span class="badge warn">DAILY CAP REACHED</span></td><td>The customer has collected today's maximum. They can collect again tomorrow.</td></tr>
+    <tr><td><span class="badge warn">TAP THROTTLED</span></td><td>The tag was tapped twice too quickly. Wait a few seconds and tap once.</td></tr>
+    <tr><td><span class="badge stop">INACTIVE NFC TAG</span></td><td>This tag has been switched off. Tell a manager, and give this customer a manual stamp.</td></tr>
+    <tr><td><span class="badge stop">SHOP PAUSED</span></td><td>Stamping is paused for your shop. Contact your account manager.</td></tr>
+  </tbody>
+</table>
+
+<h3>Redeeming a reward</h3>
+<ol class="steps">
+  <li>When the customer has enough stamps, they tap the claim button on their card. A QR code appears with an 8-character check code (<code>XXXX-XXXX</code>) and a 5-minute timer.</li>
+  <li>On the shop device, open <span class="ui">Redeem Reward</span>.</li>
+  <li>Scan the QR into the <span class="ui">Customer Redemption Token</span> box, using one of these:
+    <ul>
+      <li>a USB or Bluetooth barcode scanner (recommended), which types the code straight into the box; or</li>
+      <li>a QR-reader app on the shop device: scan, copy the text, and paste it into the box.</li>
+    </ul>
+  </li>
+  <li>Tap <span class="ui">Verify Token &amp; Check Balance</span>.</li>
+  <li>Check that the 8-character code on your screen <b>matches the one on the customer's phone</b>, and that it says <span class="ui">ELIGIBLE FOR …</span>.</li>
+  <li>Confirm the redemption. The stamps are deducted and the code can't be used again. Serve the reward, then tap <span class="ui">Scan Next Customer</span>.</li>
+</ol>
+<div class="note"><b>Note</b>The 8-character code is for checking by eye only. You can't type it into the box instead of scanning the QR. If the code has expired, ask the customer to tap <span class="ui">Refresh QR Code</span> on their phone.</div>
+
+<h3>Instagram "follow us, size up" perk (if your shop offers it)</h3>
+<ol class="steps">
+  <li>The customer follows your shop on Instagram, then taps <span class="ui">CLAIM UPSIZE</span>.</li>
+  <li>Scan and verify their code, the same way as a reward. The screen shows the free upsize perk.</li>
+  <li>Ask the customer to open your Instagram profile on their phone. The button must read <b>Following</b>.</li>
+  <li>Tap <span class="ui">Follow Checked — Grant Free Upsize</span>. No stamps are used. Each card can claim the upsize once. If you see <span class="ui">UPSIZE ALREADY USED</span>, it has already been claimed.</li>
+</ol>
+<p>To turn this perk on, or change your Instagram handle, contact your account manager.</p>
+
+<h3>Manual stamp (when a phone can't tap)</h3>
+<ol class="steps">
+  <li>Open <span class="ui">Manual Stamp</span>.</li>
+  <li>Enter the customer's <b>full card ID</b>. Their card only shows the first 8 characters (<i>Card #XXXXXXXX</i>), so a manager can find the full ID by matching those 8 characters in <span class="ui">Activity &amp; Audit</span> or the <span class="ui">Cards</span> export.</li>
+  <li>Enter a reason, for example <i>"Phone NFC not working; receipt #4092"</i>. A reason is required and is recorded.</li>
+  <li>Submit, and check for <span class="ui">STAMP RECORDED — RESULT: STAMPED</span>. The cooldown and daily cap still apply.</li>
+</ol>
+<div class="tip"><b>Tip</b>Use manual stamps only when you have to. Several manual stamps for the same customer raise a warning flag for your manager.</div>
+
+<!-- ============ 06 ============ -->
+<h2 class="chapter"><span class="num">06</span>Your customers' experience</h2>
+<p class="lede">Knowing what customers see helps your team answer their questions at the counter.</p>
+
+<table>
+  <thead><tr><th style="width:46mm">Customer wants to…</th><th>How they do it</th></tr></thead>
+  <tbody>
+    <tr><td>See their card</td><td>Open your customer card page, or tap your NFC tag. The card shows their stamps, their total earned and their reward.</td></tr>
+    <tr><td>See all their cards</td><td><span class="path">yoursite/wallet</span> lists every participating shop's card on their phone.</td></tr>
+    <tr><td>Keep their stamps safe</td><td>Tap <span class="ui">Back up with Google</span> or <span class="ui">Back up with Email</span> on the card. Their stamps then survive clearing the browser or changing phones.</td></tr>
+    <tr><td>Move to a new phone</td><td>Use <span class="ui">Recover</span> with the same Google account or email. Cards from both phones are combined.</td></tr>
+    <tr><td>Remove your shop's card</td><td>Tap <span class="ui">Remove this card</span> at the bottom of your card page. This deletes only your shop's card.</td></tr>
+    <tr><td>Delete all their data</td><td>Tap <span class="ui">Delete my wallet &amp; data</span> on the wallet or privacy page. This erases everything.</td></tr>
+    <tr><td>Read the privacy notice</td><td><span class="path">yoursite/s/<i>your-slug</i>/privacy</span></td></tr>
+  </tbody>
+</table>
+
+<div class="note"><b>Privacy</b>The programme follows the Philippines Data Privacy Act of 2012 (RA 10173). Customers start anonymously: no name, phone number or email is needed. Anonymous visitors who never collect a stamp are deleted automatically after 30 days. Your exports contain anonymous card IDs only, never emails or phone numbers.</div>
+
+<div class="important"><b>Tell customers to back up</b>If a customer hasn't backed up and clears their browser or loses their phone, their stamps can't be recovered. A quick "tap Back up to keep your stamps safe" at the counter prevents most complaints.</div>
+
+<!-- ============ 07 ============ -->
+<h2 class="chapter"><span class="num">07</span>Monitoring your shop</h2>
+<p class="lede">The system watches for unusual activity and highlights it for you. A few minutes a week is usually enough.</p>
+
+<h3>Activity &amp; Audit (all roles)</h3>
+<p>Shows your shop's last 50 stamps (manual ones are labelled <span class="badge">MANUAL</span>), the last 50 redemptions and the last 50 recorded events. <span class="ui">Anomaly Flags</span> at the top highlight anything unusual, graded <span class="badge warn">WARNING</span> or <span class="badge stop">HIGH</span>:</p>
+<table>
+  <thead><tr><th style="width:58mm">Flag</th><th>Raised when</th><th style="width:48mm">What to do</th></tr></thead>
+  <tbody>
+    <tr><td>Repeated Daily Cap / Cooldown Activity</td><td>A customer keeps hitting the daily cap or has several blocked taps</td><td>Usually harmless. Watch for staff tapping too eagerly.</td></tr>
+    <tr><td>High NFC Tag Volume / Rapid Taps</td><td>One tag has an unusually high number of stamps or rapid taps</td><td>Check where the tag is kept. Rotate it if in doubt.</td></tr>
+    <tr><td>Frequent Manual Stamp Overrides</td><td>One customer received 3 or more manual stamps</td><td>Check the reasons recorded, and talk to the staff involved.</td></tr>
+  </tbody>
+</table>
+<h3>Tag-leak warning (Tags tab)</h3>
+<p>A yellow banner appears on the Tags tab when a tag looks as if its address has been shared: <b>more than 8 different customers in 15 minutes</b>, or <b>more than 25 blocked rapid taps in an hour</b>. Tap <span class="ui">Rotate</span> in the banner, then rewrite the physical tag.</p>
+
+<h3>Usage &amp; cost (Plan &amp; Billing)</h3>
+<p>Shows this month's active customers, the cost so far, whether your cap is protecting you, and any plan change due next month.</p>
+
+<h3>Data exports (Export tab, managers and owners)</h3>
+<p><span class="ui">Download Cards CSV</span> gives one row per customer card (join date, branch, total and available stamps). <span class="ui">Download Stamps CSV</span> lists every stamp with its time, tag, branch and reason. Open them in Excel or Google Sheets to see busy hours, your best branches and how many customers come back.</p>
+
+<h3>Suggested routine</h3>
+<table>
+  <thead><tr><th>When</th><th>Who</th><th>Check</th></tr></thead>
+  <tbody>
+    <tr><td>Daily</td><td>Manager</td><td>Anomaly flags on Activity &amp; Audit</td></tr>
+    <tr><td>Weekly</td><td>Manager</td><td>Tags tab for leak warnings; make sure every tag is still at the counter</td></tr>
+    <tr><td>Monthly</td><td>Owner</td><td>Plan &amp; Billing usage; download both exports for your records</td></tr>
+    <tr><td>When staff change</td><td>Owner</td><td>Deactivate people who have left; invite new staff</td></tr>
+  </tbody>
+</table>
+
+<!-- ============ 08 ============ -->
+<h2 class="chapter"><span class="num">08</span>Troubleshooting &amp; FAQ</h2>
+<p class="lede">The most common situations and how to handle them.</p>
+
+<table>
+  <thead><tr><th style="width:60mm">Situation</th><th>What to do</th></tr></thead>
+  <tbody>
+    <tr><td>"Access denied" when signing in</td><td>Your access hasn't been activated yet, or has been switched off. Check you're using the invited email, then contact your owner or account manager.</td></tr>
+    <tr><td>I can't find the Rules, Brand or Tags screens</td><td>Go to <span class="path">yoursite/staff/<i>your-slug</i>/settings</span> and bookmark it. If you're sent back to sign-in, your role doesn't include that screen.</td></tr>
+    <tr><td>The magic link email didn't arrive</td><td>Check your spam folder, wait a minute, then request a new link. Each link works once.</td></tr>
+    <tr><td>The phone doesn't react to the tag</td><td>Android: turn on NFC. iPhone: hold the tag at the top of the back. Phone cases thicker than about 3 mm can block NFC. If it still doesn't work, give a manual stamp.</td></tr>
+    <tr><td>The customer says a stamp is missing</td><td>Check <span class="ui">Activity &amp; Audit</span> for their card number. Cooldown or daily-cap blocks are normal. If you find a real problem, contact support.</td></tr>
+    <tr><td>The reward QR has expired</td><td>Ask the customer to tap <span class="ui">Refresh QR Code</span>.</td></tr>
+    <tr><td>"Already claimed" on a reward</td><td>That code has been used already, often because of a screenshot. Ask the customer to show the live code on their own card.</td></tr>
+    <tr><td>"Insufficient stamps"</td><td>The customer doesn't have enough stamps for the reward yet.</td></tr>
+    <tr><td>A tag is lost or stolen</td><td>Tags tab → <span class="ui">Rotate</span>, then write and lock a new tag.</td></tr>
+    <tr><td>The customer changed phones and lost their card</td><td>If they backed up, they use <span class="ui">Recover</span> with the same Google account or email. If they didn't, the stamps can't be recovered.</td></tr>
+    <tr><td>A staff member has left</td><td>Owner: Staff tab → <span class="ui">Deactivate</span>.</td></tr>
+    <tr><td>"Shop paused" on customer screens</td><td>Your account is paused, so new stamps are stopped. Customers can still redeem rewards they've already earned for <b>30 days</b>. Contact your account manager to resume.</td></tr>
+    <tr><td>I want a custom web address, a different timezone or currency, or the Instagram perk</td><td>Contact your account manager. These are set up for you.</td></tr>
+  </tbody>
+</table>
+
+<!-- ============ 09 ============ -->
+<h2 class="chapter"><span class="num">09</span>Counter quick reference</h2>
+<p class="lede">Print this page and keep it at the till.</p>
+<div class="cutline">✂ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -</div>
+<div class="qref">
+  <div class="two">
+    <div>
+      <h3>New customer</h3>
+      <p>Tap the NFC tag on their phone, or point to the counter QR. They tap <b>GET MY CARD</b>. No app needed.</p>
+      <h3>Give a stamp</h3>
+      <p>iPhone: hold the tag at the <b>top back edge</b>.<br>Android: hold it at the <b>centre back</b>, with NFC on.</p>
+      <h3>Redeem a reward</h3>
+      <p>1. Customer taps claim and shows the QR.<br>2. <b>Redeem Reward</b> → scan into the box.<br>3. <b>Verify Token &amp; Check Balance</b>.<br>4. Check the code matches their phone.<br>5. Confirm, then serve.</p>
+    </div>
+    <div>
+      <h3>Banners</h3>
+      <p><span class="badge ok">STAMP COLLECTED</span> Done.<br>
+      <span class="badge warn">COOLDOWN ACTIVE</span> Too soon; try next visit.<br>
+      <span class="badge warn">DAILY CAP REACHED</span> Limit reached; try tomorrow.<br>
+      <span class="badge warn">TAP THROTTLED</span> Wait a few seconds; tap once.<br>
+      <span class="badge stop">INACTIVE NFC TAG</span> Tell a manager; give a manual stamp.</p>
+      <h3>Manual stamp</h3>
+      <p><b>Manual Stamp</b> → full card ID (a manager can look it up) → reason → submit.</p>
+      <h3>Lost tag?</h3>
+      <p>Tell a manager straight away. They'll replace it in the Tags tab.</p>
+    </div>
+  </div>
+  <p style="margin:4mm 0 0; padding-top:3mm; border-top:.25mm solid var(--mist); font-size:9pt; color:var(--harbor);">Staff sign-in: yoursite/staff/login &nbsp;·&nbsp; Support: ______________________________</p>
+</div>
+<div class="signoff"><span>Digital Loyalty is designed, built and supported by ODYSSEY.</span><img src="assets/odyssey-logo-horizontal-color.svg" alt="ODYSSEY"></div>
+
+<!-- ============ BACK COVER ============ -->
+<section class="back">
+  <img class="logo" src="assets/odyssey-logo-stacked-reverse.svg" alt="ODYSSEY">
+  <h2>We're here to help you and your team.</h2>
+  <p>If something in this manual doesn't match what you see, or you need a setting changed, contact us. We'll reply in plain language and tell you what happens next.</p>
+  <div class="contact">
+    <span>Phone</span><span>[phone]</span>
+    <span>Email</span><span>[email@yourdomain]</span>
+    <span>Website</span><span>[website]</span>
+    <span>Hours</span><span>[support hours]</span>
+  </div>
+  <div class="foot">Digital Loyalty · Shop Owner &amp; Staff Manual · v1.0 · November 2026</div>
+</section>
+
+</body>
+</html>
