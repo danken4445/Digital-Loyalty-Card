@@ -12,6 +12,85 @@ export interface BrandSettingsFormProps {
   tenantName: string;
   canManage: boolean;
   initialBrand: TenantBrand;
+  /** Stamps needed for the reward, from the shop's Rules tab. */
+  rewardThreshold: number;
+  rewardLabel?: string;
+}
+
+interface ImageDropzoneProps {
+  label: string;
+  value: string;
+  uploading: boolean;
+  disabled: boolean;
+  onFile: (file: File) => void;
+  onClear: () => void;
+}
+
+/** Drag-and-drop / click-to-browse image picker. Never shows the storage URL. */
+function ImageDropzone({ label, value, uploading, disabled, onFile, onClear }: ImageDropzoneProps) {
+  const [dragging, setDragging] = useState(false);
+  const inputId = useId();
+
+  return (
+    <div
+      onDragOver={(e) => {
+        e.preventDefault();
+        if (!disabled) setDragging(true);
+      }}
+      onDragLeave={() => setDragging(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setDragging(false);
+        const file = e.dataTransfer.files?.[0];
+        if (file && !disabled) onFile(file);
+      }}
+      className={`flex items-center gap-4 border border-dashed p-4 transition-colors ${
+        dragging ? 'border-amber-500 bg-amber-500/10' : 'border-neutral-700 bg-black/40'
+      }`}
+    >
+      <div className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden border border-neutral-700 bg-neutral-800 text-[10px] text-neutral-500">
+        {value ? (
+          <Image src={value} alt={`${label} preview`} fill sizes="64px" className="object-cover" unoptimized />
+        ) : (
+          'No image'
+        )}
+      </div>
+      <div className="min-w-0 flex-1 text-xs text-neutral-300">
+        <p>{uploading ? 'Uploading...' : 'Drag & drop an image here, or'}</p>
+        <div className="mt-1.5 flex gap-2">
+          <label
+            htmlFor={inputId}
+            className={`border border-neutral-700 bg-neutral-800 px-3 py-1.5 font-semibold uppercase tracking-wider text-neutral-200 ${
+              disabled || uploading ? 'opacity-50' : 'cursor-pointer hover:bg-neutral-700'
+            }`}
+          >
+            {value ? 'Replace' : 'Browse'}
+          </label>
+          {value && !disabled && (
+            <button
+              type="button"
+              onClick={onClear}
+              className="border border-neutral-700 px-3 py-1.5 font-semibold uppercase tracking-wider text-neutral-400 hover:text-white"
+            >
+              Remove
+            </button>
+          )}
+        </div>
+        <input
+          id={inputId}
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          className="sr-only"
+          disabled={disabled || uploading}
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) onFile(file);
+            e.target.value = '';
+          }}
+        />
+      </div>
+    </div>
+  );
 }
 
 export function BrandSettingsForm({
@@ -20,6 +99,8 @@ export function BrandSettingsForm({
   tenantName,
   canManage,
   initialBrand,
+  rewardThreshold,
+  rewardLabel,
 }: BrandSettingsFormProps) {
   const [primaryColor, setPrimaryColor] = useState(initialBrand.primaryColor || '#0A0A0A');
   const [accentColor, setAccentColor] = useState(initialBrand.accentColor || '#FFFFFF');
@@ -35,8 +116,6 @@ export function BrandSettingsForm({
   const primaryColorId = useId();
   const accentColorId = useId();
   const taglineId = useId();
-  const logoUrlId = useId();
-  const cardArtUrlId = useId();
 
   // Resolve live theme and contrast ratio
   const currentBrand: TenantBrand = {
@@ -48,6 +127,15 @@ export function BrandSettingsForm({
   };
 
   const theme = resolveCardTheme(currentBrand);
+  const totalSlots = Math.max(1, rewardThreshold);
+  const previewStamped = Math.min(4, Math.max(0, totalSlots - 1));
+  const initials =
+    tenantName
+      .split(/s+/)
+      .filter(Boolean)
+      .slice(0, 3)
+      .map((w) => w[0]!.toUpperCase())
+      .join('') || '?';
   const contrastRatio = getContrastRatio(theme.accentColor, theme.primaryColor);
   const isContrastWarning = !theme.passesAA || contrastRatio < 4.5;
 
@@ -260,69 +348,39 @@ export function BrandSettingsForm({
           {/* Logo Upload */}
           <div className="border border-neutral-800 bg-neutral-900/60 p-4 space-y-3">
             <div className="flex items-center justify-between">
-              <label htmlFor={logoUrlId} className="block text-xs font-bold uppercase tracking-wider text-neutral-300">
+              <span className="block text-xs font-bold uppercase tracking-wider text-neutral-300">
                 Shop Logo
-              </label>
+              </span>
               <span className="text-[11px] text-neutral-500">PNG, JPEG, WebP (Max 512KB, No SVG)</span>
             </div>
 
-            <div className="flex gap-2">
-              <input
-                id={logoUrlId}
-                type="text"
-                value={logoUrl}
-                onChange={(e) => setLogoUrl(e.target.value)}
-                className="w-full border border-neutral-700 bg-black px-3 py-2 text-xs text-white placeholder-neutral-600 focus:border-amber-500 focus:outline-none"
-                placeholder="https://... or root-relative /logo.png"
-              />
-              <label className="cursor-pointer border border-neutral-700 bg-neutral-800 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-neutral-200 hover:bg-neutral-700">
-                {isUploadingLogo ? 'Uploading...' : 'Browse'}
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleFileUpload(file, 'logo');
-                  }}
-                  disabled={isUploadingLogo || !canManage}
-                />
-              </label>
-            </div>
+            <ImageDropzone
+              label="Logo"
+              value={logoUrl}
+              uploading={isUploadingLogo}
+              disabled={!canManage}
+              onFile={(file) => handleFileUpload(file, 'logo')}
+              onClear={() => setLogoUrl('')}
+            />
           </div>
 
           {/* Card Art Upload */}
           <div className="border border-neutral-800 bg-neutral-900/60 p-4 space-y-3">
             <div className="flex items-center justify-between">
-              <label htmlFor={cardArtUrlId} className="block text-xs font-bold uppercase tracking-wider text-neutral-300">
+              <span className="block text-xs font-bold uppercase tracking-wider text-neutral-300">
                 Card Art / Stamp Background
-              </label>
+              </span>
               <span className="text-[11px] text-neutral-500">PNG, JPEG, WebP (Max 512KB, No SVG)</span>
             </div>
 
-            <div className="flex gap-2">
-              <input
-                id={cardArtUrlId}
-                type="text"
-                value={cardArtUrl}
-                onChange={(e) => setCardArtUrl(e.target.value)}
-                className="w-full border border-neutral-700 bg-black px-3 py-2 text-xs text-white placeholder-neutral-600 focus:border-amber-500 focus:outline-none"
-                placeholder="Optional background artwork URL"
-              />
-              <label className="cursor-pointer border border-neutral-700 bg-neutral-800 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-neutral-200 hover:bg-neutral-700">
-                {isUploadingArt ? 'Uploading...' : 'Browse'}
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleFileUpload(file, 'card-art');
-                  }}
-                  disabled={isUploadingArt || !canManage}
-                />
-              </label>
-            </div>
+            <ImageDropzone
+              label="Card art"
+              value={cardArtUrl}
+              uploading={isUploadingArt}
+              disabled={!canManage}
+              onFile={(file) => handleFileUpload(file, 'card-art')}
+              onClear={() => setCardArtUrl('')}
+            />
           </div>
 
           {canManage && (
@@ -377,7 +435,7 @@ export function BrandSettingsForm({
                     unoptimized
                   />
                 ) : (
-                  <span className="text-xs font-bold font-mono">TCP</span>
+                  <span className="text-xs font-bold font-mono">{initials}</span>
                 )}
               </div>
               <div>
@@ -402,8 +460,8 @@ export function BrandSettingsForm({
 
           {/* Stamp Preview Grid */}
           <div className="relative z-10 mt-6 grid grid-cols-5 gap-2">
-            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => {
-              const isStamped = num <= 4;
+            {Array.from({ length: totalSlots }, (_, i) => i + 1).map((num) => {
+              const isStamped = num <= previewStamped;
               return (
                 <div
                   key={num}
@@ -421,8 +479,8 @@ export function BrandSettingsForm({
           </div>
 
           <div className="relative z-10 mt-4 flex items-center justify-between text-[11px] pt-2 border-t" style={{ borderColor: theme.cardBorder }}>
-            <span style={{ color: theme.subtextColor }}>4 of 10 stamps earned</span>
-            <span className="font-bold" style={{ color: theme.accentColor }}>Reward Ready Soon</span>
+            <span style={{ color: theme.subtextColor }}>{previewStamped} of {totalSlots} stamps earned</span>
+            <span className="font-bold" style={{ color: theme.accentColor }}>{rewardLabel ? `Reward: ${rewardLabel}` : 'Reward Ready Soon'}</span>
           </div>
         </div>
 

@@ -28,6 +28,8 @@ export default async function BrandSettingsPage({ params }: BrandSettingsPagePro
       tenantName={tenant.name}
       canManage={canManage}
       initialBrand={initialBrand}
+      rewardThreshold={tenant.settings.rewardThreshold}
+      rewardLabel={tenant.settings.rewardLabel}
     />
   );
 }
