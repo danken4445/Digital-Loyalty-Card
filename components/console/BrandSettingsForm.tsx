@@ -3,8 +3,10 @@
 import React, { useId, useState } from 'react';
 import Image from 'next/image';
 import { getContrastRatio, resolveCardTheme } from '@/lib/brand/contrast';
-import type { ApiResponse, TenantBrand } from '@/lib/contracts';
+import { StampIcon, STAMP_ICON_LABELS } from '@/components/card/StampIcon';
+import { DEFAULT_STAMP_ICON, STAMP_ICON_IDS, type ApiResponse, type StampIconId, type TenantBrand } from '@/lib/contracts';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+import { CustomerCardPreview } from './CustomerCardPreview';
 
 export interface BrandSettingsFormProps {
   slug: string;
@@ -107,6 +109,7 @@ export function BrandSettingsForm({
   const [tagline, setTagline] = useState(initialBrand.tagline || '');
   const [logoUrl, setLogoUrl] = useState(initialBrand.logoUrl || '');
   const [cardArtUrl, setCardArtUrl] = useState(initialBrand.cardArtUrl || '');
+  const [stampIcon, setStampIcon] = useState<StampIconId>(initialBrand.stampIcon ?? DEFAULT_STAMP_ICON);
 
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const [isUploadingArt, setIsUploadingArt] = useState(false);
@@ -124,18 +127,10 @@ export function BrandSettingsForm({
     tagline: tagline.trim() || undefined,
     logoUrl: logoUrl.trim() || undefined,
     cardArtUrl: cardArtUrl.trim() || undefined,
+    stampIcon,
   };
 
   const theme = resolveCardTheme(currentBrand);
-  const totalSlots = Math.max(1, rewardThreshold);
-  const previewStamped = Math.min(4, Math.max(0, totalSlots - 1));
-  const initials =
-    tenantName
-      .split(/s+/)
-      .filter(Boolean)
-      .slice(0, 3)
-      .map((w) => w[0]!.toUpperCase())
-      .join('') || '?';
   const contrastRatio = getContrastRatio(theme.accentColor, theme.primaryColor);
   const isContrastWarning = !theme.passesAA || contrastRatio < 4.5;
 
@@ -205,6 +200,7 @@ export function BrandSettingsForm({
         tagline: tagline.trim() || undefined,
         logoUrl: logoUrl.trim() || undefined,
         cardArtUrl: cardArtUrl.trim() || undefined,
+        stampIcon,
       };
 
       const res = await fetch(`/api/staff/${encodeURIComponent(slug)}/brand`, {
@@ -345,6 +341,42 @@ export function BrandSettingsForm({
             </div>
           </div>
 
+          {/* Stamp icon */}
+          <fieldset className="space-y-3 border border-neutral-800 bg-neutral-900/60 p-4">
+            <div className="flex items-center justify-between">
+              <legend className="text-xs font-bold uppercase tracking-wider text-neutral-300">Stamp Icon</legend>
+              <span className="text-[11px] text-neutral-500">Printed in every stamp slot</span>
+            </div>
+            <div className="grid grid-cols-5 gap-2">
+              {STAMP_ICON_IDS.map((id) => {
+                const selected = stampIcon === id;
+                return (
+                  <label
+                    key={id}
+                    title={STAMP_ICON_LABELS[id]}
+                    className={`flex aspect-square items-center justify-center border transition-colors focus-within:ring-2 focus-within:ring-amber-500 ${
+                      selected
+                        ? 'border-amber-500 bg-amber-500/10 text-amber-400'
+                        : 'border-neutral-700 bg-black text-neutral-400 hover:text-white'
+                    } ${canManage ? 'cursor-pointer' : 'opacity-50'}`}
+                  >
+                    <input
+                      type="radio"
+                      name="stamp-icon"
+                      value={id}
+                      checked={selected}
+                      disabled={!canManage}
+                      onChange={() => setStampIcon(id)}
+                      className="sr-only"
+                    />
+                    <StampIcon icon={id} className="h-6 w-6" />
+                    <span className="sr-only">{STAMP_ICON_LABELS[id]}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </fieldset>
+
           {/* Logo Upload */}
           <div className="border border-neutral-800 bg-neutral-900/60 p-4 space-y-3">
             <div className="flex items-center justify-between">
@@ -398,91 +430,21 @@ export function BrandSettingsForm({
       </div>
 
       {/* Live Preview column */}
-      <div className="lg:col-span-5 space-y-4">
+      <div className="space-y-4 lg:col-span-5 lg:sticky lg:top-6 lg:self-start">
         <div>
           <h3 className="font-display text-sm font-bold uppercase tracking-wider text-neutral-300">
             Live Card Preview
           </h3>
-          <p className="text-xs text-neutral-500">Simulates real customer loyalty card appearance.</p>
+          <p className="text-xs text-neutral-500">Exactly what customers see on their card page, updated as you edit.</p>
         </div>
 
-        {/* Card Mockup */}
-        <div
-          className="relative w-full overflow-hidden border p-5 transition-colors duration-200"
-          style={{
-            backgroundColor: theme.primaryColor,
-            borderColor: theme.cardBorder,
-            color: theme.textColor,
-          }}
-        >
-          {theme.cardArtUrl && (
-            <div
-              className="absolute inset-0 opacity-15 pointer-events-none bg-cover bg-center"
-              style={{ backgroundImage: `url(${theme.cardArtUrl})` }}
-            />
-          )}
-
-          <div className="relative z-10 flex items-start justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="relative h-10 w-10 overflow-hidden rounded border border-neutral-700 bg-neutral-800 flex items-center justify-center">
-                {theme.logoUrl ? (
-                  <Image
-                    src={theme.logoUrl}
-                    alt="Logo"
-                    fill
-                    sizes="40px"
-                    className="object-cover"
-                    unoptimized
-                  />
-                ) : (
-                  <span className="text-xs font-bold font-mono">{initials}</span>
-                )}
-              </div>
-              <div>
-                <h4 className="font-display text-base font-bold uppercase tracking-wider">
-                  {tenantName}
-                </h4>
-                {theme.tagline && (
-                  <p className="text-xs opacity-80" style={{ color: theme.subtextColor }}>
-                    {theme.tagline}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div
-              className="border px-2 py-0.5 text-[10px] font-mono font-semibold uppercase"
-              style={{ borderColor: theme.accentColor, color: theme.accentColor }}
-            >
-              VIP Pass
-            </div>
-          </div>
-
-          {/* Stamp Preview Grid */}
-          <div className="relative z-10 mt-6 grid grid-cols-5 gap-2">
-            {Array.from({ length: totalSlots }, (_, i) => i + 1).map((num) => {
-              const isStamped = num <= previewStamped;
-              return (
-                <div
-                  key={num}
-                  className="flex aspect-square items-center justify-center border text-xs font-mono font-bold transition-all"
-                  style={{
-                    backgroundColor: isStamped ? theme.accentColor : 'transparent',
-                    borderColor: theme.cardBorder,
-                    color: isStamped ? theme.primaryColor : theme.subtextColor,
-                  }}
-                >
-                  {isStamped ? '✓' : num}
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="relative z-10 mt-4 flex items-center justify-between text-[11px] pt-2 border-t" style={{ borderColor: theme.cardBorder }}>
-            <span style={{ color: theme.subtextColor }}>{previewStamped} of {totalSlots} stamps earned</span>
-            <span className="font-bold" style={{ color: theme.accentColor }}>{rewardLabel ? `Reward: ${rewardLabel}` : 'Reward Ready Soon'}</span>
-          </div>
-        </div>
+        <CustomerCardPreview
+          tenantId={tenantId}
+          tenantName={tenantName}
+          brand={currentBrand}
+          rewardThreshold={rewardThreshold}
+          rewardLabel={rewardLabel}
+        />
 
         {/* Preview specifications card */}
         <div className="border border-neutral-800 bg-black p-4 text-xs space-y-2">

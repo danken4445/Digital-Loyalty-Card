@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireConsoleAccess, ConsoleAccessError, isNotFoundError } from '@/lib/console/guard';
-import type { ApiResponse, TenantBrand } from '@/lib/contracts';
+import { STAMP_ICON_IDS, type ApiResponse, type TenantBrand } from '@/lib/contracts';
 import { verifySameOriginRequest } from '@/lib/security/csrf';
 import { checkPublicEndpointRateLimit, getClientIp } from '@/lib/security/ratelimit';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
@@ -37,6 +37,10 @@ const brandPatchSchema = z
       .nullable(),
     logoUrl: z.string().trim().optional().nullable(),
     cardArtUrl: z.string().trim().optional().nullable(),
+    stampIcon: z
+      .enum(STAMP_ICON_IDS, { message: 'Stamp icon is not one of the available icons' })
+      .optional()
+      .nullable(),
   })
   .strict();
 
@@ -210,6 +214,9 @@ export async function PATCH(
   }
   if (parsed.data.cardArtUrl !== undefined) {
     cleanBrand.cardArtUrl = validatedCardArtUrl || undefined;
+  }
+  if (parsed.data.stampIcon !== undefined) {
+    cleanBrand.stampIcon = parsed.data.stampIcon ?? undefined;
   }
 
   if (Object.keys(cleanBrand).length === 0) {

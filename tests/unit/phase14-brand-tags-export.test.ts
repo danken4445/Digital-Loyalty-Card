@@ -384,6 +384,29 @@ describe('Phase 14 Task 7: Branding, Tags Tab, CSV Export, Locations', () => {
       },
     });
 
+    // Stamp icon: unknown ids rejected, known ids passed through
+    const badIconReq = new Request('http://localhost:3000/api/staff/shop-a/brand', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json', origin: 'http://localhost:3000' },
+      body: JSON.stringify({ stampIcon: 'rocket-launcher' }),
+    });
+    const badIconRes = await brandPatch(badIconReq, { params: Promise.resolve({ slug: 'shop-a' }) });
+    expect(badIconRes.status).toBe(400);
+
+    mockAdminClient.rpc.mockResolvedValueOnce({ data: 'updated', error: null });
+    const iconReq = new Request('http://localhost:3000/api/staff/shop-a/brand', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json', origin: 'http://localhost:3000' },
+      body: JSON.stringify({ stampIcon: 'scissors' }),
+    });
+    const iconRes = await brandPatch(iconReq, { params: Promise.resolve({ slug: 'shop-a' }) });
+    expect(iconRes.status).toBe(200);
+    expect(mockAdminClient.rpc).toHaveBeenLastCalledWith('update_tenant_brand', {
+      p_actor: expect.any(String),
+      p_tenant: expect.any(String),
+      p_brand: { stampIcon: 'scissors' },
+    });
+
     // Reject empty brand patch
     const emptyReq = new Request('http://localhost:3000/api/staff/shop-a/brand', {
       method: 'PATCH',

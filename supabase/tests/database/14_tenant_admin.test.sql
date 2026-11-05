@@ -11,7 +11,7 @@ set search_path to extensions, public;
 grant usage on schema extensions to anon, authenticated, service_role;
 grant execute on all functions in schema extensions to anon, authenticated, service_role;
 
-select plan(65);
+select plan(67);
 
 -- ------------------------------------------------------------------------------
 -- Fixtures
@@ -611,6 +611,26 @@ select is(
     ),
     'updated',
     'brand_rejects_bad_color_and_foreign_url: valid brand accepted'
+);
+
+select is(
+    public.update_tenant_brand(
+        '14000000-0000-4000-8000-000000000002',
+        '14111111-0000-4000-8000-000000000001',
+        '{"stampIcon": "rocket-launcher"}'::jsonb
+    ),
+    'invalid-brand',
+    'brand_stamp_icon: unknown icon rejected'
+);
+
+select is(
+    public.update_tenant_brand(
+        '14000000-0000-4000-8000-000000000002',
+        '14111111-0000-4000-8000-000000000001',
+        '{"stampIcon": "scissors"}'::jsonb
+    ),
+    'updated',
+    'brand_stamp_icon: known icon accepted'
 );
 
 -- Partial brand update preserves omitted existing fields

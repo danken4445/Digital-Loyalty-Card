@@ -60,7 +60,32 @@ export type Perk = (typeof PERKS)[number];
 export const TENANT_STATUSES = ['trial', 'active', 'suspended', 'closed'] as const;
 export type TenantStatus = (typeof TENANT_STATUSES)[number];
 
+/**
+ * Icons a shop can print in its stamp slots. Keep in sync with the `update_tenant_brand` SQL
+ * whitelist and the glyphs in components/card/StampIcon.tsx.
+ */
+export const STAMP_ICON_IDS = [
+  'cup',
+  'star',
+  'heart',
+  'scissors',
+  'paw',
+  'leaf',
+  'utensils',
+  'bag',
+  'sparkles',
+  'gift',
+] as const;
+export type StampIconId = (typeof STAMP_ICON_IDS)[number];
+export const DEFAULT_STAMP_ICON: StampIconId = 'cup';
+
+export function isStampIconId(value: unknown): value is StampIconId {
+  return typeof value === 'string' && (STAMP_ICON_IDS as readonly string[]).includes(value);
+}
+
 export interface TenantBrand {
+  /** Icon printed in each stamp slot; defaults to the coffee cup. */
+  stampIcon?: StampIconId;
   /** CSS color for the card background, e.g. "#0A0A0A" */
   primaryColor?: string;
   /** CSS color for accents and the stamp ink, e.g. "#FFFFFF" */

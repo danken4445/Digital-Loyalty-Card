@@ -342,6 +342,7 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
             rewardThreshold={rewardThreshold}
             rewardLabel={settings.rewardLabel}
             milestoneStep={milestoneStep}
+            stampIcon={theme.stampIcon}
           />
         </div>
 

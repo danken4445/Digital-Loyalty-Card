@@ -1,4 +1,4 @@
-import type { TenantBrand } from '@/lib/contracts';
+import { DEFAULT_STAMP_ICON, isStampIconId, type StampIconId, type TenantBrand } from '@/lib/contracts';
 
 /**
  * WCAG AA Contrast and Dynamic Card Branding Engine.
@@ -33,6 +33,7 @@ export interface ResolvedCardTheme {
   logoUrl: string | null;
   cardArtUrl: string | null;
   tagline: string | null;
+  stampIcon: StampIconId;
   passesAA: boolean;
 }
 
@@ -188,6 +189,7 @@ export function resolveCardTheme(brand?: TenantBrand | null): ResolvedCardTheme 
     logoUrl,
     cardArtUrl,
     tagline,
+    stampIcon: isStampIconId(safeBrand.stampIcon) ? safeBrand.stampIcon : DEFAULT_STAMP_ICON,
     passesAA,
   };
 }

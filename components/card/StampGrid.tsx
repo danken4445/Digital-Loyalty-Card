@@ -1,5 +1,7 @@
 import type { CSSProperties } from 'react';
+import { StampIcon } from '@/components/card/StampIcon';
 import { STAMP_RULES } from '@/lib/config';
+import { DEFAULT_STAMP_ICON, type StampIconId } from '@/lib/contracts';
 import { calculateStampProgress } from '@/lib/rules/display';
 
 export interface StampGridProps {
@@ -16,6 +18,8 @@ export interface StampGridProps {
   rewardLabel?: string;
   /** Slot printed "50% OFF"; null for shops without a milestone. Defaults to the platform rule. */
   milestoneStep?: number | null;
+  /** Icon printed in each stamp slot; defaults to the coffee cup. */
+  stampIcon?: StampIconId;
 }
 
 /**
@@ -53,28 +57,6 @@ function getSlotAriaLabel(
   return `Stamp ${slot} of ${rewardThreshold}, ${status}`;
 }
 
-/** Takeaway cup with a coffee bean on the sleeve, matching the printed loyalty card. */
-function CupIcon({ className }: { className: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.6"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M8.5 4 9.3 2.5h5.4l.8 1.5" />
-      <rect x="5" y="4" width="14" height="3" rx="1" />
-      <path d="M6.5 7 8 21h8l1.5-14" />
-      <ellipse cx="12" cy="14" rx="2.2" ry="2.8" transform="rotate(30 12 14)" />
-      <path d="M10.9 15.9c.9-.7 1.3-2.5 2.2-3.8" />
-    </svg>
-  );
-}
-
 /** Printed text for the two reward slots, as on the physical card. */
 function rewardSlotText(
   slot: number,
@@ -89,7 +71,7 @@ function rewardSlotText(
 
 /**
  * Accessible 10-slot stamp card laid out like the printed Caffeine Plug card:
- * two rows of four cups, each row ending in a dashed reward circle.
+ * rows of icon slots, each row ending in a dashed reward circle.
  */
 export function StampGrid({
   availableStamps,
@@ -97,6 +79,7 @@ export function StampGrid({
   rewardThreshold = STAMP_RULES.rewardThreshold,
   rewardLabel = 'Free Coffee',
   milestoneStep = STAMP_RULES.milestoneStep,
+  stampIcon = DEFAULT_STAMP_ICON,
 }: StampGridProps) {
   const progress = calculateStampProgress(availableStamps, rewardThreshold);
   const slots = Array.from({ length: rewardThreshold }, (_, index) => index + 1);
@@ -164,7 +147,7 @@ export function StampGrid({
                     {printedText}
                   </span>
                 ) : (
-                  <CupIcon className="w-[45%] h-[45%]" />
+                  <StampIcon icon={stampIcon} className="w-[45%] h-[45%]" />
                 )}
               </span>
 
@@ -181,7 +164,7 @@ export function StampGrid({
                       {printedText}
                     </span>
                   ) : (
-                    <CupIcon className="w-1/2 h-1/2" />
+                    <StampIcon icon={stampIcon} className="w-1/2 h-1/2" />
                   )}
                 </span>
               )}
@@ -225,7 +208,7 @@ export function StampGrid({
           className="mt-4 rounded-xl border border-dashed border-plug-border px-4 py-3"
         >
           <p className="text-sm text-neutral-300 leading-relaxed">
-            0 stamps collected yet. When you order, ask the barista to tap their card on your phone.
+            0 stamps collected yet. When you order, ask the staff to tap their card on your phone.
           </p>
         </div>
       )}

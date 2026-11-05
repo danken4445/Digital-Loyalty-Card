@@ -76,8 +76,14 @@ describe('lib/brand/contrast', () => {
         logoUrl: DEFAULT_LOGO_URL,
         cardArtUrl: null,
         tagline: null,
+        stampIcon: 'cup',
         passesAA: true,
       });
+    });
+
+    it('resolves a chosen stamp icon and falls back to the cup for unknown values', () => {
+      expect(resolveCardTheme({ stampIcon: 'scissors' }).stampIcon).toBe('scissors');
+      expect(resolveCardTheme({ stampIcon: 'bogus' as unknown as 'cup' }).stampIcon).toBe('cup');
     });
 
     it('preserves tenant 1 defaults when brand is null or undefined', () => {
