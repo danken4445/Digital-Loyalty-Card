@@ -43,6 +43,7 @@ describe('NFC Anti-Replay & Mirror Parsing Test Suite', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(getVerifiedUser).mockReset();
     resetMemoryRateLimitStore();
 
     mockAdminRpc.mockResolvedValue({
@@ -233,6 +234,28 @@ describe('NFC Anti-Replay & Mirror Parsing Test Suite', () => {
         p_hardware_uid: '04930D01590F13',
       });
     });
+
+    it('fast-fails unauthenticated client with malformed tag directly to /card?r=invalid-tag without sending to /start', async () => {
+      const request = new NextRequest('http://localhost:3000/t/bad');
+      const response = await GET(request, {
+        params: Promise.resolve({ tagId: 'bad' }),
+      });
+
+      expect(response.status).toBe(303);
+      expect(response.headers.get('location')).toBe('http://localhost:3000/card?r=invalid-tag');
+      expect(getVerifiedUser).not.toHaveBeenCalled();
+    });
+
+    it('fast-fails unauthenticated client with malformed mirror query directly to /card?r=invalid-tag', async () => {
+      const request = new NextRequest('http://localhost:3000/t/tcp_tag_demo_9x8k2m4p7q1w?c=nothex');
+      const response = await GET(request, {
+        params: Promise.resolve({ tagId: 'tcp_tag_demo_9x8k2m4p7q1w' }),
+      });
+
+      expect(response.status).toBe(303);
+      expect(response.headers.get('location')).toBe('http://localhost:3000/card?r=invalid-tag');
+      expect(getVerifiedUser).not.toHaveBeenCalled();
+    });
   });
 
   describe('3. Browser History Scrubbing Helper', () => {
@@ -285,6 +308,34 @@ describe('NFC Anti-Replay & Mirror Parsing Test Suite', () => {
         p_tap_counter: 20,
         p_hardware_uid: '04930D01590F13',
       });
+    });
+
+    it('/api/claim forwards mirror parameters on no-card redirectTo so AddCardPanel retains counter and UID', async () => {
+      vi.mocked(getVerifiedUser).mockResolvedValueOnce(authenticatedCustomer);
+      mockAdminRpc.mockResolvedValueOnce({
+        data: { result: 'no-card', tenant_slug: 'the-caffeine-plug' },
+        error: null,
+      });
+
+      const request = new Request('http://localhost:3000/api/claim', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Origin: 'http://localhost:3000',
+        },
+        body: JSON.stringify({
+          tagId: 'tcp_tag_demo_9x8k2m4p7q1w',
+          m: '04930D01590F13x000014',
+        }),
+      });
+
+      const res = await claimPost(request);
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.data.result).toBe('no-card');
+      expect(json.data.redirectTo).toBe(
+        '/s/the-caffeine-plug?t=tcp_tag_demo_9x8k2m4p7q1w&m=04930D01590F13x000014',
+      );
     });
 
     it('/api/cards forwards tapCounter and hardwareUid to stamp_card_nfc when tagId is present', async () => {

@@ -49,9 +49,23 @@ export async function GET(
     );
   }
 
+  const tapVerification = verifyTap({
+    tagId,
+    query: {
+      c: rawC ?? undefined,
+      m: rawM ?? undefined,
+    },
+  });
+
+  if (!tapVerification.valid) {
+    return createHardenedRedirect(new URL(ROUTES.cardWithResult('invalid-tag'), request.url));
+  }
+
   const user = await getVerifiedUser();
   if (!user) {
-    return createHardenedRedirect(new URL(ROUTES.startWithTag(tagId, mirrorParams), request.url));
+    return createHardenedRedirect(
+      new URL(ROUTES.startWithTag(tapVerification.normalizedTagId, mirrorParams), request.url),
+    );
   }
 
   const custLimit = await checkPublicEndpointRateLimit({
@@ -69,18 +83,6 @@ export async function GET(
       },
       429,
     );
-  }
-
-  const tapVerification = verifyTap({
-    tagId,
-    query: {
-      c: rawC ?? undefined,
-      m: rawM ?? undefined,
-    },
-  });
-
-  if (!tapVerification.valid) {
-    return createHardenedRedirect(new URL(ROUTES.cardWithResult('invalid-tag'), request.url));
   }
 
   try {

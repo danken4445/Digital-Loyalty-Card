@@ -305,3 +305,4 @@ $$;
 
 revoke all on function public.tag_leak_signals(uuid, uuid, integer) from public, anon, authenticated;
 grant execute on function public.tag_leak_signals(uuid, uuid, integer) to service_role;
+

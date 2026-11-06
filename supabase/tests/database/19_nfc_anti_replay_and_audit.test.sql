@@ -282,3 +282,4 @@ where action = 'stamp_rejected_cooldown'
   and target = '19000000-0000-4000-8000-000000000004';
 
 rollback;
+

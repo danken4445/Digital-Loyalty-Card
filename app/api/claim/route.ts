@@ -140,11 +140,15 @@ export async function POST(
 
     const outcome = parseStampCardPayload(data);
 
+    const mirrorParams: Record<string, string> = {};
+    if (parsed.data.m) mirrorParams.m = parsed.data.m;
+    else if (parsed.data.c) mirrorParams.c = parsed.data.c;
+
     return NextResponse.json<ApiResponse<ClaimStampResponse>>({
       ok: true,
       data: {
         result: outcome.result,
-        redirectTo: stampRedirectPath(outcome, tapVerification.normalizedTagId),
+        redirectTo: stampRedirectPath(outcome, tapVerification.normalizedTagId, mirrorParams),
       },
     });
   } catch {

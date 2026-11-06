@@ -549,7 +549,7 @@ export async function getStaffTagsList(options?: { staff?: StaffMembership }): P
 
   const { data, error } = await supabase
     .from('tags')
-    .select('id, label, active, created_at, deactivated_at')
+    .select('id, label, active, created_at, deactivated_at, last_tap_counter, hardware_uid')
     .eq('tenant_id', staff.tenantId)
     .order('created_at', { ascending: false });
 
