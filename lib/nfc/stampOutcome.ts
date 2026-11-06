@@ -20,12 +20,16 @@ export function parseStampCardPayload(data: unknown): StampOutcome {
 }
 
 /** Where a tap lands: unknown tag -> /card, no card yet -> add-card screen, otherwise the shop with the result. */
-export function stampRedirectPath(outcome: StampOutcome, tagId: string): string {
+export function stampRedirectPath(
+  outcome: StampOutcome,
+  tagId: string,
+  extra?: Record<string, string | null | undefined>,
+): string {
   if (outcome.result === 'invalid-tag' || !outcome.tenantSlug) {
     return ROUTES.cardWithResult('invalid-tag');
   }
   if (outcome.result === 'no-card') {
-    return ROUTES.shopAddCard(outcome.tenantSlug, tagId);
+    return ROUTES.shopAddCard(outcome.tenantSlug, tagId, extra);
   }
   return ROUTES.shopWithResult(outcome.tenantSlug, outcome.result);
 }

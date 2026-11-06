@@ -165,6 +165,10 @@ export interface AddCardRequest {
   /** Present when the customer arrived from an NFC tap: the stamp is claimed right after adding the card. */
   tagId?: string;
   consentVersion?: string;
+  c?: string;
+  m?: string;
+  tapCounter?: number | null;
+  hardwareUid?: string | null;
 }
 
 export interface AddCardResponse {
@@ -258,6 +262,8 @@ export interface TagRow {
   active: boolean;
   created_at: string;
   deactivated_at: string | null;
+  last_tap_counter?: number | null;
+  hardware_uid?: string | null;
 }
 
 export interface StampRow {
@@ -320,7 +326,13 @@ export interface RpcContracts {
     Returns: AddCardResultCode;
   };
   stamp_card_nfc: {
-    Args: { p_customer: string; p_tag: string; p_now?: string };
+    Args: {
+      p_customer: string;
+      p_tag: string;
+      p_now?: string;
+      p_tap_counter?: number | null;
+      p_hardware_uid?: string | null;
+    };
     Returns: { result: StampResultCode; tenant_slug: string | null };
   };
   stamp_card_manual: {
@@ -561,6 +573,8 @@ export type VerifyTapResult =
       valid: true;
       normalizedTagId: string;
       mode: 'ntag215-static';
+      tapCounter?: number | null;
+      hardwareUid?: string | null;
     }
   | {
       valid: false;
@@ -570,6 +584,10 @@ export type VerifyTapResult =
 export interface ClaimStampRequest {
   tagId: string;
   captchaToken?: string;
+  c?: string;
+  m?: string;
+  tapCounter?: number | null;
+  hardwareUid?: string | null;
 }
 
 export interface ClaimStampResponse {
@@ -726,7 +744,12 @@ export interface StaffTagActionResponse {
 export interface ActivityAnomalyFlag {
   id: string;
   severity: 'warning' | 'high';
-  category: 'repeated-daily-cap' | 'high-tag-volume' | 'frequent-manual-stamps';
+  category:
+    | 'repeated-daily-cap'
+    | 'high-tag-volume'
+    | 'frequent-manual-stamps'
+    | 'cooldown-hugging'
+    | 'buddy-tag-concentration';
   title: string;
   description: string;
   targetId: string;
@@ -820,14 +843,34 @@ export const ROUTES = Object.freeze({
   shopWithResult: (slug: string, result: StampResultCode) =>
     `/s/${encodeURIComponent(slug)}?r=${encodeURIComponent(result)}`,
   /** Add-card (consent) screen; with a tag, the tap's stamp is claimed right after the card is added. */
-  shopAddCard: (slug: string, tagId?: string | null) =>
-    tagId
-      ? `/s/${encodeURIComponent(slug)}?t=${encodeURIComponent(tagId)}`
-      : `/s/${encodeURIComponent(slug)}`,
+  shopAddCard: (
+    slug: string,
+    tagId?: string | null,
+    extra?: Record<string, string | null | undefined>,
+  ) => {
+    if (!tagId) return `/s/${encodeURIComponent(slug)}`;
+    const search = new URLSearchParams();
+    search.set('t', tagId);
+    if (extra) {
+      for (const [k, v] of Object.entries(extra)) {
+        if (v) search.set(k, v);
+      }
+    }
+    return `/s/${encodeURIComponent(slug)}?${search.toString()}`;
+  },
   /** Phase 13: Per-shop privacy notice generated from tenant settings */
   shopPrivacy: (slug: string) => `/s/${encodeURIComponent(slug)}/privacy`,
   start: '/start',
-  startWithTag: (tagId: string) => `/start?t=${encodeURIComponent(tagId)}`,
+  startWithTag: (tagId: string, extra?: Record<string, string | null | undefined>) => {
+    const search = new URLSearchParams();
+    search.set('t', tagId);
+    if (extra) {
+      for (const [k, v] of Object.entries(extra)) {
+        if (v) search.set(k, v);
+      }
+    }
+    return `/start?${search.toString()}`;
+  },
   tap: (tagId: string) => `/t/${encodeURIComponent(tagId)}`,
   authCallback: '/auth/callback',
   /** Set-a-new-password screen after a recovery link (outside /staff so any signed-in account can reach it). */

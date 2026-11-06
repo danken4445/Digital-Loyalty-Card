@@ -38,6 +38,8 @@ interface ShopPageProps {
     result?: string | string[] | undefined;
     deleted?: string | string[] | undefined;
     t?: string | string[] | undefined;
+    c?: string | string[] | undefined;
+    m?: string | string[] | undefined;
     added?: string | string[] | undefined;
   }>;
 }
@@ -70,6 +72,10 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
     (Array.isArray(resolvedParams?.added) && resolvedParams.added[0] === '1');
   const rawTag = Array.isArray(resolvedParams?.t) ? resolvedParams.t[0] : resolvedParams?.t;
   const tagId = typeof rawTag === 'string' && rawTag.trim().length > 0 ? rawTag.trim() : null;
+  const rawC = Array.isArray(resolvedParams?.c) ? resolvedParams.c[0] : resolvedParams?.c;
+  const cParam = typeof rawC === 'string' && rawC.trim().length > 0 ? rawC.trim() : undefined;
+  const rawM = Array.isArray(resolvedParams?.m) ? resolvedParams.m[0] : resolvedParams?.m;
+  const mParam = typeof rawM === 'string' && rawM.trim().length > 0 ? rawM.trim() : undefined;
 
   const cardState = await getCustomerCardState(tenant);
 
@@ -146,7 +152,13 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
           ) : undefined
         }
       >
-        <GetCardButton mode={tagId ? 'start' : 'card'} tagId={tagId} returnTo={ROUTES.shop(tenant.slug)} />
+        <GetCardButton
+          mode={tagId ? 'start' : 'card'}
+          tagId={tagId}
+          mirrorC={cParam}
+          mirrorM={mParam}
+          returnTo={ROUTES.shop(tenant.slug)}
+        />
       </OnboardingCard>
     );
   }
@@ -172,6 +184,8 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
           tenantName={tenant.name}
           rewardLabel={settings.rewardLabel}
           tagId={tagId}
+          mirrorC={cParam}
+          mirrorM={mParam}
           isSuspended={isSuspended}
         />
       </OnboardingCard>

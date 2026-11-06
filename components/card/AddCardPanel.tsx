@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -9,6 +9,7 @@ import {
   type AddCardResponse,
   type ApiResponse,
 } from '@/lib/contracts';
+import { scrubUrlSearchParams } from '@/lib/nfc/scrubUrl';
 
 export interface AddCardPanelProps {
   tenantSlug: string;
@@ -16,6 +17,8 @@ export interface AddCardPanelProps {
   rewardLabel: string;
   /** Present when the customer arrived from an NFC tap; the stamp is claimed right after the card is added. */
   tagId?: string | null;
+  mirrorC?: string | null;
+  mirrorM?: string | null;
   /** When true, the shop is suspended and cannot issue new cards. */
   isSuspended?: boolean;
 }
@@ -29,11 +32,18 @@ export function AddCardPanel({
   tenantName,
   rewardLabel,
   tagId,
+  mirrorC,
+  mirrorM,
   isSuspended = false,
 }: AddCardPanelProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Immediately strip ?t=, ?c=, and ?m= from window.location on mount so the URL cannot be replayed from history
+  useEffect(() => {
+    scrubUrlSearchParams(['t', 'c', 'm']);
+  }, []);
 
   const handleAdd = async () => {
     if (isLoading || isSuspended) {
@@ -47,6 +57,8 @@ export function AddCardPanel({
       const body: AddCardRequest = {
         tenantSlug,
         ...(trimmedTag ? { tagId: trimmedTag } : {}),
+        ...(mirrorC ? { c: mirrorC } : {}),
+        ...(mirrorM ? { m: mirrorM } : {}),
       };
       const response = await fetch(ROUTES.api.cards, {
         method: 'POST',
@@ -71,7 +83,7 @@ export function AddCardPanel({
 
       const separator = json.data.redirectTo.includes('?') ? '&' : '?';
       const redirectWithAdded = `${json.data.redirectTo}${separator}added=1`;
-      router.push(redirectWithAdded);
+      router.replace(redirectWithAdded);
       router.refresh();
     } catch {
       setErrorMessage('Network connection error. Please try again.');

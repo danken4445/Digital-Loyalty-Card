@@ -1,23 +1,37 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ROUTES, type ApiResponse, type ClaimStampResponse } from '@/lib/contracts';
+import { scrubUrlSearchParams } from '@/lib/nfc/scrubUrl';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import { TurnstileWidget } from '@/components/auth/TurnstileWidget';
 
 export interface GetCardButtonProps {
   mode: 'card' | 'start';
   tagId?: string | null;
+  mirrorC?: string | null;
+  mirrorM?: string | null;
   /** Where to land after signing in when there is no tag claim to follow; defaults to the /card redirector. */
   returnTo?: string;
 }
 
-export function GetCardButton({ mode, tagId, returnTo = ROUTES.card }: GetCardButtonProps) {
+export function GetCardButton({
+  mode,
+  tagId,
+  mirrorC,
+  mirrorM,
+  returnTo = ROUTES.card,
+}: GetCardButtonProps) {
   const router = useRouter();
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Immediately strip ?t=, ?c=, and ?m= from window.location on mount so the URL cannot be replayed from history
+  useEffect(() => {
+    scrubUrlSearchParams(['t', 'c', 'm']);
+  }, []);
 
   const getButtonLabel = (): string => {
     if (isLoading) {
@@ -82,13 +96,17 @@ export function GetCardButton({ mode, tagId, returnTo = ROUTES.card }: GetCardBu
               headers: {
                 'Content-Type': 'application/json',
               },
-              body: JSON.stringify({ tagId: trimmedTag }),
+              body: JSON.stringify({
+                tagId: trimmedTag,
+                ...(mirrorC ? { c: mirrorC } : {}),
+                ...(mirrorM ? { m: mirrorM } : {}),
+              }),
             });
 
             if (claimResponse.ok) {
               const claimJson = (await claimResponse.json()) as ApiResponse<ClaimStampResponse>;
               if (claimJson.ok && claimJson.data?.redirectTo) {
-                router.push(claimJson.data.redirectTo);
+                router.replace(claimJson.data.redirectTo);
                 router.refresh();
                 return;
               }
@@ -98,7 +116,7 @@ export function GetCardButton({ mode, tagId, returnTo = ROUTES.card }: GetCardBu
           }
         }
 
-        router.push(returnTo);
+        router.replace(returnTo);
       }
       router.refresh();
     } catch (err: unknown) {

@@ -20,6 +20,10 @@ const addCardBodySchema = z.object({
   tenantSlug: z.string().trim().min(3).max(40),
   tagId: z.string().trim().min(1).max(256).optional(),
   consentVersion: z.string().trim().min(1).max(32).default('v1'),
+  c: z.string().trim().optional(),
+  m: z.string().trim().optional(),
+  tapCounter: z.number().int().min(0).max(16777215).optional().nullable(),
+  hardwareUid: z.string().trim().optional().nullable(),
 });
 
 function fail(
@@ -100,14 +104,28 @@ export async function POST(
     let stampResult: StampResultCode | undefined;
     let stampedOtherShop = false;
     if (tagId) {
-      const tap = verifyTap({ tagId });
+      const tap = verifyTap({
+        tagId,
+        query: {
+          c: parsed.data.c,
+          m: parsed.data.m,
+        },
+      });
       if (!tap.valid) {
         stampResult = 'invalid-tag';
       } else {
+        const tapCounter =
+          tap.tapCounter !== null && tap.tapCounter !== undefined
+            ? tap.tapCounter
+            : (parsed.data.tapCounter ?? null);
+        const hardwareUid = tap.hardwareUid ?? parsed.data.hardwareUid ?? null;
+
         // The card is already added at this point, so a stamping failure only drops the stamp result.
         const { data: stampData, error: stampError } = await admin.rpc('stamp_card_nfc', {
           p_customer: user.id,
           p_tag: tap.normalizedTagId,
+          ...(tapCounter !== null ? { p_tap_counter: tapCounter } : {}),
+          ...(hardwareUid ? { p_hardware_uid: hardwareUid } : {}),
         });
         if (!stampError) {
           const outcome = parseStampCardPayload(stampData);
