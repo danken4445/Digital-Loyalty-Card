@@ -461,8 +461,10 @@ export type Database = {
           active: boolean;
           created_at: string;
           deactivated_at: string | null;
+          hardware_uid: string | null;
           id: string;
           label: string | null;
+          last_tap_counter: number | null;
           location_id: string | null;
           tenant_id: string;
         };
@@ -471,8 +473,10 @@ export type Database = {
           active?: boolean;
           created_at?: string;
           deactivated_at?: string | null;
+          hardware_uid?: string | null;
           id: string;
           label?: string | null;
+          last_tap_counter?: number | null;
           location_id?: string | null;
           tenant_id: string;
         };
@@ -480,8 +484,10 @@ export type Database = {
           active?: boolean;
           created_at?: string;
           deactivated_at?: string | null;
+          hardware_uid?: string | null;
           id?: string;
           label?: string | null;
+          last_tap_counter?: number | null;
           location_id?: string | null;
           tenant_id?: string;
         };
@@ -901,7 +907,13 @@ export type Database = {
         Returns: string;
       };
       stamp_card_nfc: {
-        Args: { p_customer: string; p_now?: string; p_tag: string };
+        Args: {
+          p_customer: string;
+          p_now?: string;
+          p_tag: string;
+          p_tap_counter?: number | null;
+          p_hardware_uid?: string | null;
+        };
         Returns: Json;
       };
       start_support_session: {
