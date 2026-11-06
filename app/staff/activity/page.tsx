@@ -10,6 +10,13 @@ export default async function StaffActivityPage() {
   const activity = await getStaffActivityDashboardData();
   const timezone = (await getTenantById(staff.tenantId))?.settings.timezone ?? SHOP_CONFIG.timezone;
 
+  const tagLabelMap = new Map<string, string>();
+  if (activity.tags) {
+    for (const t of activity.tags) {
+      if (t.label) tagLabelMap.set(t.id, t.label);
+    }
+  }
+
   return (
     <StaffPageShell
       staff={staff}
@@ -119,7 +126,14 @@ export default async function StaffActivityPage() {
                       <td className="px-4 py-3">
                         {stamp.source === 'nfc' ? (
                           <span className="font-mono text-neutral-300">
-                            Tag: {stamp.tag_id || 'Unknown Tag'}
+                            {stamp.tag_id && tagLabelMap.get(stamp.tag_id) ? (
+                              <>
+                                <span className="font-bold text-white">{tagLabelMap.get(stamp.tag_id)}</span>{' '}
+                                <span className="text-plug-muted text-[10px]">({stamp.tag_id})</span>
+                              </>
+                            ) : (
+                              `Tag: ${stamp.tag_id || 'Unknown Tag'}`
+                            )}
                           </span>
                         ) : (
                           <div>

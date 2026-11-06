@@ -760,6 +760,7 @@ export interface StaffActivityDashboardData {
   redemptions: RedemptionRow[];
   auditLogs: AuditLogRow[];
   anomalies: ActivityAnomalyFlag[];
+  tags?: TagRow[];
 }
 
 /**

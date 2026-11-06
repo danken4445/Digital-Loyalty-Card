@@ -33,6 +33,7 @@ export function ConsoleTagsManager({
   const [inFlightTagId, setInFlightTagId] = useState<string | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [showSecurityGuide, setShowSecurityGuide] = useState(false);
 
   const newTagLabelId = useId();
   const newTagLocationId = useId();
@@ -353,6 +354,83 @@ export function ConsoleTagsManager({
         </div>
       )}
 
+      {/* NTAG215 Security & Setup Guide */}
+      <div className="border border-neutral-800 bg-neutral-900/60 p-5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-amber-400 font-mono text-xs sm:text-sm font-bold">NTAG215 Security &amp; Setup Guide</span>
+            <span className="rounded border border-amber-500/30 bg-amber-950/30 px-2 py-0.5 text-[10px] font-mono text-amber-300 uppercase">
+              Recommended Practices
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowSecurityGuide((prev) => !prev)}
+            className="text-xs font-mono text-neutral-400 hover:text-white underline underline-offset-4 cursor-pointer"
+          >
+            {showSecurityGuide ? 'Hide Guide ▲' : 'Show Setup Guide ▼'}
+          </button>
+        </div>
+
+        {showSecurityGuide && (
+          <div className="mt-4 pt-4 border-t border-neutral-800 space-y-4 text-xs text-neutral-300 leading-relaxed">
+            <div className="space-y-1.5">
+              <h4 className="font-bold text-white uppercase text-[11px] tracking-wider flex items-center gap-1.5">
+                <span className="text-amber-400 font-mono">1.</span> Password Write-Protection (Fixes Writable: Yes)
+              </h4>
+              <p>
+                By default, blank NTAG215 cards are writable by anyone using phone apps like NFC Tools.
+                To protect against customers or malicious actors overwriting your card URL:
+              </p>
+              <ol className="list-decimal list-inside space-y-1 pl-2 text-neutral-400 font-mono text-[11px]">
+                <li>Open <strong>NFC Tools</strong> on your mobile phone and tap <strong>Other &gt; Set password</strong>.</li>
+                <li>Set a 4-byte password (e.g. <code>A1B2C3D4</code>) and PACK (e.g. <code>0000</code>). Store this safely.</li>
+                <li>Set protection mode to <strong>Write-only</strong> (read access remains open for seamless customer tapping).</li>
+                <li className="text-amber-300">
+                  <strong>CRITICAL WARNING:</strong> Never use permanent &ldquo;Lock Card&rdquo;! Permanent locking is irreversible and prevents you from ever updating or rotating the tag in the future.
+                </li>
+              </ol>
+            </div>
+
+            <div className="space-y-1.5">
+              <h4 className="font-bold text-white uppercase text-[11px] tracking-wider flex items-center gap-1.5">
+                <span className="text-amber-400 font-mono">2.</span> Staff Attribution (Anti-Sweethearting)
+              </h4>
+              <p>
+                Provision one distinct physical tag per barista station or staff member (e.g. <code>Barista - Mark</code>, <code>Cashier - Front</code>).
+                When baristas have dedicated cards, the Activity &amp; Audit log immediately flags suspicious &ldquo;buddy-tag concentration&rdquo; or cooldown-hugging patterns.
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <h4 className="font-bold text-white uppercase text-[11px] tracking-wider flex items-center gap-1.5">
+                <span className="text-amber-400 font-mono">3.</span> Optional Hardware Counter Mirror URL
+              </h4>
+              <p>
+                If your NTAG215 card supports NXP ASCII Counter Mirroring (via <strong>NXP TagWriter</strong>), you can mirror the 24-bit tap counter into the URL query.
+                Once tapped once, our backend automatically latches onto the card&apos;s current counter number and rejects any replayed URLs.
+              </p>
+              <div className="p-3 bg-black border border-neutral-800 rounded font-mono text-[11px] text-neutral-400 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span>TagWriter Mirror URL Template:</span>
+                  <button
+                    type="button"
+                    onClick={() => handleCopy(`https://plug.coffee/t/{TAG_ID}?c=000000`, 'template-copy')}
+                    className="border border-neutral-700 bg-neutral-800 px-2 py-0.5 text-[10px] text-neutral-200 hover:text-white"
+                  >
+                    {copiedKey === 'template-copy' ? 'Copied Template!' : 'Copy Template'}
+                  </button>
+                </div>
+                <code className="text-amber-300 block">https://plug.coffee/t/[tagId]?c=000000</code>
+                <p className="text-[10px] text-neutral-500">
+                  Tip: If your card clone does not mirror the counter, no problem: our software-level anti-replay (history scrubbing, short cooldowns, daily limits, and IP/session gating) protects the card automatically.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Grouped Tags by Branch */}
       <div className="space-y-6">
         {Object.entries(groupedTags).map(([branchName, branchTags]) => (
@@ -384,7 +462,7 @@ export function ConsoleTagsManager({
                             <span className="text-xs text-neutral-300 font-medium">({tag.label})</span>
                           )}
                           <span
-                            className={`rounded px-1.5 py-0.2 text-[10px] font-mono uppercase ${
+                            className={`rounded px-1.5 py-0.5 text-[10px] font-mono uppercase ${
                               tag.active
                                 ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/60'
                                 : 'bg-neutral-800 text-neutral-400 border border-neutral-700'
@@ -392,6 +470,15 @@ export function ConsoleTagsManager({
                           >
                             {tag.active ? 'Active' : 'Deactivated'}
                           </span>
+                          {tag.last_tap_counter !== null && tag.last_tap_counter !== undefined ? (
+                            <span className="rounded px-1.5 py-0.5 text-[10px] font-mono uppercase bg-cyan-950/60 text-cyan-300 border border-cyan-800/60">
+                              Counter Latch Active (#{tag.last_tap_counter})
+                            </span>
+                          ) : (
+                            <span className="rounded px-1.5 py-0.5 text-[10px] font-mono uppercase bg-neutral-900 text-neutral-400 border border-neutral-700">
+                              Static URL
+                            </span>
+                          )}
                         </div>
                         <div className="mt-1.5 flex flex-wrap gap-4 text-[11px] text-neutral-500">
                           <span>Created: {new Date(tag.created_at).toLocaleDateString()}</span>

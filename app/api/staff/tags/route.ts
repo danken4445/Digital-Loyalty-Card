@@ -77,7 +77,7 @@ export async function GET(request?: Request): Promise<NextResponse<ApiResponse<T
     const supabase = await createSupabaseServerClient();
     const { data, error } = await supabase
       .from('tags')
-      .select('id, label, active, created_at, deactivated_at')
+      .select('id, label, active, created_at, deactivated_at, last_tap_counter, hardware_uid')
       .eq('tenant_id', auth.staff.tenantId)
       .order('created_at', { ascending: false });
 
@@ -207,7 +207,7 @@ export async function POST(
     async function readTag(tagId: string): Promise<TagRow | null> {
       const { data } = await supabase
         .from('tags')
-        .select('id, label, active, created_at, deactivated_at')
+        .select('id, label, active, created_at, deactivated_at, last_tap_counter, hardware_uid')
         .eq('tenant_id', staff.tenantId)
         .eq('id', tagId)
         .maybeSingle();

@@ -292,6 +292,8 @@ export async function POST(
       created_at: new Date().toISOString(),
       deactivated_at: null,
       location_id: parsed.data.locationId || null,
+      last_tap_counter: null,
+      hardware_uid: null,
     };
 
     return NextResponse.json<ApiResponse<TagActionResponse>>(
@@ -393,6 +395,8 @@ export async function POST(
       created_at: new Date().toISOString(),
       deactivated_at: null,
       location_id: parsed.data.locationId || null,
+      last_tap_counter: null,
+      hardware_uid: null,
     };
 
     logSecurityEvent('warn', 'tag_rotated', {
