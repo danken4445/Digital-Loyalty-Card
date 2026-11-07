@@ -121,11 +121,14 @@ export async function POST(
     }
 
     if (cardState.instagramUpsizeClaimed === undefined) {
+      console.error(
+        `[instagram-upsize] perk_claims check failed for customer "${user.id}" and tenant "${tenant.id}".`,
+      );
       return NextResponse.json<ApiResponse<IssuedRedeemToken>>(
         {
           ok: false,
           error: 'internal_error',
-          message: 'Unable to issue upsize token.',
+          message: 'Unable to verify upsize perk status (perk_claims query failed).',
         },
         { status: 500 },
       );
@@ -156,12 +159,14 @@ export async function POST(
         },
       },
     );
-  } catch {
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error('[instagram-upsize] Error issuing upsize token:', error);
     return NextResponse.json<ApiResponse<IssuedRedeemToken>>(
       {
         ok: false,
         error: 'internal_error',
-        message: 'Unable to issue upsize token.',
+        message: `Unable to issue upsize token: ${errorMsg}`,
       },
       { status: 500 },
     );

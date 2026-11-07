@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { SHOP_CONFIG, STAMP_RULES } from '@/lib/config';
 import {
   ROUTES,
@@ -10,6 +10,7 @@ import {
   type StaffRedeemRequest,
   type StaffRedeemResponse,
 } from '@/lib/contracts';
+import { QrCameraScanner } from '@/components/staff/QrCameraScanner';
 
 export interface RedeemRewardFormProps {
   /** The active shop's reward threshold; falls back to the platform default. */
@@ -36,11 +37,17 @@ export function RedeemRewardForm({
 }: RedeemRewardFormProps = {}) {
   const [tokenInput, setTokenInput] = useState('');
   const [activeToken, setActiveToken] = useState('');
+  const [inputMode, setInputMode] = useState<'camera' | 'manual'>('camera');
+  const [isMounted, setIsMounted] = useState(false);
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [loadingConfirm, setLoadingConfirm] = useState(false);
   const [preview, setPreview] = useState<StaffRedeemPreviewData | null>(null);
   const [confirmResult, setConfirmResult] = useState<StaffRedeemConfirmData | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   function resetAll() {
     setTokenInput('');
@@ -48,13 +55,13 @@ export function RedeemRewardForm({
     setPreview(null);
     setConfirmResult(null);
     setErrorMessage(null);
+    setInputMode('camera');
   }
 
-  async function handleVerify(e?: React.FormEvent) {
-    if (e) e.preventDefault();
-    const cleanToken = tokenInput.trim();
+  async function performVerification(rawToken: string) {
+    const cleanToken = rawToken.trim();
     if (!cleanToken) {
-      setErrorMessage('Please scan or paste a customer redemption token.');
+      setErrorMessage('Please scan or enter a customer redemption token.');
       return;
     }
 
@@ -96,6 +103,16 @@ export function RedeemRewardForm({
     } finally {
       setLoadingPreview(false);
     }
+  }
+
+  async function handleVerify(e?: React.FormEvent) {
+    if (e) e.preventDefault();
+    await performVerification(tokenInput);
+  }
+
+  async function handleCameraScan(scannedCode: string) {
+    setTokenInput(scannedCode);
+    await performVerification(scannedCode);
   }
 
   async function handleConfirm() {
@@ -141,52 +158,141 @@ export function RedeemRewardForm({
 
   return (
     <div className="w-full max-w-2xl space-y-6">
-      {/* Input Section */}
-      <div className="rounded-2xl border border-plug-border bg-plug-surface p-6 text-white sm:p-8">
-        <h2 className="text-lg font-semibold text-white">Customer Reward Redemption</h2>
+      {/* Scanner & Input Section (Hidden once preview or confirmation is active) */}
+      {!preview && !confirmResult && (
+        <div className="rounded-2xl border border-plug-border bg-plug-surface p-5 text-white sm:p-7">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-plug-border pb-4">
+            <div>
+              <h2 className="text-lg font-semibold text-white">Customer Reward Redemption</h2>
+              <p className="mt-0.5 text-xs text-plug-muted">
+                Scan the customer&apos;s live QR code on their phone screen.
+              </p>
+            </div>
 
-        <form onSubmit={handleVerify} className="mt-6 space-y-4">
-          <div>
-            <label
-              htmlFor="redeem-token-input"
-              className="block text-sm font-medium text-neutral-200"
-            >
-              Customer Redemption Token (Scan or Paste)
-            </label>
-            <textarea
-              id="redeem-token-input"
-              rows={3}
-              value={tokenInput}
-              onChange={(e) => setTokenInput(e.target.value)}
-              placeholder="Paste raw signed QR token payload here or scan via 2D handheld scanner..."
-              disabled={loadingPreview || loadingConfirm}
-              className="mt-2 w-full rounded-xl border border-plug-border bg-plug-black p-3 font-mono text-xs text-white placeholder-neutral-600 transition-colors focus-visible:border-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-            />
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="submit"
-              disabled={loadingPreview || loadingConfirm || !tokenInput.trim()}
-              aria-busy={loadingPreview}
-              className="inline-flex min-h-12 items-center justify-center rounded-xl border border-white bg-white px-5 py-2.5 text-sm font-bold text-plug-black transition-transform active:scale-[0.99] hover:bg-neutral-200 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-plug-black"
-            >
-              {loadingPreview ? 'Verifying Token...' : 'Verify Token & Check Balance'}
-            </button>
-
-            {(preview || confirmResult || tokenInput) && (
-              <button
-                type="button"
-                onClick={resetAll}
-                disabled={loadingPreview || loadingConfirm}
-                className="inline-flex min-h-12 items-center rounded-xl border border-plug-border bg-plug-elevated px-4 text-sm font-semibold text-neutral-300 transition-colors hover:border-white hover:text-white disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-              >
-                Clear
-              </button>
+            {/* Mode Switcher Tabs */}
+            {isMounted && (
+              <div className="flex items-center gap-1.5 rounded-xl border border-plug-border bg-plug-black p-1 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setInputMode('camera')}
+                  aria-pressed={inputMode === 'camera'}
+                  className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-bold transition-colors ${
+                    inputMode === 'camera'
+                      ? 'bg-white text-plug-black'
+                      : 'text-plug-muted hover:text-white'
+                  }`}
+                >
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
+                    <circle cx="12" cy="13" r="3" />
+                  </svg>
+                  Camera Scanner
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setInputMode('manual')}
+                  aria-pressed={inputMode === 'manual'}
+                  className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-bold transition-colors ${
+                    inputMode === 'manual'
+                      ? 'bg-white text-plug-black'
+                      : 'text-plug-muted hover:text-white'
+                  }`}
+                >
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <rect width="20" height="16" x="2" y="4" rx="2" />
+                    <path d="M6 8h.001" />
+                    <path d="M10 8h.001" />
+                    <path d="M14 8h.001" />
+                    <path d="M18 8h.001" />
+                    <path d="M8 12h.001" />
+                    <path d="M12 12h.001" />
+                    <path d="M16 12h.001" />
+                    <path d="M7 16h10" />
+                  </svg>
+                  Manual Entry
+                </button>
+              </div>
             )}
           </div>
-        </form>
-      </div>
+
+          {/* Primary View: Live Camera Scanner */}
+          {isMounted && inputMode === 'camera' ? (
+            <div className="mt-5 space-y-4">
+              <QrCameraScanner
+                active={!loadingPreview && !preview && !confirmResult}
+                onScan={handleCameraScan}
+                onSwitchToManual={() => setInputMode('manual')}
+              />
+
+              {loadingPreview && (
+                <div
+                  aria-live="polite"
+                  className="rounded-xl border border-white/30 bg-plug-black p-4 text-center text-xs font-mono text-neutral-300 flex items-center justify-center gap-2"
+                >
+                  <svg className="h-4 w-4 animate-spin text-white" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Verifying customer QR code...
+                </div>
+              )}
+            </div>
+          ) : (
+            /* Fallback & SSR View: Manual Textarea Entry */
+            <form onSubmit={handleVerify} className="mt-6 space-y-4">
+              <div>
+                <label
+                  htmlFor="redeem-token-input"
+                  className="block text-sm font-medium text-neutral-200"
+                >
+                  Customer Redemption Token (Scan or Paste)
+                </label>
+                <textarea
+                  id="redeem-token-input"
+                  rows={3}
+                  value={tokenInput}
+                  onChange={(e) => setTokenInput(e.target.value)}
+                  placeholder="Paste raw signed QR token payload here or scan via 2D handheld scanner..."
+                  disabled={loadingPreview || loadingConfirm}
+                  className="mt-2 w-full rounded-xl border border-plug-border bg-plug-black p-3 font-mono text-xs text-white placeholder-neutral-600 transition-colors focus-visible:border-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                />
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="submit"
+                  disabled={loadingPreview || loadingConfirm || !tokenInput.trim()}
+                  aria-busy={loadingPreview}
+                  className="inline-flex min-h-12 items-center justify-center rounded-xl border border-white bg-white px-5 py-2.5 text-sm font-bold text-plug-black transition-transform active:scale-[0.99] hover:bg-neutral-200 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-plug-black"
+                >
+                  {loadingPreview ? 'Verifying Token...' : 'Verify Token & Check Balance'}
+                </button>
+
+                {isMounted && (
+                  <button
+                    type="button"
+                    onClick={() => setInputMode('camera')}
+                    className="inline-flex min-h-12 items-center gap-1.5 rounded-xl border border-plug-border bg-plug-elevated px-4 text-sm font-semibold text-neutral-300 hover:border-white hover:text-white transition-colors"
+                  >
+                    Open Camera Scanner
+                  </button>
+                )}
+
+                {(preview || confirmResult || tokenInput) && (
+                  <button
+                    type="button"
+                    onClick={resetAll}
+                    disabled={loadingPreview || loadingConfirm}
+                    className="inline-flex min-h-12 items-center rounded-xl border border-plug-border bg-plug-elevated px-4 text-sm font-semibold text-neutral-300 transition-colors hover:border-white hover:text-white disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+            </form>
+          )}
+        </div>
+      )}
 
       {/* Error Banner */}
       {errorMessage && (
@@ -274,36 +380,74 @@ export function RedeemRewardForm({
                       profile button should say &ldquo;Following&rdquo;). No stamps are used.
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleConfirm}
-                    disabled={loadingConfirm}
-                    aria-busy={loadingConfirm}
-                    className="w-full inline-flex min-h-12 items-center justify-center rounded-xl border border-white bg-white px-6 py-3.5 text-sm font-bold text-plug-black transition-transform active:scale-[0.99] hover:bg-neutral-200 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-plug-black"
-                  >
-                    {loadingConfirm ? 'Granting Upsize...' : 'Follow Checked — Grant Free Upsize'}
-                  </button>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={handleConfirm}
+                      disabled={loadingConfirm}
+                      aria-busy={loadingConfirm}
+                      className="flex-1 inline-flex min-h-12 items-center justify-center rounded-xl border border-white bg-white px-6 py-3.5 text-sm font-bold text-plug-black transition-transform active:scale-[0.99] hover:bg-neutral-200 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-plug-black"
+                    >
+                      {loadingConfirm ? 'Granting Upsize...' : 'Follow Checked — Grant Free Upsize'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={resetAll}
+                      disabled={loadingConfirm}
+                      className="inline-flex min-h-12 items-center rounded-xl border border-plug-border bg-plug-elevated px-4 text-sm font-semibold text-neutral-300 transition-colors hover:border-white hover:text-white"
+                    >
+                      Cancel
+                    </button>
+                  </div>
                 </div>
               ) : (
-                <div className="rounded-xl border border-plug-border bg-plug-black p-4 text-center text-xs text-plug-muted">
-                  This card has already used its one-time Instagram upsize.
+                <div className="space-y-3">
+                  <div className="rounded-xl border border-plug-border bg-plug-black p-4 text-center text-xs text-plug-muted">
+                    This card has already used its one-time Instagram upsize.
+                  </div>
+                  <button
+                    type="button"
+                    onClick={resetAll}
+                    className="w-full inline-flex min-h-12 items-center justify-center rounded-xl border border-plug-border bg-plug-elevated px-4 text-sm font-semibold text-neutral-300 hover:border-white hover:text-white"
+                  >
+                    Scan Another Customer
+                  </button>
                 </div>
               )
             ) : preview.canRedeem ? (
-              <button
-                type="button"
-                onClick={handleConfirm}
-                disabled={loadingConfirm}
-                aria-busy={loadingConfirm}
-                className="w-full inline-flex min-h-12 items-center justify-center rounded-xl border border-white bg-white px-6 py-3.5 text-sm font-bold text-plug-black transition-transform active:scale-[0.99] hover:bg-neutral-200 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-plug-black"
-              >
-                {loadingConfirm
-                  ? `Deducting ${rewardThreshold} Stamps...`
-                  : `Confirm & Redeem ${rewardThreshold} Stamps`}
-              </button>
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleConfirm}
+                  disabled={loadingConfirm}
+                  aria-busy={loadingConfirm}
+                  className="flex-1 inline-flex min-h-12 items-center justify-center rounded-xl border border-white bg-white px-6 py-3.5 text-sm font-bold text-plug-black transition-transform active:scale-[0.99] hover:bg-neutral-200 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-plug-black"
+                >
+                  {loadingConfirm
+                    ? `Deducting ${rewardThreshold} Stamps...`
+                    : `Confirm & Redeem ${rewardThreshold} Stamps`}
+                </button>
+                <button
+                  type="button"
+                  onClick={resetAll}
+                  disabled={loadingConfirm}
+                  className="inline-flex min-h-12 items-center rounded-xl border border-plug-border bg-plug-elevated px-4 text-sm font-semibold text-neutral-300 transition-colors hover:border-white hover:text-white"
+                >
+                  Cancel
+                </button>
+              </div>
             ) : (
-              <div className="rounded-xl border border-plug-border bg-plug-black p-4 text-center text-xs text-plug-muted">
-                {ineligibleRedeemMessage(preview.availableStamps, rewardThreshold, rewardLabel)}
+              <div className="space-y-3">
+                <div className="rounded-xl border border-plug-border bg-plug-black p-4 text-center text-xs text-plug-muted">
+                  {ineligibleRedeemMessage(preview.availableStamps, rewardThreshold, rewardLabel)}
+                </div>
+                <button
+                  type="button"
+                  onClick={resetAll}
+                  className="w-full inline-flex min-h-12 items-center justify-center rounded-xl border border-plug-border bg-plug-elevated px-4 text-sm font-semibold text-neutral-300 hover:border-white hover:text-white"
+                >
+                  Scan Another Customer
+                </button>
               </div>
             )}
           </div>
