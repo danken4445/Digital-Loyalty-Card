@@ -46,18 +46,18 @@ export type TagWithBranch = TagWithUrls & { location_id?: string | null };
 
 export type TagActionResponse =
   | {
-      action: 'create';
-      tag: TagWithBranch;
-    }
+    action: 'create';
+    tag: TagWithBranch;
+  }
   | {
-      action: 'rotate';
-      tag: TagWithBranch;
-      deactivatedTagId: string;
-    }
+    action: 'rotate';
+    tag: TagWithBranch;
+    deactivatedTagId: string;
+  }
   | {
-      action: 'deactivate';
-      deactivatedTagId: string;
-    };
+    action: 'deactivate';
+    deactivatedTagId: string;
+  };
 
 export async function GET(
   request: Request,
@@ -96,7 +96,7 @@ export async function GET(
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from('tags')
-    .select('id, label, active, created_at, deactivated_at, location_id')
+    .select('id, label, active, created_at, deactivated_at, location_id, last_tap_counter, hardware_uid')
     .eq('tenant_id', tenantId)
     .order('created_at', { ascending: false });
 
@@ -292,6 +292,8 @@ export async function POST(
       created_at: new Date().toISOString(),
       deactivated_at: null,
       location_id: parsed.data.locationId || null,
+      last_tap_counter: null,
+      hardware_uid: null,
     };
 
     return NextResponse.json<ApiResponse<TagActionResponse>>(
@@ -393,6 +395,8 @@ export async function POST(
       created_at: new Date().toISOString(),
       deactivated_at: null,
       location_id: parsed.data.locationId || null,
+      last_tap_counter: null,
+      hardware_uid: null,
     };
 
     logSecurityEvent('warn', 'tag_rotated', {

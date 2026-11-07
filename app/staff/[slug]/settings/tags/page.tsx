@@ -23,7 +23,7 @@ export default async function TagsSettingsPage({ params }: TagsSettingsPageProps
   const [tagsRes, locsRes, leakRes] = await Promise.all([
     supabase
       .from('tags')
-      .select('id, label, active, created_at, deactivated_at, location_id')
+      .select('id, label, active, created_at, deactivated_at, location_id, last_tap_counter, hardware_uid')
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false }),
     supabase

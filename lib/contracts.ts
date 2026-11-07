@@ -165,6 +165,10 @@ export interface AddCardRequest {
   /** Present when the customer arrived from an NFC tap: the stamp is claimed right after adding the card. */
   tagId?: string;
   consentVersion?: string;
+  c?: string;
+  m?: string;
+  tapCounter?: number | null;
+  hardwareUid?: string | null;
 }
 
 export interface AddCardResponse {
@@ -258,6 +262,8 @@ export interface TagRow {
   active: boolean;
   created_at: string;
   deactivated_at: string | null;
+  last_tap_counter?: number | null;
+  hardware_uid?: string | null;
 }
 
 export interface StampRow {
@@ -320,7 +326,13 @@ export interface RpcContracts {
     Returns: AddCardResultCode;
   };
   stamp_card_nfc: {
-    Args: { p_customer: string; p_tag: string; p_now?: string };
+    Args: {
+      p_customer: string;
+      p_tag: string;
+      p_now?: string;
+      p_tap_counter?: number | null;
+      p_hardware_uid?: string | null;
+    };
     Returns: { result: StampResultCode; tenant_slug: string | null };
   };
   stamp_card_manual: {
@@ -506,15 +518,15 @@ export interface IssuedRedeemToken {
 
 export type VerifyRedeemTokenResult =
   | {
-      valid: true;
-      kind: RedeemTokenKind;
-      payload: RedeemTokenPayload;
-      displayCode: string;
-    }
+    valid: true;
+    kind: RedeemTokenKind;
+    payload: RedeemTokenPayload;
+    displayCode: string;
+  }
   | {
-      valid: false;
-      reason: 'invalid-token' | 'expired-token';
-    };
+    valid: false;
+    reason: 'invalid-token' | 'expired-token';
+  };
 
 /**
  * Phase 2 Customer Identity & Card Creation API Contracts
@@ -558,18 +570,24 @@ export interface CustomerCardState {
  */
 export type VerifyTapResult =
   | {
-      valid: true;
-      normalizedTagId: string;
-      mode: 'ntag215-static';
-    }
+    valid: true;
+    normalizedTagId: string;
+    mode: 'ntag215-static';
+    tapCounter?: number | null;
+    hardwareUid?: string | null;
+  }
   | {
-      valid: false;
-      reason: 'malformed-tag-id';
-    };
+    valid: false;
+    reason: 'malformed-tag-id';
+  };
 
 export interface ClaimStampRequest {
   tagId: string;
   captchaToken?: string;
+  c?: string;
+  m?: string;
+  tapCounter?: number | null;
+  hardwareUid?: string | null;
 }
 
 export interface ClaimStampResponse {
@@ -608,13 +626,13 @@ export interface StaffSession {
 
 export type StaffAuthResult =
   | {
-      authorized: true;
-      staff: StaffSession;
-    }
+    authorized: true;
+    staff: StaffSession;
+  }
   | {
-      authorized: false;
-      reason: 'unauthenticated' | 'forbidden';
-    };
+    authorized: false;
+    reason: 'unauthenticated' | 'forbidden';
+  };
 
 /** Roles that can see a shop's billing (only owners can change the plan; enforced again in SQL). */
 export const BILLING_VIEWER_ROLES = ['owner', 'manager'] as const satisfies readonly StaffRole[];
@@ -699,18 +717,18 @@ export interface StaffManualStampResponse {
 
 export type StaffTagActionRequest =
   | {
-      action: 'create';
-      label?: string;
-    }
+    action: 'create';
+    label?: string;
+  }
   | {
-      action: 'deactivate';
-      tagId: string;
-    }
+    action: 'deactivate';
+    tagId: string;
+  }
   | {
-      action: 'rotate';
-      tagId: string;
-      newLabel?: string;
-    };
+    action: 'rotate';
+    tagId: string;
+    newLabel?: string;
+  };
 
 export interface TagWithUrls extends TagRow {
   productionTapUrl: string;
@@ -726,7 +744,12 @@ export interface StaffTagActionResponse {
 export interface ActivityAnomalyFlag {
   id: string;
   severity: 'warning' | 'high';
-  category: 'repeated-daily-cap' | 'high-tag-volume' | 'frequent-manual-stamps';
+  category:
+  | 'repeated-daily-cap'
+  | 'high-tag-volume'
+  | 'frequent-manual-stamps'
+  | 'cooldown-hugging'
+  | 'buddy-tag-concentration';
   title: string;
   description: string;
   targetId: string;
@@ -737,6 +760,7 @@ export interface StaffActivityDashboardData {
   redemptions: RedemptionRow[];
   auditLogs: AuditLogRow[];
   anomalies: ActivityAnomalyFlag[];
+  tags?: TagRow[];
 }
 
 /**
@@ -760,13 +784,13 @@ export interface IssuedMergeIntent {
 
 export type VerifyMergeIntentResult =
   | {
-      valid: true;
-      payload: MergeIntentPayload;
-    }
+    valid: true;
+    payload: MergeIntentPayload;
+  }
   | {
-      valid: false;
-      reason: 'invalid-token' | 'expired-token';
-    };
+    valid: false;
+    reason: 'invalid-token' | 'expired-token';
+  };
 
 export interface MergeCustomerRequest {
   mergeToken?: string;
@@ -820,14 +844,34 @@ export const ROUTES = Object.freeze({
   shopWithResult: (slug: string, result: StampResultCode) =>
     `/s/${encodeURIComponent(slug)}?r=${encodeURIComponent(result)}`,
   /** Add-card (consent) screen; with a tag, the tap's stamp is claimed right after the card is added. */
-  shopAddCard: (slug: string, tagId?: string | null) =>
-    tagId
-      ? `/s/${encodeURIComponent(slug)}?t=${encodeURIComponent(tagId)}`
-      : `/s/${encodeURIComponent(slug)}`,
+  shopAddCard: (
+    slug: string,
+    tagId?: string | null,
+    extra?: Record<string, string | null | undefined>,
+  ) => {
+    if (!tagId) return `/s/${encodeURIComponent(slug)}`;
+    const search = new URLSearchParams();
+    search.set('t', tagId);
+    if (extra) {
+      for (const [k, v] of Object.entries(extra)) {
+        if (v) search.set(k, v);
+      }
+    }
+    return `/s/${encodeURIComponent(slug)}?${search.toString()}`;
+  },
   /** Phase 13: Per-shop privacy notice generated from tenant settings */
   shopPrivacy: (slug: string) => `/s/${encodeURIComponent(slug)}/privacy`,
   start: '/start',
-  startWithTag: (tagId: string) => `/start?t=${encodeURIComponent(tagId)}`,
+  startWithTag: (tagId: string, extra?: Record<string, string | null | undefined>) => {
+    const search = new URLSearchParams();
+    search.set('t', tagId);
+    if (extra) {
+      for (const [k, v] of Object.entries(extra)) {
+        if (v) search.set(k, v);
+      }
+    }
+    return `/start?${search.toString()}`;
+  },
   tap: (tagId: string) => `/t/${encodeURIComponent(tagId)}`,
   authCallback: '/auth/callback',
   /** Set-a-new-password screen after a recovery link (outside /staff so any signed-in account can reach it). */

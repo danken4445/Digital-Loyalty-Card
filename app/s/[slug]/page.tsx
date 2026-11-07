@@ -38,6 +38,8 @@ interface ShopPageProps {
     result?: string | string[] | undefined;
     deleted?: string | string[] | undefined;
     t?: string | string[] | undefined;
+    c?: string | string[] | undefined;
+    m?: string | string[] | undefined;
     added?: string | string[] | undefined;
   }>;
 }
@@ -70,6 +72,10 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
     (Array.isArray(resolvedParams?.added) && resolvedParams.added[0] === '1');
   const rawTag = Array.isArray(resolvedParams?.t) ? resolvedParams.t[0] : resolvedParams?.t;
   const tagId = typeof rawTag === 'string' && rawTag.trim().length > 0 ? rawTag.trim() : null;
+  const rawC = Array.isArray(resolvedParams?.c) ? resolvedParams.c[0] : resolvedParams?.c;
+  const cParam = typeof rawC === 'string' && rawC.trim().length > 0 ? rawC.trim() : undefined;
+  const rawM = Array.isArray(resolvedParams?.m) ? resolvedParams.m[0] : resolvedParams?.m;
+  const mParam = typeof rawM === 'string' && rawM.trim().length > 0 ? rawM.trim() : undefined;
 
   const cardState = await getCustomerCardState(tenant);
 
@@ -94,9 +100,9 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
             isExpired
               ? ['This shop is temporarily paused and reward redemption has closed.']
               : [
-                  'This shop is temporarily paused and is not currently issuing new stamp cards.',
-                  'Existing cardholders can still redeem earned rewards.',
-                ]
+                'This shop is temporarily paused and is not currently issuing new stamp cards.',
+                'Existing cardholders can still redeem earned rewards.',
+              ]
           }
           notice={
             <div
@@ -146,7 +152,13 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
           ) : undefined
         }
       >
-        <GetCardButton mode={tagId ? 'start' : 'card'} tagId={tagId} returnTo={ROUTES.shop(tenant.slug)} />
+        <GetCardButton
+          mode={tagId ? 'start' : 'card'}
+          tagId={tagId}
+          mirrorC={cParam}
+          mirrorM={mParam}
+          returnTo={ROUTES.shop(tenant.slug)}
+        />
       </OnboardingCard>
     );
   }
@@ -172,6 +184,8 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
           tenantName={tenant.name}
           rewardLabel={settings.rewardLabel}
           tagId={tagId}
+          mirrorC={cParam}
+          mirrorM={mParam}
           isSuspended={isSuspended}
         />
       </OnboardingCard>
@@ -191,8 +205,8 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
   // rewards) the new stamp isn't on the visible grid, so nothing animates.
   const justStampedSlot =
     validResult === 'stamped' &&
-    cardState.availableStamps >= 1 &&
-    cardState.availableStamps <= progress.rewardThreshold
+      cardState.availableStamps >= 1 &&
+      cardState.availableStamps <= progress.rewardThreshold
       ? cardState.availableStamps
       : null;
 
@@ -234,9 +248,8 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
       {/* The card itself. On a fresh stamp it nudges down as the stamp lands (card-impact). */}
       <section
         aria-label="Active Loyalty Card Container"
-        className={`w-full max-w-[390px] bg-plug-surface/95 border border-plug-border rounded-3xl p-5 sm:p-6 shadow-[0_24px_60px_rgba(0,0,0,0.8)] backdrop-blur-md relative ${
-          justStampedSlot !== null ? 'card-impact' : ''
-        }`}
+        className={`w-full max-w-[390px] bg-plug-surface/95 border border-plug-border rounded-3xl p-5 sm:p-6 shadow-[0_24px_60px_rgba(0,0,0,0.8)] backdrop-blur-md relative ${justStampedSlot !== null ? 'card-impact' : ''
+          }`}
         style={{
           backgroundColor: theme.primaryColor,
           borderColor: theme.cardBorder,

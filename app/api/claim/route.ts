@@ -10,6 +10,10 @@ import { getVerifiedUser } from '@/lib/supabase/server';
 
 const claimStampBodySchema = z.object({
   tagId: z.string().trim().min(1).max(256),
+  c: z.string().trim().optional(),
+  m: z.string().trim().optional(),
+  tapCounter: z.number().int().min(0).max(16777215).optional().nullable(),
+  hardwareUid: z.string().trim().optional().nullable(),
 });
 
 export async function POST(
@@ -90,7 +94,13 @@ export async function POST(
     );
   }
 
-  const tapVerification = verifyTap({ tagId: parsed.data.tagId });
+  const tapVerification = verifyTap({
+    tagId: parsed.data.tagId,
+    query: {
+      c: parsed.data.c,
+      m: parsed.data.m,
+    },
+  });
   if (!tapVerification.valid) {
     return NextResponse.json<ApiResponse<ClaimStampResponse>>({
       ok: true,
@@ -101,11 +111,20 @@ export async function POST(
     });
   }
 
+  const tapCounter =
+    tapVerification.tapCounter !== null && tapVerification.tapCounter !== undefined
+      ? tapVerification.tapCounter
+      : (parsed.data.tapCounter ?? null);
+  const hardwareUid =
+    tapVerification.hardwareUid ?? parsed.data.hardwareUid ?? null;
+
   try {
     const admin = createSupabaseAdminClient();
     const { data, error } = await admin.rpc('stamp_card_nfc', {
       p_customer: user.id,
       p_tag: tapVerification.normalizedTagId,
+      ...(tapCounter !== null ? { p_tap_counter: tapCounter } : {}),
+      ...(hardwareUid ? { p_hardware_uid: hardwareUid } : {}),
     });
 
     if (error) {
@@ -121,11 +140,15 @@ export async function POST(
 
     const outcome = parseStampCardPayload(data);
 
+    const mirrorParams: Record<string, string> = {};
+    if (parsed.data.m) mirrorParams.m = parsed.data.m;
+    else if (parsed.data.c) mirrorParams.c = parsed.data.c;
+
     return NextResponse.json<ApiResponse<ClaimStampResponse>>({
       ok: true,
       data: {
         result: outcome.result,
-        redirectTo: stampRedirectPath(outcome, tapVerification.normalizedTagId),
+        redirectTo: stampRedirectPath(outcome, tapVerification.normalizedTagId, mirrorParams),
       },
     });
   } catch {

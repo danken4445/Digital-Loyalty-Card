@@ -29,9 +29,9 @@ interface MembershipRow {
   role: string;
   display_name: string;
   tenants:
-    | { id: string; slug: string; name: string; status: string }
-    | { id: string; slug: string; name: string; status: string }[]
-    | null;
+  | { id: string; slug: string; name: string; status: string }
+  | { id: string; slug: string; name: string; status: string }[]
+  | null;
 }
 
 function isStaffRole(value: string): value is StaffRole {
@@ -259,8 +259,9 @@ export function detectActivityAnomalies(
     stamps: StampRow[];
     redemptions: RedemptionRow[];
     auditLogs: AuditLogRow[];
+    tags?: TagRow[];
   },
-  rules: { dailyCap: number; timezone: string },
+  rules: { dailyCap: number; timezone: string; cooldownMinutes?: number },
 ): ActivityAnomalyFlag[] {
   const anomalies: ActivityAnomalyFlag[] = [];
   const dayFormatter = new Intl.DateTimeFormat('en-CA', {
@@ -388,6 +389,93 @@ export function detectActivityAnomalies(
     }
   }
 
+  // 4. Check Cooldown-Hugging: customers collecting multiple same-day stamps spaced right after cooldownMinutes expires
+  const cooldownMin = rules.cooldownMinutes ?? 30;
+  const customerDayStamps = new Map<string, StampRow[]>();
+  for (const stamp of input.stamps) {
+    if (stamp.source !== 'nfc') continue;
+    const day = dayFormatter.format(new Date(stamp.created_at));
+    const key = `${stamp.customer_id}:${day}`;
+    const list = customerDayStamps.get(key) ?? [];
+    list.push(stamp);
+    customerDayStamps.set(key, list);
+  }
+
+  const customerHuggingIntervals = new Map<string, number>();
+  for (const [key, stampsList] of customerDayStamps.entries()) {
+    if (stampsList.length < 2) continue;
+    const customerId = key.split(':')[0]!;
+    const sorted = [...stampsList].sort(
+      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+    );
+    for (let i = 0; i < sorted.length - 1; i++) {
+      const t1 = new Date(sorted[i]!.created_at).getTime();
+      const t2 = new Date(sorted[i + 1]!.created_at).getTime();
+      const deltaMinutes = (t2 - t1) / (1000 * 60);
+      if (deltaMinutes >= cooldownMin && deltaMinutes <= cooldownMin + 15) {
+        customerHuggingIntervals.set(
+          customerId,
+          (customerHuggingIntervals.get(customerId) ?? 0) + 1,
+        );
+      }
+    }
+  }
+
+  for (const [customerId, huggingCount] of customerHuggingIntervals.entries()) {
+    if (huggingCount >= 1) {
+      anomalies.push({
+        id: `cooldown-hugging-${customerId}`,
+        severity: huggingCount >= 2 ? 'high' : 'warning',
+        category: 'cooldown-hugging',
+        title: 'Suspicious Cooldown-Hugging Activity',
+        description: `Customer ${customerId.slice(0, 8).toUpperCase()} collected ${huggingCount + 1} same-day stamp(s) spaced right after the ${cooldownMin}-minute cooldown expired (+15 min), indicating timed URL replays or staff friend-tapping.`,
+        targetId: customerId,
+      });
+    }
+  }
+
+  // 5. Check Buddy-Tag Concentration: customer repeatedly hitting blocks or stamps on a single named card
+  const tagMap = new Map<string, string>();
+  if (input.tags) {
+    for (const t of input.tags) {
+      if (t.label) tagMap.set(t.id, t.label);
+    }
+  }
+
+  const buddyRejections = new Map<string, { customerId: string; tagId: string; count: number }>();
+  for (const log of input.auditLogs) {
+    if (
+      (log.action === 'stamp_rejected_daily_limit' || log.action === 'stamp_rejected_cooldown') &&
+      log.target
+    ) {
+      const customerId = log.target;
+      const detailTag =
+        typeof log.detail === 'object' && log.detail !== null && 'tag_id' in log.detail
+          ? String((log.detail as { tag_id: unknown }).tag_id)
+          : null;
+      if (detailTag) {
+        const key = `${customerId}:${detailTag}`;
+        const current = buddyRejections.get(key) ?? { customerId, tagId: detailTag, count: 0 };
+        current.count += 1;
+        buddyRejections.set(key, current);
+      }
+    }
+  }
+
+  for (const entry of buddyRejections.values()) {
+    if (entry.count >= 2) {
+      const tagLabel = tagMap.get(entry.tagId) ?? entry.tagId;
+      anomalies.push({
+        id: `buddy-tag-${entry.customerId}-${entry.tagId}`,
+        severity: entry.count >= 3 ? 'high' : 'warning',
+        category: 'buddy-tag-concentration',
+        title: 'Buddy-Tag / Sweethearting Concentration',
+        description: `Customer ${entry.customerId.slice(0, 8).toUpperCase()} triggered ${entry.count} cooldown or daily limit rejections on tag "${tagLabel}", indicating repeated attempts at the same station.`,
+        targetId: entry.customerId,
+      });
+    }
+  }
+
   return anomalies;
 }
 
@@ -400,7 +488,7 @@ export async function getStaffActivityDashboardData(options?: { staff?: StaffMem
   const staff = options?.staff ?? (await enforceStaffPageAccess(ROUTES.staff.activity));
   const supabase = await createSupabaseServerClient();
 
-  const [tenant, stampsRes, redemptionsRes, auditRes] = await Promise.all([
+  const [tenant, stampsRes, redemptionsRes, auditRes, tagsRes] = await Promise.all([
     getTenantById(staff.tenantId),
     supabase
       .from('stamps')
@@ -420,6 +508,11 @@ export async function getStaffActivityDashboardData(options?: { staff?: StaffMem
       .eq('tenant_id', staff.tenantId)
       .order('created_at', { ascending: false })
       .limit(50),
+    supabase
+      .from('tags')
+      .select('id, label, active, created_at, deactivated_at, last_tap_counter, hardware_uid')
+      .eq('tenant_id', staff.tenantId)
+      .order('created_at', { ascending: false }),
   ]);
 
   if (!tenant) {
@@ -429,14 +522,20 @@ export async function getStaffActivityDashboardData(options?: { staff?: StaffMem
   const stamps = (stampsRes.data ?? []) as StampRow[];
   const redemptions = (redemptionsRes.data ?? []) as RedemptionRow[];
   const auditLogs = (auditRes.data ?? []) as AuditLogRow[];
+  const tags = (tagsRes.data ?? []) as TagRow[];
 
   return {
     stamps,
     redemptions,
     auditLogs,
+    tags,
     anomalies: detectActivityAnomalies(
-      { stamps, redemptions, auditLogs },
-      { dailyCap: tenant.settings.dailyCap, timezone: tenant.settings.timezone },
+      { stamps, redemptions, auditLogs, tags },
+      {
+        dailyCap: tenant.settings.dailyCap,
+        timezone: tenant.settings.timezone,
+        cooldownMinutes: tenant.settings.cooldownMinutes,
+      },
     ),
   };
 }
@@ -450,7 +549,7 @@ export async function getStaffTagsList(options?: { staff?: StaffMembership }): P
 
   const { data, error } = await supabase
     .from('tags')
-    .select('id, label, active, created_at, deactivated_at')
+    .select('id, label, active, created_at, deactivated_at, last_tap_counter, hardware_uid')
     .eq('tenant_id', staff.tenantId)
     .order('created_at', { ascending: false });
 
