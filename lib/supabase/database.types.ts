@@ -817,6 +817,14 @@ export type Database = {
         Args: { p_actor: string; p_month?: string; p_tenant: string };
         Returns: Json;
       };
+      get_owner_analytics: {
+        Args: {
+          p_actor: string;
+          p_tenant: string;
+          p_now?: string | null;
+        };
+        Returns: Json;
+      };
       invite_member: {
         Args: { p_actor: string; p_email: string; p_role: string; p_tenant: string };
         Returns: string;

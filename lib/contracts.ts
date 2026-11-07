@@ -492,6 +492,16 @@ export interface RpcContracts {
     Returns: string;
   };
   merge_nonce_used: { Args: { p_nonce: string }; Returns: boolean };
+  get_owner_analytics: {
+    Args: {
+      p_actor: string;
+      p_tenant: string;
+      p_now?: string | null;
+    };
+    Returns:
+      | { result: 'ok'; [key: string]: unknown }
+      | { result: 'unauthorized' | 'not-found' };
+  };
 }
 
 /**
@@ -888,6 +898,7 @@ export const ROUTES = Object.freeze({
     activity: '/staff/activity',
     billing: '/staff/billing',
     settings: (slug: string) => `/staff/${encodeURIComponent(slug)}/settings`,
+    analytics: (slug: string) => `/staff/${encodeURIComponent(slug)}/settings/analytics`,
   },
   platform: {
     root: '/platform',
@@ -1004,3 +1015,64 @@ export interface TagLeakSignal {
   distinctCustomers: number;
   throttleRejections: number;
 }
+
+export interface OwnerAnalyticsPulse {
+  totalCards: number;
+  activeMembers30d: number;
+  newCards30d: number;
+  repeatRate30dPct: number;
+  repeatRate14dPct: number;
+  medianDaysBetweenVisits: number | null;
+  rewardsClaimed30d: number;
+  rewardsClaimedTotal: number;
+  rewardsReadyCount: number;
+}
+
+export interface OwnerAnalyticsRetentionHealth {
+  activeRegulars: number;
+  newFirstVisit: number;
+  atRisk: number;
+  dormant: number;
+}
+
+export interface OwnerAnalyticsCardFunnel {
+  rewardThreshold: number;
+  rewardLabel: string;
+  zeroStampsCount: number;
+  earlyProgressCount: number;
+  halfwayPlusCount: number;
+  rewardReadyCount: number;
+  secondCardReturnPct: number;
+  medianDaysToReward: number | null;
+  backedUpRatePct: number;
+}
+
+export interface OwnerAnalyticsCohortRow {
+  cohortMonth: string;
+  newCustomers: number;
+  returned14dPct: number;
+  returned30dPct: number;
+  returnedEverPct: number;
+}
+
+export interface OwnerAnalyticsTopCustomer {
+  rank: number;
+  customerId: string;
+  cardCode: string;
+  customerName: string;
+  isBackedUp: boolean;
+  totalStamps: number;
+  availableStamps: number;
+  rewardsClaimed: number;
+  lastStampedAt: string | null;
+}
+
+export interface OwnerAnalyticsData {
+  timezone: string;
+  pulse: OwnerAnalyticsPulse;
+  retentionHealth: OwnerAnalyticsRetentionHealth;
+  cardFunnel: OwnerAnalyticsCardFunnel;
+  cohorts: OwnerAnalyticsCohortRow[];
+  topCustomers: OwnerAnalyticsTopCustomer[];
+}
+
