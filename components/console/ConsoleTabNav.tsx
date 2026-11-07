@@ -2,16 +2,18 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import type { StaffRole } from '@/lib/contracts';
 
 export interface ConsoleTab {
   name: string;
   href: string;
 }
 
-export function ConsoleTabNav({ slug }: { slug: string }) {
+export function ConsoleTabNav({ slug, role }: { slug: string; role?: StaffRole }) {
   const pathname = usePathname();
 
   const tabs: readonly ConsoleTab[] = [
+    ...(role === 'owner' ? [{ name: 'Analytics', href: `/staff/${slug}/settings/analytics` }] : []),
     { name: 'Rules', href: `/staff/${slug}/settings` },
     { name: 'Brand', href: `/staff/${slug}/settings/brand` },
     { name: 'Staff', href: `/staff/${slug}/settings/staff` },

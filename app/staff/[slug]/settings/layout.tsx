@@ -60,7 +60,7 @@ export default async function SettingsLayout({
 
         {/* Tab navigation */}
         <div className="mx-auto max-w-5xl px-4 sm:px-6">
-          <ConsoleTabNav slug={slug} />
+          <ConsoleTabNav slug={slug} role={staff.role} />
         </div>
       </header>
 

@@ -1,9 +1,35 @@
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+(globalThis as any).React = React;
 
 vi.mock('server-only', () => ({}));
 
+const mockRedirect = vi.fn((url: string) => {
+  throw new Error(`NEXT_REDIRECT: ${url}`);
+});
+const mockNotFound = vi.fn(() => {
+  throw new Error('NEXT_NOT_FOUND');
+});
+
+vi.mock('next/navigation', () => ({
+  usePathname: () => '/staff/shop-a/settings/analytics',
+  redirect: (url: string) => mockRedirect(url),
+  notFound: () => mockNotFound(),
+}));
+
+vi.mock('@/lib/console/guard', () => ({
+  enforceConsolePageAccess: vi.fn(),
+}));
+
 import { loadOwnerAnalytics, normalizeOwnerAnalytics } from '@/lib/analytics/owner';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
+import { ConsoleTabNav } from '@/components/console/ConsoleTabNav';
+import { OwnerAnalyticsDashboard } from '@/components/console/OwnerAnalyticsDashboard';
+import OwnerAnalyticsPage from '@/app/staff/[slug]/settings/analytics/page';
+import { enforceConsolePageAccess } from '@/lib/console/guard';
+import type { OwnerAnalyticsData } from '@/lib/contracts';
 
 vi.mock('@/lib/supabase/admin', () => ({
   createSupabaseAdminClient: vi.fn(),
@@ -192,5 +218,200 @@ describe('Owner Retention & Loyalty Card Analytics Loader', () => {
     expect(result?.topCustomers[0]?.customerName).toBe('Marco Santos');
     expect(result?.topCustomers[1]?.customerName).toBe('Guest (Unbacked)');
     expect(result?.topCustomers[1]?.isBackedUp).toBe(false);
+  });
+
+  describe('UI, Guard & Navigation Integration', () => {
+    const mockAnalyticsData: OwnerAnalyticsData = {
+      timezone: 'Asia/Manila',
+      pulse: {
+        totalCards: 100,
+        activeMembers30d: 45,
+        newCards30d: 12,
+        repeatRate30dPct: 35.5,
+        repeatRate14dPct: 22.0,
+        medianDaysBetweenVisits: 6.0,
+        rewardsClaimed30d: 10,
+        rewardsClaimedTotal: 50,
+        rewardsReadyCount: 7,
+      },
+      retentionHealth: {
+        activeRegulars: 30,
+        newFirstVisit: 15,
+        atRisk: 20,
+        dormant: 35,
+      },
+      cardFunnel: {
+        rewardThreshold: 10,
+        rewardLabel: 'FREE COFFEE',
+        zeroStampsCount: 20,
+        earlyProgressCount: 35,
+        halfwayPlusCount: 38,
+        rewardReadyCount: 7,
+        secondCardReturnPct: 60.0,
+        medianDaysToReward: 21.5,
+        backedUpRatePct: 42.0,
+      },
+      cohorts: [
+        {
+          cohortMonth: '2026-11',
+          newCustomers: 12,
+          returned14dPct: 25.0,
+          returned30dPct: 41.7,
+          returnedEverPct: 41.7,
+        },
+      ],
+      topCustomers: [
+        {
+          rank: 1,
+          customerId: '20000000-0000-4000-8000-0000000000c1',
+          cardCode: '20000000',
+          customerName: 'Marco Santos',
+          isBackedUp: true,
+          totalStamps: 35,
+          availableStamps: 5,
+          rewardsClaimed: 3,
+          lastStampedAt: '2026-11-06T10:00:00+08:00',
+        },
+        {
+          rank: 2,
+          customerId: '20000000-0000-4000-8000-0000000000c2',
+          cardCode: '20000000',
+          customerName: 'Guest (Unbacked)',
+          isBackedUp: false,
+          totalStamps: 14,
+          availableStamps: 4,
+          rewardsClaimed: 1,
+          lastStampedAt: '2026-11-04T12:00:00+08:00',
+        },
+      ],
+    };
+
+    it('analytics_page_blocks_manager_and_staff', async () => {
+      // 1. When non-owner visits, guard redirects
+      vi.mocked(enforceConsolePageAccess).mockImplementationOnce(async () => {
+        mockRedirect('/staff/login?error=forbidden');
+        throw new Error('NEXT_REDIRECT: /staff/login?error=forbidden');
+      });
+
+      await expect(
+        OwnerAnalyticsPage({ params: Promise.resolve({ slug: 'shop-b' }) }),
+      ).rejects.toThrow('NEXT_REDIRECT: /staff/login?error=forbidden');
+
+      expect(enforceConsolePageAccess).toHaveBeenCalledWith(
+        'shop-b',
+        'owner',
+        '/staff/shop-b/settings/analytics',
+      );
+
+      // 2. When owner visits and analytics load succeeds, page renders
+      vi.mocked(enforceConsolePageAccess).mockResolvedValueOnce({
+        staff: {
+          userId: 'owner-id',
+          email: 'owner@test.local',
+          displayName: 'Owner User',
+          tenantId: 'tenant-123',
+          tenantSlug: 'shop-a',
+          tenantName: 'Cafe Shop A',
+          role: 'owner',
+          active: true,
+          memberships: [],
+        },
+        tenantId: 'tenant-123',
+      });
+
+      mockRpc.mockResolvedValueOnce({
+        data: {
+          result: 'ok',
+          ...mockAnalyticsData,
+        },
+        error: null,
+      });
+
+      const pageElement = await OwnerAnalyticsPage({
+        params: Promise.resolve({ slug: 'shop-a' }),
+      });
+      const html = renderToStaticMarkup(pageElement);
+
+      expect(html).toContain('Owner Analytics');
+      expect(html).toContain('Marco Santos');
+      expect(html).toContain('35.5%');
+    });
+
+    it('dashboard_renders_retention_funnel_and_top_10_customer_names', () => {
+      const html = renderToStaticMarkup(
+        React.createElement(OwnerAnalyticsDashboard, {
+          data: mockAnalyticsData,
+          shopName: 'Cafe Shop A',
+        }),
+      );
+
+      // 2x2 Headline Pulse
+      expect(html).toContain('35.5%');
+      expect(html).toContain('45');
+      expect(html).toContain('6.0 days');
+      expect(html).toContain('50');
+
+      // Retention Health
+      expect(html).toContain('Active Regulars');
+      expect(html).toContain('New (1st Visit)');
+      expect(html).toContain('At-Risk');
+      expect(html).toContain('Dormant');
+
+      // Card Funnel
+      expect(html).toContain('0 Stamps');
+      expect(html).toContain('Early Progress');
+      expect(html).toContain('Halfway+');
+      expect(html).toContain('Ready to Redeem');
+      expect(html).toContain('60.0%');
+      expect(html).toContain('21.5 days');
+      expect(html).toContain('42.0%');
+
+      // Cohorts
+      expect(html).toContain('2026-11');
+
+      // Top 10 Customers with name resolution
+      expect(html).toContain('Marco Santos');
+      expect(html).toContain('#20000000');
+      expect(html).toContain('Guest (Unbacked)');
+      expect(html).toContain('Backed Up');
+    });
+
+    it('console_tab_nav_shows_analytics_tab_for_owner_only', () => {
+      // 1. Owner sees Analytics tab first
+      const ownerHtml = renderToStaticMarkup(
+        React.createElement(ConsoleTabNav, {
+          slug: 'shop-a',
+          role: 'owner',
+        }),
+      );
+      expect(ownerHtml).toContain('/staff/shop-a/settings/analytics');
+      expect(ownerHtml).toContain('Analytics');
+
+      // 2. Manager does not see Analytics tab
+      const managerHtml = renderToStaticMarkup(
+        React.createElement(ConsoleTabNav, {
+          slug: 'shop-a',
+          role: 'manager',
+        }),
+      );
+      expect(managerHtml).not.toContain('/staff/shop-a/settings/analytics');
+
+      // 3. Staff does not see Analytics tab
+      const staffHtml = renderToStaticMarkup(
+        React.createElement(ConsoleTabNav, {
+          slug: 'shop-a',
+          role: 'staff',
+        }),
+      );
+      expect(staffHtml).not.toContain('/staff/shop-a/settings/analytics');
+
+      // 4. Default without role does not see Analytics tab
+      const defaultHtml = renderToStaticMarkup(
+        React.createElement(ConsoleTabNav, {
+          slug: 'shop-a',
+        }),
+      );
+      expect(defaultHtml).not.toContain('/staff/shop-a/settings/analytics');
+    });
   });
 });

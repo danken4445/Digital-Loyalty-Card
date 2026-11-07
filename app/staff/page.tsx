@@ -130,6 +130,36 @@ export default async function StaffOverviewPage() {
             </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {staff.role === 'owner' && (
+                <Link
+                  href={ROUTES.staff.analytics(staff.tenantSlug)}
+                  className="group flex flex-col justify-between rounded-3xl border border-plug-border bg-plug-surface p-5 transition-colors hover:border-emerald-500/60 hover:bg-plug-elevated/70"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
+                        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <path d="M3 3v18h18" />
+                          <path d="m19 9-5 5-4-4-3 3" />
+                        </svg>
+                      </span>
+                      <div>
+                        <h3 className="font-display text-lg font-bold uppercase tracking-wide text-white group-hover:text-emerald-300">
+                          Owner Analytics
+                        </h3>
+                        <span className="mt-0.5 inline-block rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-mono font-semibold uppercase text-emerald-400">
+                          Retention &amp; Top 10
+                        </span>
+                      </div>
+                    </div>
+                    <ChevronRight />
+                  </div>
+                  <p className="mt-3 text-sm text-plug-muted">
+                    Customer retention rates, loyalty card funnel, visit cadence, and top loyal customer leaderboard.
+                  </p>
+                </Link>
+              )}
+
               <Link
                 href={`/staff/${encodeURIComponent(staff.tenantSlug)}/settings/brand`}
                 className="group flex flex-col justify-between rounded-3xl border border-plug-border bg-plug-surface p-5 transition-colors hover:border-amber-500/60 hover:bg-plug-elevated/70"
