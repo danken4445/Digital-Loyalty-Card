@@ -145,7 +145,11 @@ export async function loadOwnerAnalytics(
     p_tenant: tenantId,
   });
 
-  if (error || !data) {
+  if (error) {
+    console.error('[loadOwnerAnalytics] get_owner_analytics RPC error:', error);
+    return null;
+  }
+  if (!data) {
     return null;
   }
 

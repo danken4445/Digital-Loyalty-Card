@@ -226,7 +226,7 @@ begin
       ) as second_card_return_pct,
       round(
         (pg_catalog.percentile_cont(0.5) within group (
-          order by (pg_catalog.extract(epoch from (rr.first_redeemed_at - rr.first_stamp_at)) / 86400.0)
+          order by (extract(epoch from (rr.first_redeemed_at - rr.first_stamp_at)) / 86400.0)
         ))::numeric,
         1
       ) as median_days_to_reward
