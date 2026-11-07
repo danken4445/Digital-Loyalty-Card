@@ -100,9 +100,9 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
             isExpired
               ? ['This shop is temporarily paused and reward redemption has closed.']
               : [
-                  'This shop is temporarily paused and is not currently issuing new stamp cards.',
-                  'Existing cardholders can still redeem earned rewards.',
-                ]
+                'This shop is temporarily paused and is not currently issuing new stamp cards.',
+                'Existing cardholders can still redeem earned rewards.',
+              ]
           }
           notice={
             <div
@@ -205,8 +205,8 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
   // rewards) the new stamp isn't on the visible grid, so nothing animates.
   const justStampedSlot =
     validResult === 'stamped' &&
-    cardState.availableStamps >= 1 &&
-    cardState.availableStamps <= progress.rewardThreshold
+      cardState.availableStamps >= 1 &&
+      cardState.availableStamps <= progress.rewardThreshold
       ? cardState.availableStamps
       : null;
 
@@ -248,9 +248,8 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
       {/* The card itself. On a fresh stamp it nudges down as the stamp lands (card-impact). */}
       <section
         aria-label="Active Loyalty Card Container"
-        className={`w-full max-w-[390px] bg-plug-surface/95 border border-plug-border rounded-3xl p-5 sm:p-6 shadow-[0_24px_60px_rgba(0,0,0,0.8)] backdrop-blur-md relative ${
-          justStampedSlot !== null ? 'card-impact' : ''
-        }`}
+        className={`w-full max-w-[390px] bg-plug-surface/95 border border-plug-border rounded-3xl p-5 sm:p-6 shadow-[0_24px_60px_rgba(0,0,0,0.8)] backdrop-blur-md relative ${justStampedSlot !== null ? 'card-impact' : ''
+          }`}
         style={{
           backgroundColor: theme.primaryColor,
           borderColor: theme.cardBorder,

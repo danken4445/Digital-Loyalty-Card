@@ -46,18 +46,18 @@ export type TagWithBranch = TagWithUrls & { location_id?: string | null };
 
 export type TagActionResponse =
   | {
-      action: 'create';
-      tag: TagWithBranch;
-    }
+    action: 'create';
+    tag: TagWithBranch;
+  }
   | {
-      action: 'rotate';
-      tag: TagWithBranch;
-      deactivatedTagId: string;
-    }
+    action: 'rotate';
+    tag: TagWithBranch;
+    deactivatedTagId: string;
+  }
   | {
-      action: 'deactivate';
-      deactivatedTagId: string;
-    };
+    action: 'deactivate';
+    deactivatedTagId: string;
+  };
 
 export async function GET(
   request: Request,

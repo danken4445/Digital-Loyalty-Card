@@ -518,15 +518,15 @@ export interface IssuedRedeemToken {
 
 export type VerifyRedeemTokenResult =
   | {
-      valid: true;
-      kind: RedeemTokenKind;
-      payload: RedeemTokenPayload;
-      displayCode: string;
-    }
+    valid: true;
+    kind: RedeemTokenKind;
+    payload: RedeemTokenPayload;
+    displayCode: string;
+  }
   | {
-      valid: false;
-      reason: 'invalid-token' | 'expired-token';
-    };
+    valid: false;
+    reason: 'invalid-token' | 'expired-token';
+  };
 
 /**
  * Phase 2 Customer Identity & Card Creation API Contracts
@@ -570,16 +570,16 @@ export interface CustomerCardState {
  */
 export type VerifyTapResult =
   | {
-      valid: true;
-      normalizedTagId: string;
-      mode: 'ntag215-static';
-      tapCounter?: number | null;
-      hardwareUid?: string | null;
-    }
+    valid: true;
+    normalizedTagId: string;
+    mode: 'ntag215-static';
+    tapCounter?: number | null;
+    hardwareUid?: string | null;
+  }
   | {
-      valid: false;
-      reason: 'malformed-tag-id';
-    };
+    valid: false;
+    reason: 'malformed-tag-id';
+  };
 
 export interface ClaimStampRequest {
   tagId: string;
@@ -626,13 +626,13 @@ export interface StaffSession {
 
 export type StaffAuthResult =
   | {
-      authorized: true;
-      staff: StaffSession;
-    }
+    authorized: true;
+    staff: StaffSession;
+  }
   | {
-      authorized: false;
-      reason: 'unauthenticated' | 'forbidden';
-    };
+    authorized: false;
+    reason: 'unauthenticated' | 'forbidden';
+  };
 
 /** Roles that can see a shop's billing (only owners can change the plan; enforced again in SQL). */
 export const BILLING_VIEWER_ROLES = ['owner', 'manager'] as const satisfies readonly StaffRole[];
@@ -717,18 +717,18 @@ export interface StaffManualStampResponse {
 
 export type StaffTagActionRequest =
   | {
-      action: 'create';
-      label?: string;
-    }
+    action: 'create';
+    label?: string;
+  }
   | {
-      action: 'deactivate';
-      tagId: string;
-    }
+    action: 'deactivate';
+    tagId: string;
+  }
   | {
-      action: 'rotate';
-      tagId: string;
-      newLabel?: string;
-    };
+    action: 'rotate';
+    tagId: string;
+    newLabel?: string;
+  };
 
 export interface TagWithUrls extends TagRow {
   productionTapUrl: string;
@@ -745,11 +745,11 @@ export interface ActivityAnomalyFlag {
   id: string;
   severity: 'warning' | 'high';
   category:
-    | 'repeated-daily-cap'
-    | 'high-tag-volume'
-    | 'frequent-manual-stamps'
-    | 'cooldown-hugging'
-    | 'buddy-tag-concentration';
+  | 'repeated-daily-cap'
+  | 'high-tag-volume'
+  | 'frequent-manual-stamps'
+  | 'cooldown-hugging'
+  | 'buddy-tag-concentration';
   title: string;
   description: string;
   targetId: string;
@@ -784,13 +784,13 @@ export interface IssuedMergeIntent {
 
 export type VerifyMergeIntentResult =
   | {
-      valid: true;
-      payload: MergeIntentPayload;
-    }
+    valid: true;
+    payload: MergeIntentPayload;
+  }
   | {
-      valid: false;
-      reason: 'invalid-token' | 'expired-token';
-    };
+    valid: false;
+    reason: 'invalid-token' | 'expired-token';
+  };
 
 export interface MergeCustomerRequest {
   mergeToken?: string;

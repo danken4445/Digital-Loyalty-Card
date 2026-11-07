@@ -83,9 +83,8 @@ export function ConsoleTagsManager({
       setLabel('');
       setFeedback({
         type: 'success',
-        message: `Tag "${body.data.tag.id}" created and assigned to ${
-          locations.find((l) => l.id === locationId)?.name || 'branch'
-        }.`,
+        message: `Tag "${body.data.tag.id}" created and assigned to ${locations.find((l) => l.id === locationId)?.name || 'branch'
+          }.`,
       });
     } catch {
       setFeedback({ type: 'error', message: 'Network error creating tag.' });
@@ -238,11 +237,10 @@ export function ConsoleTagsManager({
 
       {feedback && (
         <div
-          className={`border p-4 text-xs ${
-            feedback.type === 'success'
+          className={`border p-4 text-xs ${feedback.type === 'success'
               ? 'border-emerald-800/80 bg-emerald-950/40 text-emerald-300'
               : 'border-rose-800/80 bg-rose-950/40 text-rose-300'
-          }`}
+            }`}
         >
           {feedback.message}
         </div>
@@ -462,11 +460,10 @@ export function ConsoleTagsManager({
                             <span className="text-xs text-neutral-300 font-medium">({tag.label})</span>
                           )}
                           <span
-                            className={`rounded px-1.5 py-0.5 text-[10px] font-mono uppercase ${
-                              tag.active
+                            className={`rounded px-1.5 py-0.5 text-[10px] font-mono uppercase ${tag.active
                                 ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/60'
                                 : 'bg-neutral-800 text-neutral-400 border border-neutral-700'
-                            }`}
+                              }`}
                           >
                             {tag.active ? 'Active' : 'Deactivated'}
                           </span>

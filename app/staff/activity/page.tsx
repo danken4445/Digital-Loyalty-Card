@@ -48,17 +48,15 @@ export default async function StaffActivityPage() {
                 return (
                   <article
                     key={flag.id}
-                    className={`rounded-2xl border p-5 ${
-                      isHigh
+                    className={`rounded-2xl border p-5 ${isHigh
                         ? 'border-red-500/60 bg-red-950/30 text-white'
                         : 'border-yellow-500/50 bg-yellow-950/20 text-white'
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span
-                        className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                          isHigh ? 'bg-red-500 text-white' : 'bg-yellow-400 text-black'
-                        }`}
+                        className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${isHigh ? 'bg-red-500 text-white' : 'bg-yellow-400 text-black'
+                          }`}
                       >
                         {flag.severity.toUpperCase()}
                       </span>

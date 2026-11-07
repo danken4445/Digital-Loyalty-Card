@@ -29,9 +29,9 @@ interface MembershipRow {
   role: string;
   display_name: string;
   tenants:
-    | { id: string; slug: string; name: string; status: string }
-    | { id: string; slug: string; name: string; status: string }[]
-    | null;
+  | { id: string; slug: string; name: string; status: string }
+  | { id: string; slug: string; name: string; status: string }[]
+  | null;
 }
 
 function isStaffRole(value: string): value is StaffRole {
