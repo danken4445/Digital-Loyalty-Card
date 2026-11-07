@@ -293,10 +293,16 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
               </p>
             )}
             <p
-              className="text-xs text-neutral-400 mt-1 font-medium"
+              className="text-xs text-neutral-400 mt-1 font-medium flex items-center gap-1.5 flex-wrap"
               style={{ color: theme.subtextColor }}
             >
-              Member Since {memberSinceText}
+              {cardState.displayName ? (
+                <>
+                  <span className="text-white font-semibold">{cardState.displayName}</span>
+                  <span className="text-neutral-500" aria-hidden="true">&bull;</span>
+                </>
+              ) : null}
+              <span>Member Since {memberSinceText}</span>
             </p>
           </div>
         </header>
@@ -397,6 +403,7 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
           customerId={cardState.customerId}
           isAnonymous={cardState.isAnonymous}
           email={cardState.email}
+          displayName={cardState.displayName}
           availableStamps={cardState.availableStamps}
         />
 
@@ -405,8 +412,19 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
           {/* Card facts as a definition list: label on the left, value on the right */}
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
             <dt className="text-plug-muted">Card</dt>
-            <dd className="text-right font-semibold text-white tabular-nums">
-              Card #{cardState.customerId.slice(0, 8).toUpperCase()}
+            <dd className="text-right tabular-nums">
+              {cardState.displayName ? (
+                <div className="inline-flex items-center gap-1.5">
+                  <span className="font-semibold text-white tracking-tight">{cardState.displayName}</span>
+                  <span className="text-neutral-400 font-mono text-xs font-normal">
+                    (#{cardState.customerId.slice(0, 8).toUpperCase()})
+                  </span>
+                </div>
+              ) : (
+                <span className="font-semibold text-white">
+                  Card #{cardState.customerId.slice(0, 8).toUpperCase()}
+                </span>
+              )}
             </dd>
             <dt className="text-plug-muted">Member Since</dt>
             <dd className="text-right text-neutral-300 tabular-nums">{memberSinceText}</dd>

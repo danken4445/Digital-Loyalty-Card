@@ -104,12 +104,18 @@ export async function getCustomerCardState(
   }
 
   const totalStamps = balance?.total_stamps ?? 0;
+  const rawMeta = user.user_metadata as Record<string, unknown> | undefined;
+  const googleName =
+    (typeof rawMeta?.full_name === 'string' && rawMeta.full_name.trim()) ||
+    (typeof rawMeta?.name === 'string' && rawMeta.name.trim()) ||
+    null;
 
   return {
     customerId: user.id,
     tenant,
     isAnonymous: Boolean(user.is_anonymous),
     email: user.email ?? null,
+    displayName: googleName,
     totalStamps,
     stampsRedeemed: balance?.stamps_redeemed ?? 0,
     availableStamps: balance?.available_stamps ?? 0,

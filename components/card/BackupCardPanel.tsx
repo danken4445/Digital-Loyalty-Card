@@ -11,6 +11,7 @@ export interface BackupCardPanelProps {
   customerId: string;
   isAnonymous: boolean;
   email?: string | null;
+  displayName?: string | null;
   availableStamps: number;
 }
 
@@ -46,6 +47,7 @@ export function BackupCardPanel({
   customerId: _customerId,
   isAnonymous,
   email,
+  displayName,
   availableStamps: _availableStamps,
 }: BackupCardPanelProps) {
   const [mode, setMode] = useState<BackupMode>('backup');
@@ -60,7 +62,11 @@ export function BackupCardPanel({
 
   // 1. BACKED-UP STATE (isAnonymous === false)
   if (!isAnonymous) {
-    const linkedAccountText = email ? `Linked to ${email}` : 'Linked to Google / Email Account';
+    const linkedAccountText = displayName
+      ? `${displayName}${email ? ` (${email})` : ''}`
+      : email
+        ? `Linked to ${email}`
+        : 'Linked to Google / Email Account';
 
     return (
       <section
@@ -283,9 +289,8 @@ export function BackupCardPanel({
             setErrorMessage(null);
             setStatusMessage(null);
           }}
-          className={`flex-1 py-2 px-3 text-[10px] sm:text-xs font-mono font-bold tracking-wider uppercase rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white ${
-            mode === 'backup' ? 'bg-white text-black shadow-sm' : 'text-plug-muted hover:text-white'
-          }`}
+          className={`flex-1 py-2 px-3 text-[10px] sm:text-xs font-mono font-bold tracking-wider uppercase rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white ${mode === 'backup' ? 'bg-white text-black shadow-sm' : 'text-plug-muted hover:text-white'
+            }`}
         >
           BACK UP THIS CARD
         </button>
@@ -296,11 +301,10 @@ export function BackupCardPanel({
             setErrorMessage(null);
             setStatusMessage(null);
           }}
-          className={`flex-1 py-2 px-3 text-[10px] sm:text-xs font-mono font-bold tracking-wider uppercase rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white ${
-            mode === 'recover'
+          className={`flex-1 py-2 px-3 text-[10px] sm:text-xs font-mono font-bold tracking-wider uppercase rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white ${mode === 'recover'
               ? 'bg-white text-black shadow-sm'
               : 'text-plug-muted hover:text-white'
-          }`}
+            }`}
         >
           RECOVER EXISTING CARD
         </button>

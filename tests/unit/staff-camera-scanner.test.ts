@@ -1,7 +1,7 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import { RedeemRewardForm } from '@/components/staff/RedeemRewardForm';
+import { RedeemRewardForm, type RedeemRewardFormProps } from '@/components/staff/RedeemRewardForm';
 import { QrCameraScanner } from '@/components/staff/QrCameraScanner';
 
 (globalThis as any).React = React;
@@ -50,7 +50,7 @@ describe('Staff Camera QR Scanner', () => {
 
     it('displays custom reward label when passed via props', () => {
       const html = renderToStaticMarkup(
-        React.createElement(RedeemRewardForm, {
+        React.createElement<RedeemRewardFormProps>(RedeemRewardForm, {
           rewardLabel: 'FREE CROISSANT',
           rewardThreshold: 8,
         }),

@@ -546,6 +546,8 @@ export interface CustomerCardState {
   tenant: TenantContext;
   isAnonymous: boolean;
   email?: string | null;
+  /** Display name from Google OAuth (or fallback) */
+  displayName?: string | null;
   totalStamps: number;
   stampsRedeemed: number;
   availableStamps: number;

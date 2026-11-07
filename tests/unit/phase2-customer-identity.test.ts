@@ -139,16 +139,16 @@ describe('Phase 2 Customer Identity & Card Provisioning Test Suite', () => {
       mockMaybeSingle
         .mockResolvedValueOnce({ data: { added_at: '2026-10-15T08:00:00.000Z' }, error: null })
         .mockResolvedValueOnce({
-        data: {
-          tenant_id: TEST_TENANT.id,
-          customer_id: mockUser.id,
-          total_stamps: 4,
-          stamps_redeemed: 0,
-          available_stamps: 4,
-          last_stamped_at: '2026-11-02T03:00:00.000Z',
-        },
-        error: null,
-      });
+          data: {
+            tenant_id: TEST_TENANT.id,
+            customer_id: mockUser.id,
+            total_stamps: 4,
+            stamps_redeemed: 0,
+            available_stamps: 4,
+            last_stamped_at: '2026-11-02T03:00:00.000Z',
+          },
+          error: null,
+        });
 
       const state = await getCustomerCardState(TEST_TENANT);
 
@@ -157,6 +157,7 @@ describe('Phase 2 Customer Identity & Card Provisioning Test Suite', () => {
         tenant: TEST_TENANT,
         isAnonymous: true,
         email: null,
+        displayName: null,
         totalStamps: 4,
         stampsRedeemed: 0,
         availableStamps: 4,
@@ -202,6 +203,7 @@ describe('Phase 2 Customer Identity & Card Provisioning Test Suite', () => {
         tenant: TEST_TENANT,
         isAnonymous: false,
         email: null,
+        displayName: null,
         totalStamps: 0,
         stampsRedeemed: 0,
         availableStamps: 0,
