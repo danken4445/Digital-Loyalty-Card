@@ -6,6 +6,7 @@ import { ROUTES } from '@/lib/contracts';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import { TurnstileWidget } from '@/components/auth/TurnstileWidget';
 import { signInWithEmailLink } from '@/lib/auth/captchaSignIn';
+import { GoogleAuthButton, ALREADY_REGISTERED_REGEX } from '@/components/auth/GoogleAuthButton';
 
 export interface BackupCardPanelProps {
   customerId: string;
@@ -16,32 +17,6 @@ export interface BackupCardPanelProps {
 }
 
 type BackupMode = 'backup' | 'recover';
-
-const ALREADY_REGISTERED_REGEX =
-  /already registered|already been registered|already linked|identity_already_exists|email_exists/i;
-
-function GoogleIcon() {
-  return (
-    <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
-      <path
-        fill="currentColor"
-        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-      />
-      <path
-        fill="currentColor"
-        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-      />
-      <path
-        fill="currentColor"
-        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-      />
-      <path
-        fill="currentColor"
-        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-      />
-    </svg>
-  );
-}
 
 export function BackupCardPanel({
   customerId: _customerId,
@@ -109,54 +84,6 @@ export function BackupCardPanel({
     }
   };
 
-  const handleGoogleBackup = async () => {
-    if (!consentChecked || isSubmitting) {
-      return;
-    }
-
-    setIsSubmitting(true);
-    setErrorMessage(null);
-    setStatusMessage(null);
-
-    try {
-      // Issue the signed merge-intent cookie first so that signing into Google (whether a new or
-      // existing Google account) atomically transfers all anonymous stamps/perks in /auth/callback
-      // without relying on GoTrue's optional /user/identities/authorize manual-linking endpoint.
-      await prepareMergeIntent();
-      const supabase = createSupabaseBrowserClient();
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: getCallbackUrl(),
-        },
-      });
-
-      if (error) {
-        const errorText = `${error.message} ${'code' in error && typeof error.code === 'string' ? error.code : ''}`;
-        if (ALREADY_REGISTERED_REGEX.test(errorText)) {
-          setMode('recover');
-          setStatusMessage(
-            'That account already has a card! Sign in below to merge your current stamps into your existing card.',
-          );
-        } else {
-          setErrorMessage(error.message);
-        }
-      }
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to connect Google account.';
-      if (ALREADY_REGISTERED_REGEX.test(msg)) {
-        setMode('recover');
-        setStatusMessage(
-          'That account already has a card! Sign in below to merge your current stamps into your existing card.',
-        );
-      } else {
-        setErrorMessage(msg);
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   const handleEmailBackup = async () => {
     const cleanEmail = emailInput.trim();
     if (!consentChecked || isSubmitting || !cleanEmail) {
@@ -201,37 +128,6 @@ export function BackupCardPanel({
       } else {
         setErrorMessage(msg);
       }
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleGoogleRecover = async () => {
-    if (isSubmitting) {
-      return;
-    }
-
-    setIsSubmitting(true);
-    setErrorMessage(null);
-    setStatusMessage(null);
-
-    try {
-      await prepareMergeIntent();
-      const supabase = createSupabaseBrowserClient();
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: getCallbackUrl(),
-        },
-      });
-
-      if (error) {
-        setErrorMessage(error.message);
-      }
-    } catch (err: unknown) {
-      setErrorMessage(
-        err instanceof Error ? err.message : 'Google recovery sign-in failed. Please try again.',
-      );
     } finally {
       setIsSubmitting(false);
     }
@@ -371,15 +267,23 @@ export function BackupCardPanel({
 
           {/* Action 1 — Link Google */}
           <div>
-            <button
-              type="button"
+            <GoogleAuthButton
+              mode="backup"
               disabled={!consentChecked || isSubmitting}
-              onClick={handleGoogleBackup}
-              className="w-full py-3 px-4 bg-white text-black font-display font-black text-xs tracking-widest uppercase border-2 border-white hover:bg-neutral-200 transition-all select-none shadow-[0_0_15px_rgba(255,255,255,0.15)] flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer active:scale-[0.99] rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black"
-            >
-              <GoogleIcon />
-              <span>{isSubmitting ? 'CONNECTING...' : 'BACK UP WITH GOOGLE'}</span>
-            </button>
+              isSubmitting={isSubmitting}
+              onPrepareMerge={prepareMergeIntent}
+              onSuccess={() => {
+                window.location.assign(getCallbackUrl());
+              }}
+              onError={(msg) => setErrorMessage(msg)}
+              onAlreadyRegistered={() => {
+                setMode('recover');
+                setStatusMessage(
+                  'That account already has a card! Sign in below to merge your current stamps into your existing card.',
+                );
+              }}
+              fallbackOAuthUrl={getCallbackUrl()}
+            />
           </div>
 
           <div className="relative flex py-1 items-center">
@@ -430,15 +334,23 @@ export function BackupCardPanel({
 
           {/* Recover with Google */}
           <div>
-            <button
-              type="button"
+            <GoogleAuthButton
+              mode="recover"
               disabled={isSubmitting}
-              onClick={handleGoogleRecover}
-              className="w-full py-3 px-4 bg-white text-black font-display font-black text-xs tracking-widest uppercase border-2 border-white hover:bg-neutral-200 transition-all select-none shadow-[0_0_15px_rgba(255,255,255,0.15)] flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer active:scale-[0.99] rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black"
-            >
-              <GoogleIcon />
-              <span>{isSubmitting ? 'CONNECTING...' : 'SIGN IN WITH GOOGLE & MERGE'}</span>
-            </button>
+              isSubmitting={isSubmitting}
+              onPrepareMerge={prepareMergeIntent}
+              onSuccess={() => {
+                window.location.assign(getCallbackUrl());
+              }}
+              onError={(msg) => setErrorMessage(msg)}
+              onAlreadyRegistered={() => {
+                setMode('recover');
+                setStatusMessage(
+                  'That account already has a card! Sign in below to merge your current stamps into your existing card.',
+                );
+              }}
+              fallbackOAuthUrl={getCallbackUrl()}
+            />
           </div>
 
           <div className="relative flex py-1 items-center">

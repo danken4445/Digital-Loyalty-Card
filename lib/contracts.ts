@@ -882,6 +882,7 @@ export const ROUTES = Object.freeze({
   /** Kept for the shop-less invalid-tag outcome (/t cannot name a shop); prefer shopWithResult otherwise. */
   cardWithResult: (result: StampResultCode) => `/card?r=${encodeURIComponent(result)}`,
   wallet: '/wallet',
+  wallets: '/wallets',
   shop: (slug: string) => `/s/${encodeURIComponent(slug)}`,
   shopWithResult: (slug: string, result: StampResultCode) =>
     `/s/${encodeURIComponent(slug)}?r=${encodeURIComponent(result)}`,

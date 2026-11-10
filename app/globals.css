@@ -20,6 +20,7 @@
     color: #ffffff;
     min-height: 100dvh;
     touch-action: manipulation;
+    overscroll-behavior-y: contain;
   }
 
   /* High-contrast focus-visible outline styles for accessibility */
