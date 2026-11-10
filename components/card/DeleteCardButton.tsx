@@ -9,6 +9,7 @@ import {
   type DeleteCustomerResponse,
 } from '@/lib/contracts';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+import { clearAllOfflineCards, removeOfflineCard } from '@/lib/offline/cardCache';
 
 export interface DeleteCardButtonProps {
   customerId?: string | null;
@@ -74,6 +75,9 @@ export function DeleteCardButton({
       setIsDeleting(false);
       return;
     }
+    if (tenantSlug) {
+      removeOfflineCard(tenantSlug);
+    }
     setIsDeleted(true);
     setIsConfirming(false);
     setIsDeleting(false);
@@ -118,7 +122,8 @@ export function DeleteCardButton({
         return;
       }
 
-      // Customer data successfully deleted. Clean up browser Supabase session if any.
+      // Customer data successfully deleted. Clean up browser Supabase session and offline card cache.
+      clearAllOfflineCards();
       try {
         const supabase = createSupabaseBrowserClient();
         await supabase.auth.signOut();

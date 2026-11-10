@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Space_Grotesk, Oswald, Poppins, Inter } from 'next/font/google';
 import { PLATFORM_CONFIG } from '@/lib/config';
 import { AuthHashHandler } from '@/components/auth/AuthHashHandler';
+import { OfflineServiceWorkerRegister } from '@/components/offline/OfflineServiceWorkerRegister';
 import './globals.css';
 
 const spaceGrotesk = Space_Grotesk({
@@ -70,6 +71,7 @@ export default function RootLayout({
     >
       <body className="bg-[#0A0A0A] text-white antialiased min-h-dvh font-sans selection:bg-white selection:text-black">
         <AuthHashHandler />
+        <OfflineServiceWorkerRegister />
         {children}
       </body>
     </html>

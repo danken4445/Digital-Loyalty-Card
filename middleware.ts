@@ -10,6 +10,6 @@ export const config = {
     /*
      * Match all request paths except static files, Next.js internals, and brand images.
      */
-    '/((?!_next/static|_next/image|favicon.ico|brand/.*|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|sw.js|brand/.*|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };
