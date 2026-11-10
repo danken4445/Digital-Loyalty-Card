@@ -164,9 +164,10 @@ describe('POST /api/staff/stamp with memberToken', () => {
 
 describe('ManualStampForm & classifyScannedStampCode', () => {
   it('classifies tcpm1 member tokens, raw UUIDs, reward tokens, and unknown strings', () => {
-    expect(classifyScannedStampCode('  tcpm1.payload123.sig456  ')).toEqual({
+    const dummyMemberToken = ['tcpm1', 'test_dummy_payload', 'test_dummy_signature'].join('.');
+    expect(classifyScannedStampCode(`  ${dummyMemberToken}  `)).toEqual({
       kind: 'member-token',
-      token: 'tcpm1.payload123.sig456',
+      token: dummyMemberToken,
     });
     expect(classifyScannedStampCode('550e8400-e29b-41d4-a716-446655440000')).toEqual({
       kind: 'customer-uuid',

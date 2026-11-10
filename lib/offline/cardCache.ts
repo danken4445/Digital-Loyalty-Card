@@ -15,12 +15,9 @@ export interface OfflineCardSnapshot {
   updatedAtIso: string;
 }
 
-function resolveStorage(
-  storageOverride?: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> | null,
-): Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> | null {
-  if (storageOverride !== undefined) {
-    return storageOverride;
-  }
+export type OfflineStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
+
+function resolveStorage(): OfflineStorage | null {
   if (typeof window !== 'undefined' && window.localStorage) {
     try {
       return window.localStorage;
@@ -34,7 +31,7 @@ function resolveStorage(
 export function readOfflineCards(
   storageOverride?: Pick<Storage, 'getItem'> | null,
 ): Record<string, OfflineCardSnapshot> {
-  const storage = resolveStorage(storageOverride as any);
+  const storage = storageOverride !== undefined ? storageOverride : resolveStorage();
   if (!storage) {
     return {};
   }
@@ -71,7 +68,7 @@ export function saveOfflineCard(
   snapshot: OfflineCardSnapshot,
   storageOverride?: Pick<Storage, 'getItem' | 'setItem'> | null,
 ): void {
-  const storage = resolveStorage(storageOverride as any);
+  const storage = storageOverride !== undefined ? storageOverride : resolveStorage();
   if (!storage) {
     return;
   }
@@ -106,7 +103,7 @@ export function removeOfflineCard(
   tenantSlug: string,
   storageOverride?: Pick<Storage, 'getItem' | 'setItem'> | null,
 ): void {
-  const storage = resolveStorage(storageOverride as any);
+  const storage = storageOverride !== undefined ? storageOverride : resolveStorage();
   if (!storage) {
     return;
   }
@@ -125,7 +122,7 @@ export function removeOfflineCard(
 export function clearAllOfflineCards(
   storageOverride?: Pick<Storage, 'removeItem'> | null,
 ): void {
-  const storage = resolveStorage(storageOverride as any);
+  const storage = storageOverride !== undefined ? storageOverride : resolveStorage();
   if (!storage) {
     return;
   }
