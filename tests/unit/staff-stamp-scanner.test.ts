@@ -1,3 +1,5 @@
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('server-only', () => ({}));
@@ -47,6 +49,13 @@ import { POST as staffStampPost } from '@/app/api/staff/stamp/route';
 import { requireStaffSession } from '@/lib/auth/staff';
 import { issueMemberStampToken } from '@/lib/security/memberStampToken';
 import { TENANT_ONE_ID, TENANT_ONE_SLUG } from '@/lib/contracts';
+import {
+  ManualStampForm,
+  STAMP_QUICK_REASONS,
+  classifyScannedStampCode,
+} from '@/components/staff/ManualStampForm';
+
+(globalThis as any).React = React;
 
 const CUSTOMER_ID = '22222222-2222-4222-8222-222222222222';
 const OTHER_TENANT_ID = '7c1f0000-0000-4000-8000-000000000099';
@@ -150,5 +159,38 @@ describe('POST /api/staff/stamp with memberToken', () => {
       message: 'Invalid or unrecognized member QR code.',
     });
     expect(mockRpc).not.toHaveBeenCalled();
+  });
+});
+
+describe('ManualStampForm & classifyScannedStampCode', () => {
+  it('classifies tcpm1 member tokens, raw UUIDs, reward tokens, and unknown strings', () => {
+    expect(classifyScannedStampCode('  tcpm1.payload123.sig456  ')).toEqual({
+      kind: 'member-token',
+      token: 'tcpm1.payload123.sig456',
+    });
+    expect(classifyScannedStampCode('550e8400-e29b-41d4-a716-446655440000')).toEqual({
+      kind: 'customer-uuid',
+      customerId: '550e8400-e29b-41d4-a716-446655440000',
+    });
+    expect(classifyScannedStampCode('tcp2.payload.sig')).toEqual({
+      kind: 'reward-token',
+    });
+    expect(classifyScannedStampCode('tcpig2.payload.sig')).toEqual({
+      kind: 'reward-token',
+    });
+    expect(classifyScannedStampCode('https://example.com')).toEqual({
+      kind: 'unknown',
+    });
+  });
+
+  it('warns_when_reward_qr_is_scanned_on_manual_stamp_form and renders quick-reason chips + SSR inputs', () => {
+    const html = renderToStaticMarkup(React.createElement(ManualStampForm));
+    expect(html).toContain('Issue Manual Stamp');
+    expect(html).toContain('for="manual-customer-id"');
+    expect(html).toContain('Customer UUID');
+    expect(html).toContain('for="manual-stamp-reason"');
+    for (const preset of STAMP_QUICK_REASONS) {
+      expect(html).toContain(preset);
+    }
   });
 });
