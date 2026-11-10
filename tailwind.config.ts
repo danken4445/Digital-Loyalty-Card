@@ -28,6 +28,9 @@ const config: Config = {
       fontFamily: {
         sans: ['var(--font-sans)', 'system-ui', 'sans-serif'],
         display: ['var(--font-display)', 'Impact', 'Arial Black', 'sans-serif'],
+        // ODYSSEY platform screens only (Brand Bible v1.0): Poppins headings, Inter body.
+        'odyssey-heading': ['var(--font-odyssey-heading)', 'system-ui', 'Arial', 'sans-serif'],
+        'odyssey-body': ['var(--font-odyssey-body)', 'system-ui', 'Arial', 'sans-serif'],
       },
     },
   },

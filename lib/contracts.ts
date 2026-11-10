@@ -539,6 +539,35 @@ export type VerifyRedeemTokenResult =
   };
 
 /**
+ * Signed shop-bound Member Stamp QR token (tcpm1) for offline / camera-scanned manual stamping.
+ */
+export const MEMBER_STAMP_TOKEN_PREFIX = 'tcpm1' as const;
+
+export interface MemberStampTokenPayload {
+  customerId: string;
+  tenantId: string;
+  iat: number; // Unix epoch seconds
+}
+
+export interface IssuedMemberStampToken {
+  token: string;
+  payload: MemberStampTokenPayload;
+  displayCode: string;
+  qrSvg: string;
+}
+
+export type VerifyMemberStampTokenResult =
+  | {
+    valid: true;
+    payload: MemberStampTokenPayload;
+    displayCode: string;
+  }
+  | {
+    valid: false;
+    reason: 'invalid-token';
+  };
+
+/**
  * Phase 2 Customer Identity & Card Creation API Contracts
  */
 export interface EnsureCustomerRequest {
@@ -716,7 +745,8 @@ export interface StaffRedeemConfirmData {
 export type StaffRedeemResponse = StaffRedeemPreviewData | StaffRedeemConfirmData;
 
 export interface StaffManualStampRequest {
-  customerId: string;
+  customerId?: string;
+  memberToken?: string;
   reason: string;
 }
 
@@ -852,6 +882,7 @@ export const ROUTES = Object.freeze({
   /** Kept for the shop-less invalid-tag outcome (/t cannot name a shop); prefer shopWithResult otherwise. */
   cardWithResult: (result: StampResultCode) => `/card?r=${encodeURIComponent(result)}`,
   wallet: '/wallet',
+  wallets: '/wallets',
   shop: (slug: string) => `/s/${encodeURIComponent(slug)}`,
   shopWithResult: (slug: string, result: StampResultCode) =>
     `/s/${encodeURIComponent(slug)}?r=${encodeURIComponent(result)}`,
@@ -889,6 +920,7 @@ export const ROUTES = Object.freeze({
   /** Set-a-new-password screen after a recovery link (outside /staff so any signed-in account can reach it). */
   resetPassword: '/auth/reset-password',
   privacy: '/privacy',
+  offline: '/offline',
   staff: {
     root: '/staff',
     login: '/staff/login',

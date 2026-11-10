@@ -27,9 +27,14 @@ import { OnboardingCard } from '@/components/card/OnboardingCard';
 import { StripResultParam } from '@/components/card/StripResultParam';
 import { StampGrid } from '@/components/card/StampGrid';
 import { RedeemRewardPanel } from '@/components/card/RedeemRewardPanel';
+import { MemberStampQrPanel } from '@/components/card/MemberStampQrPanel';
+import { issueMemberStampToken } from '@/lib/security/memberStampToken';
+import type { OfflineCardSnapshot } from '@/lib/offline/cardCache';
 import { BackupCardPanel } from '@/components/card/BackupCardPanel';
 import { InstagramUpsizePanel } from '@/components/card/InstagramUpsizePanel';
 import { DeleteCardButton } from '@/components/card/DeleteCardButton';
+import { BackToWalletButton } from '@/components/card/BackToWalletButton';
+import { PullToRefresh } from '@/components/card/PullToRefresh';
 
 interface ShopPageProps {
   params: Promise<{ slug: string }>;
@@ -96,6 +101,7 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
           originalShop={tenant.id === TENANT_ONE_ID}
           instagramHandle={instagramHandle ?? null}
           theme={theme}
+          backHref={ROUTES.wallets}
           lines={
             isExpired
               ? ['This shop is temporarily paused and reward redemption has closed.']
@@ -136,6 +142,7 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
         originalShop={tenant.id === TENANT_ONE_ID}
         instagramHandle={instagramHandle ?? null}
         theme={theme}
+        backHref={ROUTES.wallets}
         lines={[
           'No app download. No form. Instant digital stamp card.',
           `Collect ${rewardThreshold} stamps, get ${settings.rewardLabel}.`,
@@ -173,6 +180,7 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
         originalShop={tenant.id === TENANT_ONE_ID}
         instagramHandle={instagramHandle ?? null}
         theme={theme}
+        backHref={ROUTES.wallets}
         lines={
           isSuspended
             ? ['This shop is temporarily paused and is not currently issuing new stamp cards.']
@@ -219,11 +227,38 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
     }
   }
 
+  let offlineCardSnapshot: OfflineCardSnapshot | null = null;
+  try {
+    const memberStampToken = await issueMemberStampToken(cardState.customerId, tenant.id);
+    offlineCardSnapshot = {
+      customerId: cardState.customerId,
+      tenantId: tenant.id,
+      tenantSlug: tenant.slug,
+      tenantName: tenant.name,
+      displayName: cardState.displayName ?? null,
+      availableStamps: cardState.availableStamps,
+      rewardThreshold,
+      rewardLabel: settings.rewardLabel,
+      memberToken: memberStampToken.token,
+      displayCode: memberStampToken.displayCode,
+      qrSvg: memberStampToken.qrSvg,
+      updatedAtIso: new Date().toISOString(),
+    };
+  } catch {
+    offlineCardSnapshot = null;
+  }
+
   return (
     <main
       aria-label={`${tenant.name} Loyalty Card`}
       className="min-h-dvh w-full bg-topo-pattern bg-street-grid flex flex-col items-center justify-between px-4 py-6 sm:py-10"
     >
+      {/* Pull to refresh for PWAs */}
+      <PullToRefresh />
+
+      {/* Back to Wallets Button */}
+      <BackToWalletButton />
+
       {/* Celebratory moment when card was just added (?added=1) */}
       {isAddedParam && <AddCardCelebrationBanner />}
 
@@ -363,6 +398,11 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
             milestoneStep={milestoneStep}
             stampIcon={theme.stampIcon}
           />
+
+          {/* Offline / Member Stamp QR Code Panel */}
+          {offlineCardSnapshot && (
+            <MemberStampQrPanel snapshot={offlineCardSnapshot} />
+          )}
         </div>
 
         {/* Reward Redemption Panel (when reward is ready and token issued) */}

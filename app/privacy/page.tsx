@@ -1,7 +1,9 @@
 import type { Metadata } from 'next';
-import Image from 'next/image';
 import Link from 'next/link';
-import { PLATFORM_CONFIG, SECURITY_CONFIG } from '@/lib/config';
+import { OdysseyLogo } from '@/components/brand/OdysseyLogo';
+import { COLORS, MIN_HEIGHT_PX } from '@/lib/brand/odyssey/brandTokens';
+import { colourwayForBackground } from '@/lib/brand/odyssey/contrast';
+import { SECURITY_CONFIG } from '@/lib/config';
 import { ROUTES } from '@/lib/contracts';
 import { getVerifiedUser } from '@/lib/supabase/server';
 import { DeleteCardButton } from '@/components/card/DeleteCardButton';
@@ -24,7 +26,7 @@ export default async function PrivacyPage() {
   return (
     <main
       aria-label="Platform Privacy Notice and Data Subject Rights"
-      className="min-h-dvh w-full bg-topo-pattern bg-street-grid flex flex-col items-center justify-between px-4 py-6 sm:py-10"
+      className="min-h-dvh w-full font-odyssey-body bg-topo-pattern bg-street-grid flex flex-col items-center justify-between px-4 py-6 sm:py-10"
     >
       {/* Top Navigation Bar */}
       <div className="w-full max-w-[580px] flex items-center justify-between text-[10px] font-mono tracking-widest text-plug-muted uppercase px-1 pb-3">
@@ -63,18 +65,17 @@ export default async function PrivacyPage() {
 
         {/* Header & Brand Identity */}
         <header className="flex flex-col items-center text-center">
-          <div className="relative w-20 h-16 rounded-xl p-1 bg-odyssey-navy border border-white/10 flex items-center justify-center overflow-hidden">
-            <Image
-              src={PLATFORM_CONFIG.assets.monogramReverse}
-              alt="ODYSSEY logo"
-              width={56}
-              height={27}
-              priority
-              className="h-auto w-14 object-contain"
+          {/* 96 x 64 navy tile: a 32px monogram plus 2X clear space on every side */}
+          <div className="relative w-24 h-16 rounded-xl bg-odyssey-navy border border-white/10 flex items-center justify-center overflow-hidden">
+            <OdysseyLogo
+              layout="monogram"
+              colourway={colourwayForBackground(COLORS.navy).colourway}
+              height={MIN_HEIGHT_PX.monogram}
+              accessibilityLabel="ODYSSEY logo"
             />
           </div>
 
-          <h1 className="font-display text-2xl sm:text-3xl font-black uppercase tracking-wider text-white mt-3">
+          <h1 className="font-odyssey-heading text-2xl sm:text-3xl font-bold uppercase tracking-wider text-white mt-3">
             PRIVACY &amp; DATA RIGHTS
           </h1>
 
@@ -111,7 +112,7 @@ export default async function PrivacyPage() {
             <span className="w-2 h-2 bg-white rounded-full" aria-hidden="true" />
             <h2
               id="section-platform-roles"
-              className="font-display text-base sm:text-lg font-black uppercase tracking-wider text-white"
+              className="font-odyssey-heading text-base sm:text-lg font-bold uppercase tracking-wider text-white"
             >
               1. Platform Operator &amp; Controller Roles
             </h2>
@@ -141,7 +142,7 @@ export default async function PrivacyPage() {
             <span className="w-2 h-2 bg-white rounded-full" aria-hidden="true" />
             <h2
               id="section-what-we-collect"
-              className="font-display text-base sm:text-lg font-black uppercase tracking-wider text-white"
+              className="font-odyssey-heading text-base sm:text-lg font-bold uppercase tracking-wider text-white"
             >
               2. What We Collect (Data Minimization)
             </h2>
@@ -173,7 +174,7 @@ export default async function PrivacyPage() {
             <span className="w-2 h-2 bg-white rounded-full" aria-hidden="true" />
             <h2
               id="section-what-we-never-do"
-              className="font-display text-base sm:text-lg font-black uppercase tracking-wider text-white"
+              className="font-odyssey-heading text-base sm:text-lg font-bold uppercase tracking-wider text-white"
             >
               3. What We Never Do
             </h2>
@@ -210,7 +211,7 @@ export default async function PrivacyPage() {
             <span className="w-2 h-2 bg-white rounded-full" aria-hidden="true" />
             <h2
               id="section-isolation-hosting"
-              className="font-display text-base sm:text-lg font-black uppercase tracking-wider text-white"
+              className="font-odyssey-heading text-base sm:text-lg font-bold uppercase tracking-wider text-white"
             >
               4. Cross-Shop Data Isolation &amp; Infrastructure
             </h2>
@@ -232,7 +233,7 @@ export default async function PrivacyPage() {
             <span className="w-2 h-2 bg-white rounded-full" aria-hidden="true" />
             <h2
               id="section-data-retention"
-              className="font-display text-base sm:text-lg font-black uppercase tracking-wider text-white"
+              className="font-odyssey-heading text-base sm:text-lg font-bold uppercase tracking-wider text-white"
             >
               5. Data Retention &amp; Automatic Cleanup
             </h2>
@@ -258,7 +259,7 @@ export default async function PrivacyPage() {
             <span className="w-2 h-2 bg-white rounded-full" aria-hidden="true" />
             <h2
               id="section-your-rights"
-              className="font-display text-base sm:text-lg font-black uppercase tracking-wider text-white"
+              className="font-odyssey-heading text-base sm:text-lg font-bold uppercase tracking-wider text-white"
             >
               6. Your Rights Under Republic Act No. 10173 (Data Privacy Act of 2012)
             </h2>
@@ -307,7 +308,7 @@ export default async function PrivacyPage() {
           <div className="text-center sm:text-left">
             <h2
               id="section-self-service-erasure"
-              className="font-display text-base sm:text-lg font-black uppercase tracking-wider text-white"
+              className="font-odyssey-heading text-base sm:text-lg font-bold uppercase tracking-wider text-white"
             >
               5. Self-Service Data Erasure Panel
             </h2>

@@ -1,0 +1,21 @@
+{
+  "name": "odyssey-brand-tools",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Generates the ODYSSEY logo assets in public/brand/odyssey from lib/brand/odyssey. Not part of the app build.",
+  "scripts": {
+    "extract": "node scripts/extract-master-paths.mjs",
+    "outline": "tsx scripts/outline-descriptor.ts",
+    "generate": "tsx scripts/generate-assets.ts"
+  },
+  "devDependencies": {
+    "@fontsource/poppins": "5.1.0",
+    "@resvg/resvg-js": "2.6.2",
+    "@types/node": "22.10.2",
+    "@types/opentype.js": "1.3.8",
+    "@types/pngjs": "6.0.5",
+    "opentype.js": "1.3.4",
+    "pngjs": "7.0.0",
+    "tsx": "4.19.2"
+  }
+}

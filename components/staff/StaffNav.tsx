@@ -1,10 +1,17 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { PLATFORM_CONFIG } from '@/lib/config';
+import { OdysseyLogo } from '@/components/brand/OdysseyLogo';
+import { MIN_HEIGHT_PX } from '@/lib/brand/odyssey/brandTokens';
+import { colourwayForBackground } from '@/lib/brand/odyssey/contrast';
+
+/**
+ * The nav keeps the shop-side plug styling (plug-black #0A0A0A). On that surface the bible's rules
+ * select the single-colour white logo; the reversed (orange) version is approved on Odyssey Navy only.
+ */
+const NAV_LOGO = colourwayForBackground('#0A0A0A').colourway;
 import { BILLING_VIEWER_ROLES, ROUTES, type StaffRole, type StaffSession } from '@/lib/contracts';
 import { StaffTenantSwitcher } from '@/components/staff/StaffTenantSwitcher';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
@@ -61,12 +68,12 @@ export function StaffNav({ staff, currentPath }: StaffNavProps) {
           href={ROUTES.staff.root}
           className="flex min-h-11 min-w-0 items-center gap-2.5 rounded-lg"
         >
-          <Image
-            src={PLATFORM_CONFIG.assets.monogramReverse}
-            alt=""
-            width={52}
-            height={25}
-            className="h-auto w-[52px] shrink-0"
+          <OdysseyLogo
+            layout="monogram"
+            colourway={NAV_LOGO}
+            height={MIN_HEIGHT_PX.monogram}
+            accessibilityLabel="ODYSSEY"
+            className="shrink-0"
           />
           <span className="truncate font-display text-lg font-bold uppercase leading-none tracking-wide">
             {staff.tenantName} <span className="hidden text-plug-muted sm:inline">STAFF OPS</span>

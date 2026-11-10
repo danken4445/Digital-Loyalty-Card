@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { BRAND_THEME, SHOP_CONFIG } from '@/lib/config';
 import { ROUTES } from '@/lib/contracts';
 import type { ResolvedCardTheme } from '@/lib/brand/contrast';
+import { BackToWalletButton } from '@/components/card/BackToWalletButton';
 
 export interface OnboardingCardProps {
   /** Accessible name for the page */
@@ -25,6 +26,7 @@ export interface OnboardingCardProps {
   /** Dynamic card theme resolved from tenant brand settings */
   theme?: ResolvedCardTheme;
   /** The call to action, usually <GetCardButton /> */
+  backHref?: string | null;
   children: ReactNode;
 }
 
@@ -74,6 +76,7 @@ export function OnboardingCard({
   originalShop = false,
   instagramHandle = SHOP_CONFIG.instagramHandle,
   theme,
+  backHref,
   children,
 }: OnboardingCardProps) {
   return (
@@ -81,6 +84,7 @@ export function OnboardingCard({
       aria-label={pageLabel}
       className="min-h-dvh w-full bg-topo-pattern flex flex-col items-center justify-center px-4 py-8"
     >
+      {backHref && <BackToWalletButton href={backHref} />}
       {notice}
 
       <section

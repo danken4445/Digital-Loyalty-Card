@@ -1,8 +1,13 @@
-import Image from 'next/image';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { OdysseyLogo } from '@/components/brand/OdysseyLogo';
+import { COLORS, MIN_HEIGHT_PX } from '@/lib/brand/odyssey/brandTokens';
+import { colourwayForBackground } from '@/lib/brand/odyssey/contrast';
 import { PLATFORM_CONFIG } from '@/lib/config';
 import { ROUTES, type PlatformAdminSession } from '@/lib/contracts';
+
+/** Header surface is Odyssey Navy, so the bible's reversed colourway applies. */
+const HEADER_LOGO = colourwayForBackground(COLORS.navy).colourway;
 
 export interface PlatformShellProps {
   admin: PlatformAdminSession;
@@ -26,21 +31,20 @@ export function PlatformShell({
   const isRoot = currentPath === ROUTES.platform.root;
 
   return (
-    <div className="min-h-dvh bg-plug-black text-white">
-      {/* Top flat navigation bar */}
-      <header className="border-b border-plug-border bg-plug-surface">
+    <div className="min-h-dvh bg-plug-black font-odyssey-body text-white">
+      {/* Top flat navigation bar: ODYSSEY platform branding on Odyssey Navy */}
+      <header className="border-b border-white/10 bg-odyssey-navy">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4 sm:px-6">
           <div className="flex items-center gap-6">
             <Link
               href={ROUTES.platform.root}
-              className="flex items-center gap-3 font-display text-xl font-bold uppercase tracking-wider text-white transition-colors hover:text-neutral-300"
+              className="flex items-center gap-3 font-odyssey-heading text-lg font-bold text-white transition-colors hover:text-odyssey-warm"
             >
-              <Image
-                src={PLATFORM_CONFIG.assets.monogramReverse}
-                alt={`${PLATFORM_CONFIG.shortName} logo`}
-                width={52}
-                height={25}
-                className="h-auto w-[52px]"
+              <OdysseyLogo
+                layout="monogram"
+                colourway={HEADER_LOGO}
+                height={MIN_HEIGHT_PX.monogram}
+                accessibilityLabel={`${PLATFORM_CONFIG.shortName} logo`}
               />
               Platform Ops
             </Link>
@@ -106,7 +110,7 @@ export function PlatformShell({
 
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h1 className="font-display text-3xl font-bold uppercase tracking-wide text-white sm:text-4xl">
+              <h1 className="font-odyssey-heading text-3xl font-bold tracking-tight text-white sm:text-4xl">
                 {title}
               </h1>
               {description && <p className="mt-1 text-sm text-plug-muted">{description}</p>}

@@ -1,9 +1,14 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
 import { useState } from 'react';
+import { OdysseyLogo } from '@/components/brand/OdysseyLogo';
+import { COLORS } from '@/lib/brand/odyssey/brandTokens';
+import { colourwayForBackground } from '@/lib/brand/odyssey/contrast';
 import { PLATFORM_CONFIG } from '@/lib/config';
+
+/** The card surface is Odyssey Navy, so the bible's reversed colourway applies. */
+const CARD_LOGO = colourwayForBackground(COLORS.navy).colourway;
 import { ROUTES } from '@/lib/contracts';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import { TurnstileWidget } from '@/components/auth/TurnstileWidget';
@@ -164,19 +169,18 @@ export function StaffLoginForm({ nextPath, initialError }: StaffLoginFormProps) 
   }
 
   return (
-    <div className="w-full max-w-md rounded-2xl border border-white/10 bg-odyssey-deep p-6 text-white shadow-2xl sm:p-8">
+    <div className="w-full max-w-md rounded-2xl border border-white/10 bg-odyssey-navy p-6 font-odyssey-body text-white shadow-2xl sm:p-8">
       {/* Brand Header */}
       <div className="mb-6 flex items-center gap-4">
-        <Image
-          src={PLATFORM_CONFIG.assets.monogramReverse}
-          alt={`${PLATFORM_CONFIG.shortName} logo`}
-          width={92}
+        <OdysseyLogo
+          layout="monogram"
+          colourway={CARD_LOGO}
           height={45}
-          priority
-          className="h-auto w-[92px] shrink-0"
+          accessibilityLabel={`${PLATFORM_CONFIG.shortName} logo`}
+          className="shrink-0"
         />
         <div>
-          <h1 className="font-display text-3xl font-bold uppercase leading-none tracking-wide text-white">
+          <h1 className="font-odyssey-heading text-3xl font-bold leading-tight tracking-tight text-white">
             Staff Access
           </h1>
           <p className="mt-1.5 text-sm text-neutral-300">
@@ -213,14 +217,14 @@ export function StaffLoginForm({ nextPath, initialError }: StaffLoginFormProps) 
         <div
           role="status"
           aria-live="polite"
-          className="mb-6 rounded-xl border border-white/30 bg-odyssey-navy p-4 text-xs font-medium text-white"
+          className="mb-6 rounded-xl border border-white/30 bg-odyssey-deep p-4 text-xs font-medium text-white"
         >
           {statusMessage}
         </div>
       )}
 
       {/* Mode Toggle */}
-      <div className="mb-6 flex rounded-xl border border-white/10 bg-odyssey-navy p-1">
+      <div className="mb-6 flex rounded-xl border border-white/10 bg-odyssey-deep p-1">
         <button
           type="button"
           onClick={() => {
@@ -229,7 +233,7 @@ export function StaffLoginForm({ nextPath, initialError }: StaffLoginFormProps) 
             setStatusMessage(null);
           }}
           className={`flex-1 min-h-11 rounded-lg text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white ${
-            mode === 'password' ? 'bg-odyssey-orange text-odyssey-navy' : 'text-neutral-300 hover:text-white'
+            mode === 'password' ? 'bg-odyssey-warm text-odyssey-navy' : 'text-neutral-300 hover:text-white'
           }`}
         >
           Password
@@ -242,7 +246,7 @@ export function StaffLoginForm({ nextPath, initialError }: StaffLoginFormProps) 
             setStatusMessage(null);
           }}
           className={`flex-1 min-h-11 rounded-lg text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white ${
-            mode === 'magic-link' ? 'bg-odyssey-orange text-odyssey-navy' : 'text-neutral-300 hover:text-white'
+            mode === 'magic-link' ? 'bg-odyssey-warm text-odyssey-navy' : 'text-neutral-300 hover:text-white'
           }`}
         >
           Magic Link
@@ -263,7 +267,7 @@ export function StaffLoginForm({ nextPath, initialError }: StaffLoginFormProps) 
             required
             autoComplete="email"
             placeholder="you@yourshop.com"
-            className="mt-1.5 w-full min-h-12 rounded-xl border border-white/15 bg-odyssey-navy px-3 py-2 text-sm text-white placeholder-neutral-600 transition-colors focus-visible:border-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+            className="mt-1.5 w-full min-h-12 rounded-xl border border-white/15 bg-odyssey-deep px-3 py-2 text-sm text-white placeholder-neutral-600 transition-colors focus-visible:border-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
           />
         </div>
 
@@ -283,7 +287,7 @@ export function StaffLoginForm({ nextPath, initialError }: StaffLoginFormProps) 
               required
               autoComplete="current-password"
               placeholder="••••••••••••"
-              className="mt-1.5 w-full min-h-12 rounded-xl border border-white/15 bg-odyssey-navy px-3 py-2 text-sm text-white placeholder-neutral-600 transition-colors focus-visible:border-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+              className="mt-1.5 w-full min-h-12 rounded-xl border border-white/15 bg-odyssey-deep px-3 py-2 text-sm text-white placeholder-neutral-600 transition-colors focus-visible:border-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
             />
             <button
               type="button"
@@ -310,7 +314,7 @@ export function StaffLoginForm({ nextPath, initialError }: StaffLoginFormProps) 
           type="submit"
           disabled={loading || !captchaToken}
           aria-busy={loading}
-          className="mt-2 w-full inline-flex min-h-12 items-center justify-center rounded-xl border border-odyssey-orange bg-odyssey-orange px-4 py-2.5 text-sm font-bold text-odyssey-navy transition-transform active:scale-[0.99] hover:bg-[#ff8530] disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-odyssey-deep"
+          className="mt-2 w-full inline-flex min-h-12 items-center justify-center rounded-xl border border-odyssey-orange bg-odyssey-orange px-4 py-2.5 text-sm font-bold text-odyssey-navy transition-transform active:scale-[0.99] hover:bg-[#ff8530] disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-odyssey-navy"
         >
           {loading
             ? 'Authenticating...'
