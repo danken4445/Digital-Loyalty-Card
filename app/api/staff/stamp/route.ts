@@ -7,15 +7,21 @@ import {
   type StaffManualStampResponse,
   type StampResultCode,
 } from '@/lib/contracts';
+import { verifyMemberStampToken } from '@/lib/security/memberStampToken';
 import { verifySameOriginRequest } from '@/lib/security/csrf';
 import { checkPublicEndpointRateLimit, getClientIp } from '@/lib/security/ratelimit';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
-const manualStampSchema = z.object({
-  customerId: z.string().uuid(),
-  reason: z.string().trim().min(3).max(280),
-});
+const manualStampSchema = z
+  .object({
+    customerId: z.string().uuid().optional(),
+    memberToken: z.string().trim().min(10).max(1024).optional(),
+    reason: z.string().trim().min(3).max(280),
+  })
+  .refine((data) => Boolean(data.customerId || data.memberToken), {
+    message: 'Either customerId or memberToken is required.',
+  });
 
 export async function POST(
   request: Request,
@@ -99,11 +105,42 @@ export async function POST(
     }
 
     const staff = auth.staff;
+    let resolvedCustomerId: string;
+
+    if (parsed.data.memberToken) {
+      const verified = verifyMemberStampToken(parsed.data.memberToken);
+      if (!verified.valid) {
+        return NextResponse.json<ApiResponse<StaffManualStampResponse>>(
+          {
+            ok: false,
+            error: 'invalid_input',
+            message: 'Invalid or unrecognized member QR code.',
+          },
+          { status: 400 },
+        );
+      }
+
+      if (verified.payload.tenantId !== staff.tenantId) {
+        return NextResponse.json<ApiResponse<StaffManualStampResponse>>(
+          {
+            ok: false,
+            error: 'forbidden',
+            message: 'This member QR code belongs to another shop.',
+          },
+          { status: 403 },
+        );
+      }
+
+      resolvedCustomerId = verified.payload.customerId;
+    } else {
+      resolvedCustomerId = parsed.data.customerId!;
+    }
+
     const admin = createSupabaseAdminClient();
     const { data: stampResult, error: stampError } = await admin.rpc('stamp_card_manual', {
       p_actor: staff.userId,
       p_tenant: staff.tenantId,
-      p_customer: parsed.data.customerId,
+      p_customer: resolvedCustomerId,
       p_reason: parsed.data.reason,
     });
 
@@ -158,7 +195,7 @@ export async function POST(
       .from('card_balances')
       .select('available_stamps')
       .eq('tenant_id', staff.tenantId)
-      .eq('customer_id', parsed.data.customerId)
+      .eq('customer_id', resolvedCustomerId)
       .maybeSingle<{ available_stamps: number | null }>();
 
     const result: StampResultCode = stampResult;
@@ -168,7 +205,7 @@ export async function POST(
         ok: true,
         data: {
           result,
-          customerId: parsed.data.customerId,
+          customerId: resolvedCustomerId,
           availableStampsAfter: bal?.available_stamps ?? 0,
           reason: parsed.data.reason,
         },
