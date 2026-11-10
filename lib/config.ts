@@ -25,10 +25,17 @@ export const PLATFORM_CONFIG = Object.freeze({
   shortName: 'ODYSSEY',
   tagline: 'NFC digital loyalty cards for local shops',
   assets: {
-    /** Reversed (light letters) monogram for dark backgrounds */
-    monogramReverse: '/brand/odyssey-monogram-reverse.svg',
-    monogramColor: '/brand/odyssey-monogram-color.svg',
-    icon: '/brand/odyssey-icon.png',
+    /**
+     * Static files for places that cannot render the OdysseyLogo component (emails, external pages).
+     * In the app, render <OdysseyLogo> from components/brand instead. All generated from
+     * lib/brand/odyssey by tools/odyssey-brand; status of each file in public/brand/odyssey/STATUS.md.
+     */
+    monogramReverse: '/brand/odyssey/svg/odyssey-logo-monogram-reverse.svg',
+    monogramColor: '/brand/odyssey/svg/odyssey-logo-monogram-color.svg',
+    /** App icon: reversed monogram, 70% of a full-bleed navy tile (PROPOSED). */
+    icon: '/brand/odyssey/icons/odyssey-app-icon-192.png',
+    iconLarge: '/brand/odyssey/icons/odyssey-app-icon-512.png',
+    appleIcon: '/brand/odyssey/icons/odyssey-app-icon-180.png',
   },
   palette: {
     navy: '#152839',

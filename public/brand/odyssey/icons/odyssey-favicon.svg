@@ -1,0 +1,9 @@
+<!-- STATUS: PROPOSED | ODYSSEY Brand Bible v1.0 | Favicon: simplified D-and-sail tile (bible page 22). Requires approval before use. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="ODYSSEY">
+<title>ODYSSEY</title>
+<rect width="512" height="512" rx="113" fill="#152839"/>
+<g transform="translate(-273.07 -198.12) scale(0.8818)">
+<path fill="#F9F8F3" fill-rule="evenodd" d="M528 335 H608 A128 128 0 0 1 736 463 V567 A128 128 0 0 1 608 695 H528 A64 64 0 0 1 464 631 V399 A64 64 0 0 1 528 335 Z M528 375 H608 A88 88 0 0 1 696 463 V567 A88 88 0 0 1 608 655 H528 A24 24 0 0 1 504 631 V399 A24 24 0 0 1 528 375 Z"/>
+<path fill="#FF6F07" d="M550.1 393.0 H572.1 V409.0 C648.9 459.4 673.0 554.6 646.1 615.0 H572.1 V656.0 H550.1 Z"/>
+</g>
+</svg>

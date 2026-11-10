@@ -2,8 +2,13 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import Image from 'next/image';
+import { OdysseyLogo } from '@/components/brand/OdysseyLogo';
+import { COLORS } from '@/lib/brand/odyssey/brandTokens';
+import { colourwayForBackground } from '@/lib/brand/odyssey/contrast';
 import { PLATFORM_CONFIG } from '@/lib/config';
+
+/** The card surface is Odyssey Navy, so the bible's reversed colourway applies. */
+const CARD_LOGO = colourwayForBackground(COLORS.navy).colourway;
 import { ROUTES } from '@/lib/contracts';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 
@@ -51,19 +56,18 @@ export function ResetPasswordForm({ email }: ResetPasswordFormProps) {
   }
 
   const inputClass =
-    'mt-1.5 w-full min-h-12 rounded-xl border border-white/15 bg-odyssey-navy px-3 py-2 text-sm text-white placeholder-neutral-600 transition-colors focus-visible:border-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white';
+    'mt-1.5 w-full min-h-12 rounded-xl border border-white/15 bg-odyssey-deep px-3 py-2 text-sm text-white placeholder-neutral-600 transition-colors focus-visible:border-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white';
 
   return (
-    <div className="w-full max-w-md rounded-2xl border border-white/10 bg-odyssey-deep p-6 text-white shadow-2xl sm:p-8">
-      <Image
-        src={PLATFORM_CONFIG.assets.monogramReverse}
-        alt={`${PLATFORM_CONFIG.shortName} logo`}
-        width={92}
+    <div className="w-full max-w-md rounded-2xl border border-white/10 bg-odyssey-navy p-6 font-odyssey-body text-white shadow-2xl sm:p-8">
+      <OdysseyLogo
+        layout="monogram"
+        colourway={CARD_LOGO}
         height={45}
-        priority
-        className="mb-5 h-auto w-[92px]"
+        accessibilityLabel={`${PLATFORM_CONFIG.shortName} logo`}
+        className="mb-5 block"
       />
-      <h1 className="font-display text-3xl font-bold uppercase leading-none tracking-wide text-white">
+      <h1 className="font-odyssey-heading text-3xl font-bold leading-tight tracking-tight text-white">
         Set New Password
       </h1>
       <p className="mt-1.5 text-sm text-neutral-300">
@@ -121,7 +125,7 @@ export function ResetPasswordForm({ email }: ResetPasswordFormProps) {
           type="submit"
           disabled={loading}
           aria-busy={loading}
-          className="mt-2 w-full inline-flex min-h-12 items-center justify-center rounded-xl border border-odyssey-orange bg-odyssey-orange px-4 py-2.5 text-sm font-bold text-odyssey-navy transition-transform active:scale-[0.99] hover:bg-[#ff8530] disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-odyssey-deep"
+          className="mt-2 w-full inline-flex min-h-12 items-center justify-center rounded-xl border border-odyssey-orange bg-odyssey-orange px-4 py-2.5 text-sm font-bold text-odyssey-navy transition-transform active:scale-[0.99] hover:bg-[#ff8530] disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-odyssey-navy"
         >
           {loading ? 'Saving...' : 'Save New Password'}
         </button>
