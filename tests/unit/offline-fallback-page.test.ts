@@ -9,6 +9,7 @@ import {
   type OfflineCardSnapshot,
 } from '@/lib/offline/cardCache';
 import OfflinePage from '@/app/offline/page';
+import { OfflineCardViewer } from '@/components/offline/OfflineCardViewer';
 import { OfflineServiceWorkerRegister } from '@/components/offline/OfflineServiceWorkerRegister';
 import { config as middlewareConfig } from '@/middleware';
 
@@ -82,10 +83,15 @@ describe('Task 5: Offline Fallback Page (/offline) & Service Worker (public/sw.j
     expect(html).toBe('');
   });
 
+  it('renders offline page default export without throwing', () => {
+    const html = renderToStaticMarkup(React.createElement(OfflinePage));
+    expect(html).toContain('Offline Mode');
+  });
+
   it('renders offline page empty state when no cards are stored in localStorage', () => {
     const storage = createMemoryStorage();
     const html = renderToStaticMarkup(
-      React.createElement(OfflinePage, { storageOverride: storage }),
+      React.createElement(OfflineCardViewer, { storageOverride: storage }),
     );
 
     expect(html).toContain('Offline Mode');
@@ -98,7 +104,7 @@ describe('Task 5: Offline Fallback Page (/offline) & Service Worker (public/sw.j
     saveOfflineCard(SAMPLE_SNAPSHOT_2, storage);
 
     const html = renderToStaticMarkup(
-      React.createElement(OfflinePage, { storageOverride: storage }),
+      React.createElement(OfflineCardViewer, { storageOverride: storage }),
     );
 
     expect(html).toContain('The Caffeine Plug');
