@@ -20,6 +20,8 @@ interface PlatformDashboardClientProps {
   initialOverview: PlatformDashboardOverview;
 }
 
+type StatusFilter = 'all' | 'due_soon' | 'active' | 'trial' | 'suspended';
+
 export function PlatformDashboardClient({ initialOverview }: PlatformDashboardClientProps) {
   const router = useRouter();
   const [overview, setOverview] = useState<PlatformDashboardOverview>(initialOverview);
@@ -27,7 +29,7 @@ export function PlatformDashboardClient({ initialOverview }: PlatformDashboardCl
 
   // Search & Filters
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'due_soon' | 'active' | 'trial' | 'suspended'>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [selectedIndustry, setSelectedIndustry] = useState<string | null>(null);
 
   // Modals state
@@ -83,11 +85,11 @@ export function PlatformDashboardClient({ initialOverview }: PlatformDashboardCl
   const kpis = overview.kpis;
   const dueSoonCount = overview.tenants.filter((t) => t.isDueSoon || t.isOverdue).length;
 
-  function handleInvoiceSuccess(result: PlatformGenerateInvoiceResult) {
+  function handleInvoiceSuccess(_result: PlatformGenerateInvoiceResult) {
     handleRefresh();
   }
 
-  function handleInvoiceStatusChanged(invoiceId: string, newStatus: InvoiceStatus) {
+  function handleInvoiceStatusChanged(_invoiceId: string, _newStatus: InvoiceStatus) {
     handleRefresh();
   }
 
@@ -326,19 +328,21 @@ export function PlatformDashboardClient({ initialOverview }: PlatformDashboardCl
         <div className="mt-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           {/* Filter Tabs */}
           <div className="flex flex-wrap items-center gap-1.5">
-            {[
-              { id: 'all', label: `All Tenants (${overview.tenants.length})` },
-              { id: 'due_soon', label: `Due Soon / Unpaid (${dueSoonCount})`, alert: dueSoonCount > 0 },
-              { id: 'active', label: `Active (${kpis.activeTenants})` },
-              { id: 'trial', label: `Trial (${kpis.trialTenants})` },
-              { id: 'suspended', label: `Suspended (${kpis.suspendedTenants})` },
-            ].map((tab) => {
+            {(
+              [
+                { id: 'all', label: `All Tenants (${overview.tenants.length})` },
+                { id: 'due_soon', label: `Due Soon / Unpaid (${dueSoonCount})`, alert: dueSoonCount > 0 },
+                { id: 'active', label: `Active (${kpis.activeTenants})` },
+                { id: 'trial', label: `Trial (${kpis.trialTenants})` },
+                { id: 'suspended', label: `Suspended (${kpis.suspendedTenants})` },
+              ] as Array<{ id: StatusFilter; label: string; alert?: boolean }>
+            ).map((tab) => {
               const isSelected = statusFilter === tab.id;
               return (
                 <button
                   key={tab.id}
                   type="button"
-                  onClick={() => setStatusFilter(tab.id as any)}
+                  onClick={() => setStatusFilter(tab.id)}
                   className={`rounded-xl border px-3 py-1.5 text-xs font-semibold transition-all ${
                     isSelected
                       ? 'border-white bg-white text-plug-black'

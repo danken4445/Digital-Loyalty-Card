@@ -23,12 +23,10 @@ export function InvoiceGeneratorModal({
   tenant,
   onInvoiceCreated,
 }: InvoiceGeneratorModalProps) {
-  if (!isOpen || !tenant) return null;
-
   // Defaults
   const today = new Date();
   const currentMonthStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
-  const defaultDueDay = tenant.billingDueDay || 5;
+  const defaultDueDay = tenant?.billingDueDay || 5;
   // Default due date: next month on due day
   const nextMonthDate = new Date(today.getFullYear(), today.getMonth() + 1, defaultDueDay);
   const defaultDueDateStr = `${nextMonthDate.getFullYear()}-${String(nextMonthDate.getMonth() + 1).padStart(2, '0')}-${String(defaultDueDay).padStart(2, '0')}`;
@@ -37,7 +35,7 @@ export function InvoiceGeneratorModal({
   const [dueDate, setDueDate] = useState(defaultDueDateStr);
   const [status, setStatus] = useState<InvoiceStatus>('issued');
   const [notes, setNotes] = useState('');
-  const [adjustmentCentavos, setAdjustmentCentavos] = useState(0);
+  const adjustmentCentavos = 0;
 
   // Custom line items
   const [customItems, setCustomItems] = useState<TenantInvoiceLineItem[]>([]);
@@ -47,6 +45,8 @@ export function InvoiceGeneratorModal({
 
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  if (!isOpen || !tenant) return null;
 
   function handleAddLineItem() {
     if (!newItemDesc.trim()) return;

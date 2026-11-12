@@ -10,6 +10,7 @@ import type {
 import { verifySameOriginRequest } from '@/lib/security/csrf';
 import { checkPublicEndpointRateLimit, getClientIp } from '@/lib/security/ratelimit';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
+import type { Json } from '@/lib/supabase/database.types';
 
 export const dynamic = 'force-dynamic';
 
@@ -188,7 +189,7 @@ export async function POST(
       p_month: normalizedMonth,
       p_due_date: dueDate,
       p_adjustment_centavos: adjustmentCentavos,
-      p_line_items: lineItems as any,
+      p_line_items: lineItems as unknown as Json,
       p_notes: notes ?? null,
       p_status: status,
     });

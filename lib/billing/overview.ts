@@ -51,10 +51,10 @@ export async function loadBillingOverview(
   actorId: string,
   tenantId: string,
 ): Promise<BillingOverview> {
-  const admin = createSupabaseAdminClient();
+  const adminClient = createSupabaseAdminClient();
   const [plans, { data, error }] = await Promise.all([
     listBillingPlans(),
-    admin.rpc('get_billing_estimate', { p_actor: actorId, p_tenant: tenantId }),
+    adminClient.rpc('get_billing_estimate', { p_actor: actorId, p_tenant: tenantId }),
   ]);
 
   const raw = data as Record<string, unknown> | null;
@@ -68,12 +68,12 @@ export async function loadBillingOverview(
     );
 
     const [{ data: selection }, { data: stamps }] = await Promise.all([
-      admin
+      adminClient
         .from('tenant_plan_selections')
         .select('plan_code')
         .eq('tenant_id', tenantId)
         .maybeSingle(),
-      admin
+      adminClient
         .from('stamps')
         .select('customer_id')
         .eq('tenant_id', tenantId)

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { formatPesos } from '@/lib/billing/format';
 import type { ApiResponse, InvoiceStatus, TenantInvoice } from '@/lib/contracts';
 
@@ -17,12 +17,19 @@ export function PrintableInvoiceModal({
   invoice,
   onStatusChanged,
 }: PrintableInvoiceModalProps) {
-  if (!isOpen || !invoice) return null;
-
-  const [currentStatus, setCurrentStatus] = useState<InvoiceStatus>(invoice.status);
+  const [currentStatus, setCurrentStatus] = useState<InvoiceStatus>(invoice?.status ?? 'issued');
   const [updating, setUpdating] = useState(false);
   const [copied, setCopied] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (invoice) {
+      setCurrentStatus(invoice.status);
+      setStatusMessage(null);
+    }
+  }, [invoice]);
+
+  if (!isOpen || !invoice) return null;
 
   async function handleUpdateStatus(targetStatus: InvoiceStatus) {
     setUpdating(true);

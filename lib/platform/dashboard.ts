@@ -322,10 +322,12 @@ export async function listPlatformInvoicesDirect(
   const statusMap = new Map<string, { status: InvoiceStatus; paidAt: string | null }>();
   if (updates) {
     for (const u of updates) {
-      if (u.target && u.detail && (u.detail as any).status) {
+      const detail =
+        u.detail && typeof u.detail === 'object' ? (u.detail as Record<string, unknown>) : null;
+      if (u.target && detail && typeof detail.status === 'string') {
         statusMap.set(u.target, {
-          status: (u.detail as any).status as InvoiceStatus,
-          paidAt: (u.detail as any).paidAt ?? null,
+          status: detail.status as InvoiceStatus,
+          paidAt: typeof detail.paidAt === 'string' ? detail.paidAt : null,
         });
       }
     }
