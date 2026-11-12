@@ -40,14 +40,18 @@ export const REDEEM_RESULT_CODES = [
   'tenant-unavailable',
   'invalid-perk',
   'wrong-tenant',
+  'milestone-already-claimed',
+  'milestone-not-reached',
+  'milestone-expired',
 ] as const;
 export type RedeemResultCode = (typeof REDEEM_RESULT_CODES)[number];
 
 /**
  * What a signed redemption QR token is good for. `free-coffee` spends 10 stamps;
- * `instagram-upsize` is the one-time follow-us-on-Instagram perk and spends no stamps.
+ * `instagram-upsize` is the one-time follow-us-on-Instagram perk and spends no stamps;
+ * `milestone-reward` is the mid-card perk (e.g. 50% off at slot 5) and spends no stamps.
  */
-export const REDEEM_TOKEN_KINDS = ['free-coffee', 'instagram-upsize'] as const;
+export const REDEEM_TOKEN_KINDS = ['free-coffee', 'instagram-upsize', 'milestone-reward'] as const;
 export type RedeemTokenKind = (typeof REDEEM_TOKEN_KINDS)[number];
 
 export const PERKS = ['instagram_follow_upsize'] as const;
@@ -115,6 +119,10 @@ export interface TenantSettings {
   /** ISO 4217 code, e.g. "PHP" */
   currency: string;
   rewardLabel: string;
+  /** Stamp slot that unlocks the mid-card milestone perk (e.g. 5 of 10) */
+  milestoneStep?: number | null;
+  /** e.g. "50% OFF" */
+  milestoneRewardLabel?: string | null;
   brand: TenantBrand;
   perks: TenantPerks;
 }
@@ -189,6 +197,7 @@ export interface DeleteCardResponse {
 
 export interface RedeemTokenRequest {
   tenantSlug: string;
+  kind?: RedeemTokenKind;
 }
 
 export interface StaffSwitchTenantRequest {
@@ -509,11 +518,13 @@ export interface RpcContracts {
  */
 export interface RedeemTokenPayload {
   customerId: string;
-  /** Phase 12 (token prefixes tcp2 / tcpig2): the shop the reward belongs to. Staff of another shop get 'wrong-tenant'. */
+  /** Phase 12 (token prefixes tcp2 / tcpig2 / tcpmilestone2): the shop the reward belongs to. Staff of another shop get 'wrong-tenant'. */
   tenantId: string;
   iat: number; // Unix epoch seconds
   exp: number; // Unix epoch seconds (iat + 300)
   nonce: string;
+  /** Cycle index for milestone rewards */
+  cycleIndex?: number;
 }
 
 export interface IssuedRedeemToken {
@@ -579,6 +590,15 @@ export interface EnsureCustomerResponse {
   isAnonymous: boolean;
 }
 
+export interface MilestoneRewardState {
+  step: number;
+  label: string;
+  isEligible: boolean;
+  isClaimed: boolean;
+  isExpired: boolean;
+  cycleIndex: number;
+}
+
 export interface CustomerCardState {
   customerId: string;
   /** The shop this card belongs to (Phase 12: one card per shop). */
@@ -604,6 +624,10 @@ export interface CustomerCardState {
    * Undefined when the claim status could not be loaded; the perk is then hidden.
    */
   instagramUpsizeClaimed?: boolean;
+  /**
+   * Milestone reward state for the customer's current card cycle.
+   */
+  milestoneReward?: MilestoneRewardState | null;
 }
 
 /**
@@ -977,6 +1001,8 @@ export const TENANT_RULE_BOUNDS = Object.freeze({
   reward_threshold: { min: 3, max: 50 },
   tag_throttle_seconds: { min: 0, max: 60 },
   reward_label: { minLength: 1, maxLength: 40 },
+  milestone_step: { min: 1, max: 49 },
+  milestone_reward_label: { minLength: 1, maxLength: 40 },
 });
 
 export interface TenantRulesPatch {
@@ -985,6 +1011,8 @@ export interface TenantRulesPatch {
   reward_threshold?: number;
   tag_throttle_seconds?: number;
   reward_label?: string;
+  milestone_step?: number | null;
+  milestone_reward_label?: string | null;
 }
 
 export interface TenantRulesPreview {

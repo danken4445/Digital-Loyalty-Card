@@ -18,6 +18,7 @@ import type {
 const TOKEN_PREFIXES: Record<RedeemTokenKind, string> = {
   'free-coffee': 'tcp2',
   'instagram-upsize': 'tcpig2',
+  'milestone-reward': 'tcpmilestone2',
 };
 
 function kindForPrefix(prefix: string): RedeemTokenKind | null {
@@ -36,6 +37,7 @@ const redeemTokenPayloadSchema = z.object({
   iat: z.number().int().nonnegative(),
   exp: z.number().int().nonnegative(),
   nonce: z.string().min(8).max(64),
+  cycleIndex: z.number().int().nonnegative().optional(),
 });
 
 export interface IssueRedeemTokenOptions {
@@ -44,6 +46,7 @@ export interface IssueRedeemTokenOptions {
   ttlSeconds?: number;
   secretOverride?: string;
   nonceOverride?: string;
+  cycleIndex?: number;
 }
 
 export interface VerifyRedeemTokenOptions {
@@ -102,6 +105,7 @@ export async function issueRedeemToken(
     iat: nowSeconds,
     exp: nowSeconds + ttlSeconds,
     nonce: options.nonceOverride ?? randomBytes(12).toString('base64url'),
+    ...(options.cycleIndex !== undefined ? { cycleIndex: options.cycleIndex } : {}),
   };
 
   const payloadB64Url = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');

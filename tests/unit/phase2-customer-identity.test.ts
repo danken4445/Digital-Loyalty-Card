@@ -165,6 +165,7 @@ describe('Phase 2 Customer Identity & Card Provisioning Test Suite', () => {
         createdAt: '2026-10-15T08:00:00.000Z',
         cardsCompleted: 0,
         instagramUpsizeClaimed: false,
+        milestoneReward: null,
       });
 
       expect(mockAdminRpc).toHaveBeenCalledWith('ensure_customer', {
@@ -211,6 +212,7 @@ describe('Phase 2 Customer Identity & Card Provisioning Test Suite', () => {
         createdAt: '2026-10-15T08:00:00.000Z',
         cardsCompleted: 0,
         instagramUpsizeClaimed: false,
+        milestoneReward: null,
       });
     });
 

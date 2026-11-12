@@ -1,7 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { BRAND_THEME, SHOP_CONFIG } from '@/lib/config';
+import { BRAND_THEME, SHOP_CONFIG, STAMP_RULES } from '@/lib/config';
 import {
   isStampResultCode,
   ROUTES,
@@ -27,6 +27,7 @@ import { OnboardingCard } from '@/components/card/OnboardingCard';
 import { StripResultParam } from '@/components/card/StripResultParam';
 import { StampGrid } from '@/components/card/StampGrid';
 import { RedeemRewardPanel } from '@/components/card/RedeemRewardPanel';
+import { MilestoneRewardPanel } from '@/components/card/MilestoneRewardPanel';
 import { MemberStampQrPanel } from '@/components/card/MemberStampQrPanel';
 import { issueMemberStampToken } from '@/lib/security/memberStampToken';
 import type { OfflineCardSnapshot } from '@/lib/offline/cardCache';
@@ -60,8 +61,11 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
   const rewardThreshold = settings.rewardThreshold;
   const instagramPerk = settings.perks.instagram_follow_upsize;
   const instagramHandle = instagramPerk?.handle;
-  // The 50% off milestone is printed on the original shop's card only
-  const milestoneStep = tenant.id === TENANT_ONE_ID ? undefined : null;
+  // Milestone reward settings
+  const milestoneStep =
+    settings.milestoneStep ?? (tenant.id === TENANT_ONE_ID ? STAMP_RULES.milestoneStep : null);
+  const milestoneLabel =
+    settings.milestoneRewardLabel ?? (tenant.id === TENANT_ONE_ID ? '50% OFF' : null);
   const theme = resolveCardTheme(settings.brand);
   const tagline =
     settings.brand.tagline ?? (tenant.id === TENANT_ONE_ID ? SHOP_CONFIG.tagline : undefined);
@@ -224,6 +228,18 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
       initialRedeemToken = await issueRedeemToken(cardState.customerId, tenant.id);
     } catch {
       initialRedeemToken = null;
+    }
+  }
+
+  let initialMilestoneToken: IssuedRedeemToken | null = null;
+  if (cardState.milestoneReward?.isEligible && !isExpired) {
+    try {
+      initialMilestoneToken = await issueRedeemToken(cardState.customerId, tenant.id, {
+        kind: 'milestone-reward',
+        cycleIndex: cardState.milestoneReward.cycleIndex,
+      });
+    } catch {
+      initialMilestoneToken = null;
     }
   }
 
@@ -396,6 +412,7 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
             rewardThreshold={rewardThreshold}
             rewardLabel={settings.rewardLabel}
             milestoneStep={milestoneStep}
+            milestoneLabel={milestoneLabel}
             stampIcon={theme.stampIcon}
           />
 
@@ -404,6 +421,18 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
             <MemberStampQrPanel snapshot={offlineCardSnapshot} />
           )}
         </div>
+
+        {/* Milestone Reward Panel (when milestone is eligible or claimed) */}
+        {cardState.milestoneReward && (
+          <MilestoneRewardPanel
+            tenantSlug={tenant.slug}
+            step={cardState.milestoneReward.step}
+            label={cardState.milestoneReward.label}
+            isEligible={cardState.milestoneReward.isEligible}
+            isClaimed={cardState.milestoneReward.isClaimed}
+            initialToken={initialMilestoneToken}
+          />
+        )}
 
         {/* Reward Redemption Panel (when reward is ready and token issued) */}
         {initialRedeemToken && (

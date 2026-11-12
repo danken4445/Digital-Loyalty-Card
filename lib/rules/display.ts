@@ -1,5 +1,5 @@
 import { SHOP_CONFIG, STAMP_RULES } from '@/lib/config';
-import type { StampProgressDisplay } from '@/lib/contracts';
+import type { MilestoneRewardState, StampProgressDisplay } from '@/lib/contracts';
 
 /**
  * Pure display calculation for customer stamp card progress.
@@ -139,6 +139,44 @@ export function calculateCardsCompleted(
 ): number {
   const normalized = Number.isFinite(totalStamps) ? Math.max(0, Math.floor(totalStamps)) : 0;
   return rewardThreshold > 0 ? Math.floor(normalized / rewardThreshold) : 0;
+}
+
+/**
+ * Calculates milestone reward eligibility, claim status, and cycle index for the current card cycle.
+ */
+export function calculateMilestoneRewardState(
+  totalStamps: number,
+  rewardThreshold: number,
+  milestoneStep: number | null | undefined,
+  milestoneRewardLabel: string | null | undefined,
+  hasClaimedThisCycle: boolean = false,
+): MilestoneRewardState | null {
+  if (
+    !milestoneStep ||
+    !milestoneRewardLabel ||
+    milestoneStep <= 0 ||
+    milestoneStep >= rewardThreshold ||
+    rewardThreshold <= 0
+  ) {
+    return null;
+  }
+
+  const normalized = Number.isFinite(totalStamps) ? Math.max(0, Math.floor(totalStamps)) : 0;
+  const cycleIndex = Math.floor(normalized / rewardThreshold);
+  const currentCycleStamps = normalized % rewardThreshold;
+
+  const isClaimed = hasClaimedThisCycle;
+  const isEligible = !isClaimed && currentCycleStamps >= milestoneStep;
+  const isExpired = false;
+
+  return {
+    step: milestoneStep,
+    label: milestoneRewardLabel.trim(),
+    isEligible,
+    isClaimed,
+    isExpired,
+    cycleIndex,
+  };
 }
 
 /**

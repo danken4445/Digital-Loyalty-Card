@@ -29,12 +29,28 @@ const PERK_RESULTS = [
   'tenant-unavailable',
 ] as const satisfies readonly RedeemResultCode[];
 
+const MILESTONE_RESULTS = [
+  'redeemed',
+  'milestone-already-claimed',
+  'milestone-not-reached',
+  'milestone-expired',
+  'invalid-token',
+  'no-card',
+  'unauthorized',
+  'tenant-unavailable',
+  'invalid-perk',
+] as const satisfies readonly RedeemResultCode[];
+
 function isRewardResult(value: unknown): value is (typeof REWARD_RESULTS)[number] {
   return typeof value === 'string' && (REWARD_RESULTS as readonly string[]).includes(value);
 }
 
 function isPerkResult(value: unknown): value is (typeof PERK_RESULTS)[number] {
   return typeof value === 'string' && (PERK_RESULTS as readonly string[]).includes(value);
+}
+
+function isMilestoneResult(value: unknown): value is (typeof MILESTONE_RESULTS)[number] {
+  return typeof value === 'string' && (MILESTONE_RESULTS as readonly string[]).includes(value);
 }
 
 export async function POST(
@@ -262,6 +278,20 @@ export async function POST(
           .eq('perk', 'instagram_follow_upsize')
           .maybeSingle();
         canRedeem = !existingClaim;
+      } else if (verification.kind === 'milestone-reward') {
+        const cycleIndex = payload.cycleIndex ?? Math.floor(totalStamps / rewardThreshold);
+        const { data: existingMilestone } = await supabase
+          .from('milestone_claims')
+          .select('id')
+          .eq('tenant_id', staff.tenantId)
+          .eq('customer_id', payload.customerId)
+          .eq('cycle_index', cycleIndex)
+          .maybeSingle();
+        canRedeem = Boolean(
+          tenant.settings.milestoneStep &&
+            (totalStamps % rewardThreshold) >= tenant.settings.milestoneStep &&
+            !existingMilestone,
+        );
       }
 
       return NextResponse.json<ApiResponse<StaffRedeemResponse>>(
@@ -339,6 +369,60 @@ export async function POST(
                     : claimResult === 'no-card'
                       ? `This customer has no ${staff.tenantName} card.`
                       : 'Upsize could not be granted.',
+          },
+        },
+        { status: 200 },
+      );
+    }
+
+    if (verification.kind === 'milestone-reward') {
+      const { data: rpcData, error: rpcError } = await admin.rpc('redeem_milestone_reward', {
+        p_actor: staff.userId,
+        p_tenant: staff.tenantId,
+        p_customer: payload.customerId,
+        p_nonce: payload.nonce,
+      });
+
+      if (rpcError) {
+        return NextResponse.json<ApiResponse<StaffRedeemResponse>>(
+          {
+            ok: false,
+            error: 'internal_error',
+            message: 'Failed to process milestone redemption.',
+          },
+          { status: 500 },
+        );
+      }
+
+      const milestoneResult: RedeemResultCode = isMilestoneResult(rpcData)
+        ? rpcData
+        : 'invalid-token';
+      const milestoneLabel = tenant.settings.milestoneRewardLabel || 'Milestone reward';
+
+      const message =
+        milestoneResult === 'redeemed'
+          ? `${milestoneLabel} redeemed successfully! No stamps deducted.`
+          : milestoneResult === 'milestone-already-claimed'
+            ? 'Milestone reward has already been claimed for this card.'
+            : milestoneResult === 'milestone-not-reached'
+              ? 'Customer has not reached the milestone for this card.'
+              : milestoneResult === 'unauthorized'
+                ? 'Staff member is not authorized to redeem.'
+                : milestoneResult === 'no-card'
+                  ? `This customer has no ${staff.tenantName} card.`
+                  : 'Milestone reward could not be redeemed.';
+
+      return NextResponse.json<ApiResponse<StaffRedeemResponse>>(
+        {
+          ok: true,
+          data: {
+            mode: 'confirm',
+            result: milestoneResult,
+            rewardKind: 'milestone-reward',
+            customerId: payload.customerId,
+            displayCode: verification.displayCode,
+            availableStampsAfter: await readAvailableStamps(),
+            message,
           },
         },
         { status: 200 },

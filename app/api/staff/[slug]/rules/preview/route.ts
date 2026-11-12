@@ -24,6 +24,8 @@ const ALLOWED_RULE_KEYS = new Set([
   'reward_threshold',
   'tag_throttle_seconds',
   'reward_label',
+  'milestone_step',
+  'milestone_reward_label',
 ]);
 
 const rulesPreviewSchema = z
@@ -57,6 +59,20 @@ const rulesPreviewSchema = z
       .trim()
       .min(TENANT_RULE_BOUNDS.reward_label.minLength)
       .max(TENANT_RULE_BOUNDS.reward_label.maxLength)
+      .optional(),
+    milestone_step: z
+      .number()
+      .int()
+      .min(TENANT_RULE_BOUNDS.milestone_step.min)
+      .max(TENANT_RULE_BOUNDS.milestone_step.max)
+      .nullable()
+      .optional(),
+    milestone_reward_label: z
+      .string()
+      .trim()
+      .min(TENANT_RULE_BOUNDS.milestone_reward_label.minLength)
+      .max(TENANT_RULE_BOUNDS.milestone_reward_label.maxLength)
+      .nullable()
       .optional(),
   })
   .strict();

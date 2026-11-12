@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import {
+  REDEEM_TOKEN_KINDS,
   TENANT_STATUS_SUSPENDED_REDEEM_DAYS,
   type ApiErrorCode,
   type RedeemTokenRequest,
@@ -10,6 +11,7 @@ import { getTenantById, getTenantBySlug } from '@/lib/tenants/context';
 
 const redeemTokenRequestSchema = z.object({
   tenantSlug: z.string().trim().min(1).max(64),
+  kind: z.enum(REDEEM_TOKEN_KINDS).optional(),
 }) satisfies z.ZodType<RedeemTokenRequest>;
 
 const staffRedeemRequestSchema = z.object({

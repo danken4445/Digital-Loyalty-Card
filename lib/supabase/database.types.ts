@@ -261,6 +261,52 @@ export type Database = {
           },
         ];
       };
+      milestone_claims: {
+        Row: {
+          created_at: string;
+          customer_id: string;
+          cycle_index: number;
+          id: string;
+          milestone_step: number;
+          staff_id: string | null;
+          tenant_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          customer_id: string;
+          cycle_index: number;
+          id?: string;
+          milestone_step: number;
+          staff_id?: string | null;
+          tenant_id: string;
+        };
+        Update: {
+          created_at?: string;
+          customer_id?: string;
+          cycle_index?: number;
+          id?: string;
+          milestone_step?: number;
+          staff_id?: string | null;
+          tenant_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'milestone_claims_customer_id_fkey';
+            columns: ['customer_id'];
+            isOneToOne: false;
+            referencedRelation: 'customers';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'milestone_claims_tenant_id_fkey';
+            columns: ['tenant_id'];
+            isOneToOne: false;
+            referencedRelation: 'tenants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       platform_admins: {
         Row: {
           created_at: string;
@@ -656,6 +702,8 @@ export type Database = {
           cooldown_minutes: number;
           currency: string;
           daily_cap: number;
+          milestone_reward_label: string | null;
+          milestone_step: number | null;
           perks: NonNullable<Json>;
           reward_label: string;
           reward_threshold: number;
@@ -670,6 +718,8 @@ export type Database = {
           cooldown_minutes?: number;
           currency?: string;
           daily_cap?: number;
+          milestone_reward_label?: string | null;
+          milestone_step?: number | null;
           perks?: NonNullable<Json>;
           reward_label?: string;
           reward_threshold?: number;
@@ -683,6 +733,8 @@ export type Database = {
           cooldown_minutes?: number;
           currency?: string;
           daily_cap?: number;
+          milestone_reward_label?: string | null;
+          milestone_step?: number | null;
           perks?: NonNullable<Json>;
           reward_label?: string;
           reward_threshold?: number;
@@ -856,6 +908,10 @@ export type Database = {
         Returns: Json;
       };
       redeem_card_reward: {
+        Args: { p_actor: string; p_customer: string; p_nonce: string; p_tenant: string };
+        Returns: string;
+      };
+      redeem_milestone_reward: {
         Args: { p_actor: string; p_customer: string; p_nonce: string; p_tenant: string };
         Returns: string;
       };

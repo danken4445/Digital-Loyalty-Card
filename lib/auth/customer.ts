@@ -6,7 +6,7 @@ import type {
   TenantContext,
   WalletCardSummary,
 } from '@/lib/contracts';
-import { calculateCardsCompleted } from '@/lib/rules/display';
+import { calculateCardsCompleted, calculateMilestoneRewardState } from '@/lib/rules/display';
 import { logSecurityEvent } from '@/lib/security/logger';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { createSupabaseServerClient, getVerifiedUser } from '@/lib/supabase/server';
@@ -104,6 +104,37 @@ export async function getCustomerCardState(
   }
 
   const totalStamps = balance?.total_stamps ?? 0;
+  const cardsCompleted = calculateCardsCompleted(totalStamps, tenant.settings.rewardThreshold);
+
+  let milestoneClaimed = false;
+  if (tenant.settings.milestoneStep) {
+    const { data: milestoneClaim, error: milestoneError } = await supabase
+      .from('milestone_claims')
+      .select('id')
+      .eq('tenant_id', tenant.id)
+      .eq('customer_id', user.id)
+      .eq('cycle_index', cardsCompleted)
+      .maybeSingle();
+
+    if (milestoneError) {
+      logSecurityEvent('warn', 'milestone_claims_lookup_failed', {
+        customerId: user.id,
+        tenantId: tenant.id,
+        error: milestoneError.message,
+      });
+    } else {
+      milestoneClaimed = Boolean(milestoneClaim);
+    }
+  }
+
+  const milestoneReward = calculateMilestoneRewardState(
+    totalStamps,
+    tenant.settings.rewardThreshold,
+    tenant.settings.milestoneStep,
+    tenant.settings.milestoneRewardLabel,
+    milestoneClaimed,
+  );
+
   const rawMeta = user.user_metadata as Record<string, unknown> | undefined;
   const googleName =
     (typeof rawMeta?.full_name === 'string' && rawMeta.full_name.trim()) ||
@@ -121,8 +152,9 @@ export async function getCustomerCardState(
     availableStamps: balance?.available_stamps ?? 0,
     lastStampedAt: balance?.last_stamped_at ?? null,
     createdAt: card.added_at ?? null,
-    cardsCompleted: calculateCardsCompleted(totalStamps, tenant.settings.rewardThreshold),
+    cardsCompleted,
     instagramUpsizeClaimed: perkError ? undefined : Boolean(upsizeClaim),
+    milestoneReward,
   };
 }
 
