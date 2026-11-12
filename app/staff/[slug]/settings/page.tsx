@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { RulesSettingsForm } from '@/components/console/RulesSettingsForm';
 import { enforceConsolePageAccess } from '@/lib/console/guard';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { getTenantBySlug } from '@/lib/tenants/context';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,28 +9,12 @@ interface RulesSettingsPageProps {
   params: Promise<{ slug: string }>;
 }
 
-interface TenantSettingsRow {
-  cooldown_minutes: number;
-  daily_cap: number;
-  reward_threshold: number;
-  tag_throttle_seconds: number;
-  reward_label: string;
-}
-
 export default async function RulesSettingsPage({ params }: RulesSettingsPageProps) {
   const { slug } = await params;
-  const { staff, tenantId } = await enforceConsolePageAccess(slug, 'manager');
+  const { staff } = await enforceConsolePageAccess(slug, 'manager');
 
-  const supabase = await createSupabaseServerClient();
-  const { data: rawSettings, error } = await supabase
-    .from('tenant_settings')
-    .select('cooldown_minutes, daily_cap, reward_threshold, tag_throttle_seconds, reward_label')
-    .eq('tenant_id', tenantId)
-    .maybeSingle();
-
-  const settings = rawSettings as unknown as TenantSettingsRow | null;
-
-  if (error || !settings) {
+  const tenant = await getTenantBySlug(slug);
+  if (!tenant) {
     notFound();
   }
 
@@ -51,11 +35,13 @@ export default async function RulesSettingsPage({ params }: RulesSettingsPagePro
         slug={slug}
         isOwner={isOwner}
         initialSettings={{
-          cooldown_minutes: settings.cooldown_minutes,
-          daily_cap: settings.daily_cap,
-          reward_threshold: settings.reward_threshold,
-          tag_throttle_seconds: settings.tag_throttle_seconds,
-          reward_label: settings.reward_label,
+          cooldown_minutes: tenant.settings.cooldownMinutes,
+          daily_cap: tenant.settings.dailyCap,
+          reward_threshold: tenant.settings.rewardThreshold,
+          tag_throttle_seconds: tenant.settings.tagThrottleSeconds,
+          reward_label: tenant.settings.rewardLabel,
+          milestone_step: tenant.settings.milestoneStep ?? null,
+          milestone_reward_label: tenant.settings.milestoneRewardLabel ?? null,
         }}
       />
     </div>
