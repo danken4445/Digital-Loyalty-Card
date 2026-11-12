@@ -223,6 +223,42 @@ export function StaffLoginForm({ nextPath, initialError }: StaffLoginFormProps) 
         </div>
       )}
 
+      {/* Live Demo Account for Business Owners */}
+      <div className="mb-6 rounded-2xl border border-odyssey-orange/30 bg-odyssey-orange/10 p-4 font-odyssey-body text-xs text-neutral-200">
+        <div className="flex items-center justify-between gap-2">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-odyssey-orange px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-odyssey-navy">
+            Live Demo
+          </span>
+          <span className="text-[11px] font-medium text-neutral-300">Business Owner Access</span>
+        </div>
+        <p className="mt-2 text-xs leading-relaxed text-neutral-200">
+          Want to explore the Owner Dashboard, Retention Analytics &amp; Counter Tools?
+        </p>
+        <div className="mt-2.5 space-y-1 rounded-xl border border-white/10 bg-odyssey-deep/90 p-3 font-mono text-[11px]">
+          <div className="flex justify-between">
+            <span className="text-neutral-400">Email:</span>
+            <span className="font-semibold text-white">demo@odysseyloyalty.com</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-neutral-400">Password:</span>
+            <span className="font-semibold text-white">DemoOwner2026!</span>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setEmail('demo@odysseyloyalty.com');
+            setPassword('DemoOwner2026!');
+            setMode('password');
+            setErrorMessage(null);
+            setStatusMessage('Demo credentials filled. Complete the security check below and sign in.');
+          }}
+          className="mt-3 w-full inline-flex min-h-10 items-center justify-center rounded-xl border border-odyssey-orange/50 bg-odyssey-orange/20 px-3 py-2 text-xs font-bold text-white transition hover:bg-odyssey-orange hover:text-odyssey-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+        >
+          Auto-fill Demo Credentials
+        </button>
+      </div>
+
       {/* Mode Toggle */}
       <div className="mb-6 flex rounded-xl border border-white/10 bg-odyssey-deep p-1">
         <button

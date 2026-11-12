@@ -146,6 +146,20 @@ function setupStandardUserMemberships() {
     ],
     error: null,
   };
+
+  queryResults['tenants'] = {
+    data: {
+      ...SHOP_A,
+      tenant_settings: {
+        cooldown_minutes: 60,
+        daily_cap: 3,
+        reward_threshold: 10,
+        tag_throttle_seconds: 15,
+        reward_label: 'Free Coffee',
+      },
+    },
+    error: null,
+  };
 }
 
 describe('Phase 14 Task 6: Owner Console Shell, Rules, Staff, Invites', () => {
@@ -175,7 +189,9 @@ describe('Phase 14 Task 6: Owner Console Shell, Rules, Staff, Invites', () => {
     setupStandardUserMemberships();
 
     // Call console guard with a slug the user has no membership for
-    await expect(requireConsoleAccess('non-member-slug', 'staff')).rejects.toThrow('NEXT_NOT_FOUND');
+    await expect(requireConsoleAccess('non-member-slug', 'staff')).rejects.toThrow(
+      'NEXT_NOT_FOUND',
+    );
     expect(mockNotFound).toHaveBeenCalled();
   });
 
@@ -192,7 +208,9 @@ describe('Phase 14 Task 6: Owner Console Shell, Rules, Staff, Invites', () => {
       body: JSON.stringify({ reward_threshold: 8 }),
     });
 
-    const managerRes = await rulesPatch(managerReq, { params: Promise.resolve({ slug: 'shop-b' }) });
+    const managerRes = await rulesPatch(managerReq, {
+      params: Promise.resolve({ slug: 'shop-b' }),
+    });
     expect(managerRes.status).toBe(403);
     const managerBody = await managerRes.json();
     expect(managerBody.ok).toBe(false);
@@ -384,7 +402,9 @@ describe('Phase 14 Task 6: Owner Console Shell, Rules, Staff, Invites', () => {
       }),
     });
 
-    const demoteRes = await membersPatch(demoteReq, { params: Promise.resolve({ slug: 'shop-a' }) });
+    const demoteRes = await membersPatch(demoteReq, {
+      params: Promise.resolve({ slug: 'shop-a' }),
+    });
     expect(demoteRes.status).toBe(400);
     const demoteBody = await demoteRes.json();
     expect(demoteBody.ok).toBe(false);
@@ -487,9 +507,9 @@ describe('Phase 14 Task 6: Owner Console Shell, Rules, Staff, Invites', () => {
     // When requireStaffSession encounters DB error, auth.authorized is false (forbidden)
     // Now test unexpected runtime exception in requireConsoleAccess
     const consoleGuardMod = await import('@/lib/console/guard');
-    const spy = vi.spyOn(consoleGuardMod, 'requireConsoleAccess').mockRejectedValueOnce(
-      new Error('Unexpected disk read error'),
-    );
+    const spy = vi
+      .spyOn(consoleGuardMod, 'requireConsoleAccess')
+      .mockRejectedValueOnce(new Error('Unexpected disk read error'));
 
     const res = await rulesPatch(req, { params: Promise.resolve({ slug: 'shop-a' }) });
     expect(res.status).toBe(500);
@@ -524,7 +544,9 @@ describe('Phase 14 Task 6: Owner Console Shell, Rules, Staff, Invites', () => {
 
     it('throws not found when user has no membership for slug', async () => {
       setupStandardUserMemberships();
-      await expect(enforceConsolePageAccess('unknown-slug', 'staff')).rejects.toThrow('NEXT_NOT_FOUND');
+      await expect(enforceConsolePageAccess('unknown-slug', 'staff')).rejects.toThrow(
+        'NEXT_NOT_FOUND',
+      );
     });
   });
 });
