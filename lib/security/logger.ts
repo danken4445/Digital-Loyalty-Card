@@ -19,7 +19,7 @@ const SENSITIVE_KEY_PATTERN =
 const EMAIL_VALUE_PATTERN = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
 
 const TOKEN_VALUE_PATTERN =
-  /\b(tcp_redeem1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+|tcp_merge1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+|tcpm1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+|tcp2\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+|tcpig2\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+|sb_secret_[A-Za-z0-9_-]+|sb_publishable_[A-Za-z0-9_-]+|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+|Bearer\s+[A-Za-z0-9._-]+)\b/g;
+  /\b(tcp_redeem1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+|tcp_merge1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+|tcpm1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+|tcp2\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+|tcpig2\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+|tcpmilestone2\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+|sb_secret_[A-Za-z0-9_-]+|sb_publishable_[A-Za-z0-9_-]+|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+|Bearer\s+[A-Za-z0-9._-]+)\b/g;
 
 /**
  * Redacts PII (emails, IPs, phone numbers) and secrets/tokens from a value before logging.

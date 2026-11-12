@@ -633,6 +633,36 @@ select is(
     'brand_stamp_icon: known icon accepted'
 );
 
+select is(
+    public.update_tenant_brand(
+        '14000000-0000-4000-8000-000000000002',
+        '14111111-0000-4000-8000-000000000001',
+        '{"stampIcon": "pickleball"}'::jsonb
+    ),
+    'updated',
+    'brand_stamp_icon: pickleball icon accepted'
+);
+
+select is(
+    public.update_tenant_brand(
+        '14000000-0000-4000-8000-000000000002',
+        '14111111-0000-4000-8000-000000000001',
+        '{"stampIcon": "shoe"}'::jsonb
+    ),
+    'updated',
+    'brand_stamp_icon: shoe icon accepted'
+);
+
+select is(
+    public.update_tenant_brand(
+        '14000000-0000-4000-8000-000000000002',
+        '14111111-0000-4000-8000-000000000001',
+        '{"stampIcon": "vape"}'::jsonb
+    ),
+    'updated',
+    'brand_stamp_icon: vape icon accepted'
+);
+
 -- Partial brand update preserves omitted existing fields
 select is(
     public.update_tenant_brand(

@@ -76,6 +76,8 @@ describe('Phase 12 tenant context readers', () => {
           timezone: 'Asia/Tokyo',
           currency: 'JPY',
           rewardLabel: 'Free drink',
+          milestoneStep: null,
+          milestoneRewardLabel: null,
           brand: { primaryColor: '#111111', tagline: 'Hello' },
           perks: { instagram_upsize: { label: 'Upsize', handle: '@shop' } },
         },

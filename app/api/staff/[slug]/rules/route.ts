@@ -23,6 +23,8 @@ const ALLOWED_RULE_KEYS = new Set([
   'reward_threshold',
   'tag_throttle_seconds',
   'reward_label',
+  'milestone_step',
+  'milestone_reward_label',
 ]);
 
 const rulesPatchSchema = z
@@ -57,8 +59,34 @@ const rulesPatchSchema = z
       .min(TENANT_RULE_BOUNDS.reward_label.minLength)
       .max(TENANT_RULE_BOUNDS.reward_label.maxLength)
       .optional(),
+    milestone_step: z
+      .number()
+      .int()
+      .min(TENANT_RULE_BOUNDS.milestone_step.min)
+      .max(TENANT_RULE_BOUNDS.milestone_step.max)
+      .nullable()
+      .optional(),
+    milestone_reward_label: z
+      .string()
+      .trim()
+      .min(TENANT_RULE_BOUNDS.milestone_reward_label.minLength)
+      .max(TENANT_RULE_BOUNDS.milestone_reward_label.maxLength)
+      .nullable()
+      .optional(),
   })
-  .strict();
+  .strict()
+  .refine(
+    (data) => {
+      if (data.milestone_step != null && data.reward_threshold != null) {
+        return data.milestone_step < data.reward_threshold;
+      }
+      return true;
+    },
+    {
+      message: 'Milestone step must be strictly less than reward threshold',
+      path: ['milestone_step'],
+    },
+  );
 
 interface RouteParams {
   params: Promise<{ slug: string }>;

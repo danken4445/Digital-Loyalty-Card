@@ -1,7 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { BRAND_THEME, SHOP_CONFIG } from '@/lib/config';
+import { BRAND_THEME, SHOP_CONFIG, STAMP_RULES } from '@/lib/config';
 import {
   isStampResultCode,
   ROUTES,
@@ -27,11 +27,14 @@ import { OnboardingCard } from '@/components/card/OnboardingCard';
 import { StripResultParam } from '@/components/card/StripResultParam';
 import { StampGrid } from '@/components/card/StampGrid';
 import { RedeemRewardPanel } from '@/components/card/RedeemRewardPanel';
+import { MilestoneRewardPanel } from '@/components/card/MilestoneRewardPanel';
 import { MemberStampQrPanel } from '@/components/card/MemberStampQrPanel';
 import { issueMemberStampToken } from '@/lib/security/memberStampToken';
 import type { OfflineCardSnapshot } from '@/lib/offline/cardCache';
 import { BackupCardPanel } from '@/components/card/BackupCardPanel';
 import { InstagramUpsizePanel } from '@/components/card/InstagramUpsizePanel';
+import { SocialLinksBar } from '@/components/card/SocialLinksBar';
+import { resolveActiveSocialLinks } from '@/lib/brand/social';
 import { DeleteCardButton } from '@/components/card/DeleteCardButton';
 import { BackToWalletButton } from '@/components/card/BackToWalletButton';
 import { PullToRefresh } from '@/components/card/PullToRefresh';
@@ -60,8 +63,16 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
   const rewardThreshold = settings.rewardThreshold;
   const instagramPerk = settings.perks.instagram_follow_upsize;
   const instagramHandle = instagramPerk?.handle;
-  // The 50% off milestone is printed on the original shop's card only
-  const milestoneStep = tenant.id === TENANT_ONE_ID ? undefined : null;
+  const activeSocialLinks = resolveActiveSocialLinks(settings.brand, instagramHandle);
+  const socialRewardLabel =
+    settings.brand.socialReward?.trim() || instagramPerk?.label || 'Free upsize';
+  const isSocialPerkEnabled =
+    settings.brand.socialRewardEnabled ?? Boolean(instagramPerk);
+  // Milestone reward settings
+  const milestoneStep =
+    settings.milestoneStep ?? (tenant.id === TENANT_ONE_ID ? STAMP_RULES.milestoneStep : null);
+  const milestoneLabel =
+    settings.milestoneRewardLabel ?? (tenant.id === TENANT_ONE_ID ? '50% OFF' : null);
   const theme = resolveCardTheme(settings.brand);
   const tagline =
     settings.brand.tagline ?? (tenant.id === TENANT_ONE_ID ? SHOP_CONFIG.tagline : undefined);
@@ -100,6 +111,7 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
           shopName={tenant.name}
           originalShop={tenant.id === TENANT_ONE_ID}
           instagramHandle={instagramHandle ?? null}
+          socialLinks={activeSocialLinks}
           theme={theme}
           backHref={ROUTES.wallets}
           lines={
@@ -141,6 +153,7 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
         shopName={tenant.name}
         originalShop={tenant.id === TENANT_ONE_ID}
         instagramHandle={instagramHandle ?? null}
+        socialLinks={activeSocialLinks}
         theme={theme}
         backHref={ROUTES.wallets}
         lines={[
@@ -179,6 +192,7 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
         shopName={tenant.name}
         originalShop={tenant.id === TENANT_ONE_ID}
         instagramHandle={instagramHandle ?? null}
+        socialLinks={activeSocialLinks}
         theme={theme}
         backHref={ROUTES.wallets}
         lines={
@@ -224,6 +238,18 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
       initialRedeemToken = await issueRedeemToken(cardState.customerId, tenant.id);
     } catch {
       initialRedeemToken = null;
+    }
+  }
+
+  let initialMilestoneToken: IssuedRedeemToken | null = null;
+  if (cardState.milestoneReward?.isEligible && !isExpired) {
+    try {
+      initialMilestoneToken = await issueRedeemToken(cardState.customerId, tenant.id, {
+        kind: 'milestone-reward',
+        cycleIndex: cardState.milestoneReward.cycleIndex,
+      });
+    } catch {
+      initialMilestoneToken = null;
     }
   }
 
@@ -396,6 +422,7 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
             rewardThreshold={rewardThreshold}
             rewardLabel={settings.rewardLabel}
             milestoneStep={milestoneStep}
+            milestoneLabel={milestoneLabel}
             stampIcon={theme.stampIcon}
           />
 
@@ -404,6 +431,18 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
             <MemberStampQrPanel snapshot={offlineCardSnapshot} />
           )}
         </div>
+
+        {/* Milestone Reward Panel (when milestone is eligible or claimed) */}
+        {cardState.milestoneReward && (
+          <MilestoneRewardPanel
+            tenantSlug={tenant.slug}
+            step={cardState.milestoneReward.step}
+            label={cardState.milestoneReward.label}
+            isEligible={cardState.milestoneReward.isEligible}
+            isClaimed={cardState.milestoneReward.isClaimed}
+            initialToken={initialMilestoneToken}
+          />
+        )}
 
         {/* Reward Redemption Panel (when reward is ready and token issued) */}
         {initialRedeemToken && (
@@ -428,13 +467,14 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
           </div>
         )}
 
-        {/* One-time Instagram follow perk (free upsize), only for shops that offer it */}
-        {instagramPerk && cardState.instagramUpsizeClaimed !== undefined && (
+        {/* One-time Social Media follow perk, only for shops that offer it */}
+        {isSocialPerkEnabled && activeSocialLinks.length > 0 && cardState.instagramUpsizeClaimed !== undefined && (
           <InstagramUpsizePanel
             claimed={cardState.instagramUpsizeClaimed}
             tenantSlug={tenant.slug}
             handle={instagramHandle}
-            perkLabel={instagramPerk.label}
+            perkLabel={socialRewardLabel}
+            socialLinks={activeSocialLinks}
           />
         )}
 
@@ -480,17 +520,8 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
             <dd className="text-right text-neutral-300">{lastVisitedText ?? 'First visit pending'}</dd>
           </dl>
 
-          {instagramHandle && (
-            <a
-              href={`https://instagram.com/${instagramHandle.replace('@', '')}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label={`Visit our Instagram profile ${instagramHandle}`}
-              className="mt-5 flex min-h-11 items-center justify-center font-display text-lg font-bold tracking-wide text-white hover:underline underline-offset-4 rounded-xl"
-            >
-              {instagramHandle}
-            </a>
-          )}
+          {/* Enabled Social Media Channels */}
+          <SocialLinksBar links={activeSocialLinks} />
 
           {/* Privacy & Self-Service Data Deletion Controls */}
           <div className="mt-3 pt-3 border-t border-plug-border/60 w-full flex flex-col items-center gap-2">

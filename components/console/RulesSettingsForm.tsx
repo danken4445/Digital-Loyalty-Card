@@ -17,6 +17,8 @@ export interface RulesSettingsFormProps {
     reward_threshold: number;
     tag_throttle_seconds: number;
     reward_label: string;
+    milestone_step?: number | null;
+    milestone_reward_label?: string | null;
   };
 }
 
@@ -30,6 +32,15 @@ export function RulesSettingsForm({
   const [rewardThreshold, setRewardThreshold] = useState(initialSettings.reward_threshold);
   const [tagThrottleSeconds, setTagThrottleSeconds] = useState(initialSettings.tag_throttle_seconds);
   const [rewardLabel, setRewardLabel] = useState(initialSettings.reward_label);
+  const [enableMilestone, setEnableMilestone] = useState(
+    initialSettings.milestone_step != null && initialSettings.milestone_step > 0,
+  );
+  const [milestoneStep, setMilestoneStep] = useState<number | string>(
+    initialSettings.milestone_step ?? (Math.floor(initialSettings.reward_threshold / 2) || 5),
+  );
+  const [milestoneRewardLabel, setMilestoneRewardLabel] = useState(
+    initialSettings.milestone_reward_label ?? '50% OFF',
+  );
 
   const [preview, setPreview] = useState<TenantRulesPreview | null>(null);
   const [isPreviewing, setIsPreviewing] = useState(false);
@@ -48,6 +59,8 @@ export function RulesSettingsForm({
         reward_threshold: Number(rewardThreshold),
         tag_throttle_seconds: Number(tagThrottleSeconds),
         reward_label: rewardLabel.trim(),
+        milestone_step: enableMilestone ? Number(milestoneStep) : null,
+        milestone_reward_label: enableMilestone ? milestoneRewardLabel.trim() : null,
       };
 
       const res = await fetch(`/api/staff/${encodeURIComponent(slug)}/rules/preview`, {
@@ -76,6 +89,25 @@ export function RulesSettingsForm({
     e.preventDefault();
     if (!isOwner) return;
 
+    if (enableMilestone) {
+      const step = Number(milestoneStep);
+      const thresh = Number(rewardThreshold);
+      if (isNaN(step) || step < 1 || step >= thresh) {
+        setFeedback({
+          type: 'error',
+          message: `Milestone stamp slot must be between 1 and ${thresh - 1}.`,
+        });
+        return;
+      }
+      if (!milestoneRewardLabel.trim()) {
+        setFeedback({
+          type: 'error',
+          message: 'Milestone reward label cannot be empty.',
+        });
+        return;
+      }
+    }
+
     setIsSaving(true);
     setFeedback(null);
     try {
@@ -85,6 +117,8 @@ export function RulesSettingsForm({
         reward_threshold: Number(rewardThreshold),
         tag_throttle_seconds: Number(tagThrottleSeconds),
         reward_label: rewardLabel.trim(),
+        milestone_step: enableMilestone ? Number(milestoneStep) : null,
+        milestone_reward_label: enableMilestone ? milestoneRewardLabel.trim() : null,
       };
 
       const res = await fetch(`/api/staff/${encodeURIComponent(slug)}/rules`, {
@@ -300,6 +334,83 @@ export function RulesSettingsForm({
               className="mt-3 block max-w-xs border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm text-white focus:border-white focus:outline-none disabled:opacity-60"
               required
             />
+          </div>
+
+          {/* Milestone Perk Configuration */}
+          <div className="border border-plug-border bg-plug-surface p-5 sm:col-span-2">
+            <div className="flex items-start justify-between">
+              <div>
+                <label
+                  htmlFor="enable-milestone"
+                  className="text-xs font-semibold uppercase tracking-wider text-neutral-300"
+                >
+                  Interim Milestone Perk
+                </label>
+                <p className="mt-1 text-xs text-neutral-400">
+                  Award customers a mid-way perk before reaching the full reward (e.g. 50% off at stamp 5). This perk does not deduct any stamps.
+                </p>
+              </div>
+              <div className="flex items-center h-6">
+                <input
+                  id="enable-milestone"
+                  type="checkbox"
+                  checked={enableMilestone}
+                  onChange={(e) => setEnableMilestone(e.target.checked)}
+                  disabled={!isOwner}
+                  className="h-4 w-4 rounded border-neutral-700 bg-neutral-900 text-amber-500 focus:ring-amber-500 disabled:opacity-60"
+                />
+              </div>
+            </div>
+
+            {enableMilestone && (
+              <div className="mt-4 grid grid-cols-1 gap-4 border-t border-neutral-800 pt-4 sm:grid-cols-2">
+                <div>
+                  <label
+                    htmlFor="milestone-step"
+                    className="block text-xs font-semibold uppercase tracking-wider text-neutral-300"
+                  >
+                    Milestone Stamp Slot
+                  </label>
+                  <p className="mt-1 text-xs text-neutral-400">
+                    Which stamp triggers this perk (must be 1 to {Number(rewardThreshold) - 1}).
+                  </p>
+                  <input
+                    id="milestone-step"
+                    type="number"
+                    min={TENANT_RULE_BOUNDS.milestone_step.min}
+                    max={Math.max(1, Number(rewardThreshold) - 1)}
+                    value={milestoneStep}
+                    onChange={(e) => setMilestoneStep(e.target.value)}
+                    disabled={!isOwner}
+                    className="mt-2 block w-full border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm text-white focus:border-white focus:outline-none disabled:opacity-60"
+                    required={enableMilestone}
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="milestone-reward-label"
+                    className="block text-xs font-semibold uppercase tracking-wider text-neutral-300"
+                  >
+                    Milestone Reward Label
+                  </label>
+                  <p className="mt-1 text-xs text-neutral-400">
+                    Perk title on card &amp; staff scanner (e.g. &quot;50% OFF&quot;).
+                  </p>
+                  <input
+                    id="milestone-reward-label"
+                    type="text"
+                    maxLength={TENANT_RULE_BOUNDS.milestone_reward_label.maxLength}
+                    value={milestoneRewardLabel}
+                    onChange={(e) => setMilestoneRewardLabel(e.target.value)}
+                    disabled={!isOwner}
+                    placeholder="50% OFF"
+                    className="mt-2 block w-full border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm text-white focus:border-white focus:outline-none disabled:opacity-60"
+                    required={enableMilestone}
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

@@ -11,6 +11,8 @@ export interface TenantSettingsRow {
   timezone: string;
   currency: string;
   reward_label: string;
+  milestone_step?: number | null;
+  milestone_reward_label?: string | null;
   brand: unknown;
   perks: unknown;
 }
@@ -48,6 +50,8 @@ export function mapTenantRow(row: TenantRow): TenantContext {
       timezone: settings.timezone,
       currency: settings.currency,
       rewardLabel: settings.reward_label,
+      milestoneStep: settings.milestone_step ?? null,
+      milestoneRewardLabel: settings.milestone_reward_label ?? null,
       brand: (settings.brand ?? {}) as TenantBrand,
       perks: (settings.perks ?? {}) as TenantPerks,
     },

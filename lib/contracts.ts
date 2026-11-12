@@ -40,14 +40,18 @@ export const REDEEM_RESULT_CODES = [
   'tenant-unavailable',
   'invalid-perk',
   'wrong-tenant',
+  'milestone-already-claimed',
+  'milestone-not-reached',
+  'milestone-expired',
 ] as const;
 export type RedeemResultCode = (typeof REDEEM_RESULT_CODES)[number];
 
 /**
  * What a signed redemption QR token is good for. `free-coffee` spends 10 stamps;
- * `instagram-upsize` is the one-time follow-us-on-Instagram perk and spends no stamps.
+ * `instagram-upsize` is the one-time follow-us-on-Instagram perk and spends no stamps;
+ * `milestone-reward` is the mid-card perk (e.g. 50% off at slot 5) and spends no stamps.
  */
-export const REDEEM_TOKEN_KINDS = ['free-coffee', 'instagram-upsize'] as const;
+export const REDEEM_TOKEN_KINDS = ['free-coffee', 'instagram-upsize', 'milestone-reward'] as const;
 export type RedeemTokenKind = (typeof REDEEM_TOKEN_KINDS)[number];
 
 export const PERKS = ['instagram_follow_upsize'] as const;
@@ -59,6 +63,21 @@ export type Perk = (typeof PERKS)[number];
  */
 export const TENANT_STATUSES = ['trial', 'active', 'suspended', 'closed'] as const;
 export type TenantStatus = (typeof TENANT_STATUSES)[number];
+
+export const TENANT_INDUSTRIES = [
+  'cafe',
+  'sports',
+  'barbershop',
+  'fitness',
+  'restaurant',
+  'car_service',
+  'retail',
+  'other',
+] as const;
+export type TenantIndustry = (typeof TENANT_INDUSTRIES)[number];
+
+export const INVOICE_STATUSES = ['draft', 'issued', 'paid', 'void'] as const;
+export type InvoiceStatus = (typeof INVOICE_STATUSES)[number];
 
 /**
  * Icons a shop can print in its stamp slots. Keep in sync with the `update_tenant_brand` SQL
@@ -75,12 +94,30 @@ export const STAMP_ICON_IDS = [
   'bag',
   'sparkles',
   'gift',
+  'pickleball',
+  'shoe',
+  'vape',
+  'dumbbell',
+  'car',
 ] as const;
 export type StampIconId = (typeof STAMP_ICON_IDS)[number];
 export const DEFAULT_STAMP_ICON: StampIconId = 'cup';
 
 export function isStampIconId(value: unknown): value is StampIconId {
   return typeof value === 'string' && (STAMP_ICON_IDS as readonly string[]).includes(value);
+}
+
+export interface SocialPlatformConfig {
+  /** Whether this social channel is displayed to customers on the card */
+  enabled: boolean;
+  /** Full URL or handle for the social media channel */
+  url: string;
+}
+
+export interface TenantSocialLinks {
+  instagram?: SocialPlatformConfig;
+  facebook?: SocialPlatformConfig;
+  tiktok?: SocialPlatformConfig;
 }
 
 export interface TenantBrand {
@@ -95,6 +132,12 @@ export interface TenantBrand {
   /** Absolute or root-relative URL of decorative card art */
   cardArtUrl?: string;
   tagline?: string;
+  /** What reward the customer gets for following on social media (e.g. "Free upsize", "10% off") */
+  socialReward?: string;
+  /** Whether the social media follower perk is enabled */
+  socialRewardEnabled?: boolean;
+  /** Social media platform channels (Instagram, Facebook, TikTok) */
+  socialLinks?: TenantSocialLinks;
 }
 
 export interface TenantPerkConfig {
@@ -115,6 +158,10 @@ export interface TenantSettings {
   /** ISO 4217 code, e.g. "PHP" */
   currency: string;
   rewardLabel: string;
+  /** Stamp slot that unlocks the mid-card milestone perk (e.g. 5 of 10) */
+  milestoneStep?: number | null;
+  /** e.g. "50% OFF" */
+  milestoneRewardLabel?: string | null;
   brand: TenantBrand;
   perks: TenantPerks;
 }
@@ -189,6 +236,7 @@ export interface DeleteCardResponse {
 
 export interface RedeemTokenRequest {
   tenantSlug: string;
+  kind?: RedeemTokenKind;
 }
 
 export interface StaffSwitchTenantRequest {
@@ -460,6 +508,36 @@ export interface RpcContracts {
     Args: { p_admin: string; p_session: string; p_limit?: number };
     Returns: SupportActivityRow[] | { result: 'unauthorized' };
   };
+  platform_get_dashboard_overview: {
+    Args: { p_actor: string };
+    Returns: (PlatformDashboardOverview & { result: 'ok' }) | { result: 'unauthorized' };
+  };
+  platform_generate_invoice: {
+    Args: {
+      p_actor: string;
+      p_tenant: string;
+      p_month: string;
+      p_due_date: string;
+      p_adjustment_centavos?: number;
+      p_line_items?: TenantInvoiceLineItem[];
+      p_notes?: string | null;
+      p_status?: InvoiceStatus;
+    };
+    Returns: PlatformGenerateInvoiceResult | { result: 'unauthorized' | 'not-found' };
+  };
+  platform_update_invoice_status: {
+    Args: {
+      p_actor: string;
+      p_invoice: string;
+      p_status: InvoiceStatus;
+      p_reason?: string | null;
+    };
+    Returns: 'updated' | 'unauthorized' | 'not-found' | 'invalid-status';
+  };
+  platform_list_invoices: {
+    Args: { p_actor: string; p_tenant?: string | null };
+    Returns: { result: 'ok'; invoices: TenantInvoice[] } | { result: 'unauthorized' };
+  };
   ops_cleanup_status: {
     Args: Record<string, never>;
     Returns: { lastRunAt: string | null; stale: boolean };
@@ -498,9 +576,7 @@ export interface RpcContracts {
       p_tenant: string;
       p_now?: string | null;
     };
-    Returns:
-      | { result: 'ok'; [key: string]: unknown }
-      | { result: 'unauthorized' | 'not-found' };
+    Returns: { result: 'ok'; [key: string]: unknown } | { result: 'unauthorized' | 'not-found' };
   };
 }
 
@@ -509,11 +585,13 @@ export interface RpcContracts {
  */
 export interface RedeemTokenPayload {
   customerId: string;
-  /** Phase 12 (token prefixes tcp2 / tcpig2): the shop the reward belongs to. Staff of another shop get 'wrong-tenant'. */
+  /** Phase 12 (token prefixes tcp2 / tcpig2 / tcpmilestone2): the shop the reward belongs to. Staff of another shop get 'wrong-tenant'. */
   tenantId: string;
   iat: number; // Unix epoch seconds
   exp: number; // Unix epoch seconds (iat + 300)
   nonce: string;
+  /** Cycle index for milestone rewards */
+  cycleIndex?: number;
 }
 
 export interface IssuedRedeemToken {
@@ -528,15 +606,15 @@ export interface IssuedRedeemToken {
 
 export type VerifyRedeemTokenResult =
   | {
-    valid: true;
-    kind: RedeemTokenKind;
-    payload: RedeemTokenPayload;
-    displayCode: string;
-  }
+      valid: true;
+      kind: RedeemTokenKind;
+      payload: RedeemTokenPayload;
+      displayCode: string;
+    }
   | {
-    valid: false;
-    reason: 'invalid-token' | 'expired-token';
-  };
+      valid: false;
+      reason: 'invalid-token' | 'expired-token';
+    };
 
 /**
  * Signed shop-bound Member Stamp QR token (tcpm1) for offline / camera-scanned manual stamping.
@@ -558,14 +636,14 @@ export interface IssuedMemberStampToken {
 
 export type VerifyMemberStampTokenResult =
   | {
-    valid: true;
-    payload: MemberStampTokenPayload;
-    displayCode: string;
-  }
+      valid: true;
+      payload: MemberStampTokenPayload;
+      displayCode: string;
+    }
   | {
-    valid: false;
-    reason: 'invalid-token';
-  };
+      valid: false;
+      reason: 'invalid-token';
+    };
 
 /**
  * Phase 2 Customer Identity & Card Creation API Contracts
@@ -577,6 +655,15 @@ export interface EnsureCustomerRequest {
 export interface EnsureCustomerResponse {
   customerId: string;
   isAnonymous: boolean;
+}
+
+export interface MilestoneRewardState {
+  step: number;
+  label: string;
+  isEligible: boolean;
+  isClaimed: boolean;
+  isExpired: boolean;
+  cycleIndex: number;
 }
 
 export interface CustomerCardState {
@@ -604,6 +691,10 @@ export interface CustomerCardState {
    * Undefined when the claim status could not be loaded; the perk is then hidden.
    */
   instagramUpsizeClaimed?: boolean;
+  /**
+   * Milestone reward state for the customer's current card cycle.
+   */
+  milestoneReward?: MilestoneRewardState | null;
 }
 
 /**
@@ -611,16 +702,16 @@ export interface CustomerCardState {
  */
 export type VerifyTapResult =
   | {
-    valid: true;
-    normalizedTagId: string;
-    mode: 'ntag215-static';
-    tapCounter?: number | null;
-    hardwareUid?: string | null;
-  }
+      valid: true;
+      normalizedTagId: string;
+      mode: 'ntag215-static';
+      tapCounter?: number | null;
+      hardwareUid?: string | null;
+    }
   | {
-    valid: false;
-    reason: 'malformed-tag-id';
-  };
+      valid: false;
+      reason: 'malformed-tag-id';
+    };
 
 export interface ClaimStampRequest {
   tagId: string;
@@ -667,13 +758,13 @@ export interface StaffSession {
 
 export type StaffAuthResult =
   | {
-    authorized: true;
-    staff: StaffSession;
-  }
+      authorized: true;
+      staff: StaffSession;
+    }
   | {
-    authorized: false;
-    reason: 'unauthenticated' | 'forbidden';
-  };
+      authorized: false;
+      reason: 'unauthenticated' | 'forbidden';
+    };
 
 /** Roles that can see a shop's billing (only owners can change the plan; enforced again in SQL). */
 export const BILLING_VIEWER_ROLES = ['owner', 'manager'] as const satisfies readonly StaffRole[];
@@ -759,18 +850,18 @@ export interface StaffManualStampResponse {
 
 export type StaffTagActionRequest =
   | {
-    action: 'create';
-    label?: string;
-  }
+      action: 'create';
+      label?: string;
+    }
   | {
-    action: 'deactivate';
-    tagId: string;
-  }
+      action: 'deactivate';
+      tagId: string;
+    }
   | {
-    action: 'rotate';
-    tagId: string;
-    newLabel?: string;
-  };
+      action: 'rotate';
+      tagId: string;
+      newLabel?: string;
+    };
 
 export interface TagWithUrls extends TagRow {
   productionTapUrl: string;
@@ -787,11 +878,11 @@ export interface ActivityAnomalyFlag {
   id: string;
   severity: 'warning' | 'high';
   category:
-  | 'repeated-daily-cap'
-  | 'high-tag-volume'
-  | 'frequent-manual-stamps'
-  | 'cooldown-hugging'
-  | 'buddy-tag-concentration';
+    | 'repeated-daily-cap'
+    | 'high-tag-volume'
+    | 'frequent-manual-stamps'
+    | 'cooldown-hugging'
+    | 'buddy-tag-concentration';
   title: string;
   description: string;
   targetId: string;
@@ -826,13 +917,13 @@ export interface IssuedMergeIntent {
 
 export type VerifyMergeIntentResult =
   | {
-    valid: true;
-    payload: MergeIntentPayload;
-  }
+      valid: true;
+      payload: MergeIntentPayload;
+    }
   | {
-    valid: false;
-    reason: 'invalid-token' | 'expired-token';
-  };
+      valid: false;
+      reason: 'invalid-token' | 'expired-token';
+    };
 
 export interface MergeCustomerRequest {
   mergeToken?: string;
@@ -938,6 +1029,8 @@ export const ROUTES = Object.freeze({
     newTenant: '/platform/new',
     tenant: (slug: string) => `/platform/${encodeURIComponent(slug)}`,
     support: (slug: string) => `/platform/${encodeURIComponent(slug)}/support`,
+    invoices: '/platform/invoices',
+    invoice: (id: string) => `/platform/invoices/${encodeURIComponent(id)}`,
   },
   api: {
     health: '/api/health',
@@ -956,8 +1049,11 @@ export const ROUTES = Object.freeze({
       billing: '/api/staff/billing',
     },
     platform: {
+      overview: '/api/platform/overview',
       tenants: '/api/platform/tenants',
       support: '/api/platform/support',
+      invoices: '/api/platform/invoices',
+      invoice: (id: string) => `/api/platform/invoices/${encodeURIComponent(id)}`,
       tenantPlan: (slug: string) => `/api/platform/tenants/${encodeURIComponent(slug)}/plan`,
     },
   },
@@ -977,6 +1073,8 @@ export const TENANT_RULE_BOUNDS = Object.freeze({
   reward_threshold: { min: 3, max: 50 },
   tag_throttle_seconds: { min: 0, max: 60 },
   reward_label: { minLength: 1, maxLength: 40 },
+  milestone_step: { min: 1, max: 49 },
+  milestone_reward_label: { minLength: 1, maxLength: 40 },
 });
 
 export interface TenantRulesPatch {
@@ -985,6 +1083,8 @@ export interface TenantRulesPatch {
   reward_threshold?: number;
   tag_throttle_seconds?: number;
   reward_label?: string;
+  milestone_step?: number | null;
+  milestone_reward_label?: string | null;
 }
 
 export interface TenantRulesPreview {
@@ -1048,6 +1148,105 @@ export interface TagLeakSignal {
   throttleRejections: number;
 }
 
+export interface TenantInvoiceLineItem {
+  id: string;
+  description: string;
+  quantity: number;
+  unitPriceCentavos: number;
+  totalCentavos: number;
+}
+
+export interface TenantInvoice {
+  id: string;
+  invoiceNumber: string;
+  tenantId: string;
+  tenantName?: string;
+  tenantSlug?: string;
+  billingMonth: string; // YYYY-MM-DD
+  status: InvoiceStatus;
+  planCode: string | null;
+  planName: string;
+  activeCustomers: number;
+  includedCustomers: number;
+  extraCustomers: number;
+  baseFeeCentavos: number;
+  usageFeeCentavos: number;
+  adjustmentCentavos: number;
+  totalCentavos: number;
+  lineItems: TenantInvoiceLineItem[];
+  notes: string | null;
+  dueDate: string; // YYYY-MM-DD
+  issuedAt: string;
+  paidAt: string | null;
+  createdAt?: string;
+}
+
+export interface PlatformTenantRowEnriched {
+  id: string;
+  slug: string;
+  name: string;
+  industry: TenantIndustry;
+  status: TenantStatus;
+  createdAt: string;
+  suspendedAt: string | null;
+  ownerEmail: string | null;
+  billingDueDay: number;
+  planCode: string | null;
+  planName: string;
+  totalCards: number;
+  activeCustomersThisMonth: number;
+  stamps7d: number;
+  lastStampAt: string | null;
+  estimatedBillCentavos: number;
+  capabilitiesCount: number;
+  activeFlags: string[];
+  dueDate: string;
+  daysUntilDue: number;
+  isDueSoon: boolean;
+  isOverdue: boolean;
+  billingBadge: 'due_soon' | 'overdue' | 'paid' | 'trial' | 'current';
+  latestInvoice?: {
+    id: string;
+    invoiceNumber: string;
+    status: InvoiceStatus;
+    totalCentavos: number;
+    dueDate: string;
+  } | null;
+  hasTagLeakAlert: boolean;
+}
+
+export interface PlatformDashboardKpis {
+  activeTenants: number;
+  trialTenants: number;
+  suspendedTenants: number;
+  totalTenants: number;
+  totalCards: number;
+  activeCustomers30d: number;
+  utilizationRatePct: number;
+  monthlyStamps: number;
+  lastMonthStamps: number;
+  stampsMoMDeltaPct: number;
+  monthlyRedemptions: number;
+  monthlyRevenueCentavos: number;
+  lastMonthRevenueCentavos: number;
+  revenueMoMDeltaPct: number;
+  unpaidInvoicesCount: number;
+  dueSoonCount: number;
+}
+
+export interface PlatformDashboardOverview {
+  kpis: PlatformDashboardKpis;
+  industries: Record<string, number>;
+  tenants: PlatformTenantRowEnriched[];
+}
+
+export interface PlatformGenerateInvoiceResult {
+  result: 'created' | 'updated';
+  invoiceId: string;
+  invoiceNumber: string;
+  totalCentavos: number;
+}
+
 export interface OwnerAnalyticsPulse {
   totalCards: number;
   activeMembers30d: number;
@@ -1107,4 +1306,3 @@ export interface OwnerAnalyticsData {
   cohorts: OwnerAnalyticsCohortRow[];
   topCustomers: OwnerAnalyticsTopCustomer[];
 }
-

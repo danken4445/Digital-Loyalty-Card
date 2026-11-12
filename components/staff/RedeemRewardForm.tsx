@@ -19,6 +19,8 @@ export interface RedeemRewardFormProps {
   rewardLabel?: string;
   /** The active shop's Instagram handle for the follow perk. */
   instagramHandle?: string;
+  /** Custom label for the social follower perk, e.g. "Free upsize" or "10% off" */
+  socialRewardLabel?: string;
 }
 
 /** Shown on the redeem preview when the customer cannot redeem yet. */
@@ -34,6 +36,7 @@ export function RedeemRewardForm({
   rewardThreshold = STAMP_RULES.rewardThreshold,
   rewardLabel = 'FREE COFFEE',
   instagramHandle = SHOP_CONFIG.instagramHandle,
+  socialRewardLabel,
 }: RedeemRewardFormProps = {}) {
   const [tokenInput, setTokenInput] = useState('');
   const [activeToken, setActiveToken] = useState('');
@@ -324,11 +327,21 @@ export function RedeemRewardForm({
             {preview.rewardKind === 'instagram-upsize' ? (
               preview.canRedeem ? (
                 <span className="rounded-full bg-white px-3 py-1 text-sm font-bold text-plug-black">
-                  INSTAGRAM PERK • FREE UPSIZE
+                  SOCIAL PERK • {(socialRewardLabel || 'FREE UPSIZE').toUpperCase()}
                 </span>
               ) : (
                 <span className="rounded-full border border-red-500/50 bg-red-950/50 px-3 py-1 text-xs font-semibold text-red-300">
-                  UPSIZE ALREADY USED
+                  REWARD ALREADY CLAIMED
+                </span>
+              )
+            ) : preview.rewardKind === 'milestone-reward' ? (
+              preview.canRedeem ? (
+                <span className="rounded-full bg-violet-400 px-3 py-1 text-sm font-bold text-plug-black">
+                  MILESTONE PERK • FREE REWARD
+                </span>
+              ) : (
+                <span className="rounded-full border border-red-500/50 bg-red-950/50 px-3 py-1 text-xs font-semibold text-red-300">
+                  MILESTONE NOT AVAILABLE
                 </span>
               )
             ) : preview.canRedeem ? (
@@ -375,9 +388,8 @@ export function RedeemRewardForm({
                   <div className="rounded-xl border border-white/40 bg-plug-black p-4 text-sm text-neutral-200">
                     <p className="font-semibold text-white">Before you confirm</p>
                     <p className="mt-1 text-xs leading-relaxed text-neutral-300">
-                      Ask the customer to open Instagram on their phone and show that they follow{' '}
-                      <span className="font-semibold text-white">{instagramHandle}</span> (the
-                      profile button should say &ldquo;Following&rdquo;). No stamps are used.
+                      Ask the customer to open their social media app on their phone and show that they follow{' '}
+                      <span className="font-semibold text-white">{instagramHandle || 'your shop'}</span>. No stamps are used.
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-3">
@@ -404,6 +416,50 @@ export function RedeemRewardForm({
                 <div className="space-y-3">
                   <div className="rounded-xl border border-plug-border bg-plug-black p-4 text-center text-xs text-plug-muted">
                     This card has already used its one-time Instagram upsize.
+                  </div>
+                  <button
+                    type="button"
+                    onClick={resetAll}
+                    className="w-full inline-flex min-h-12 items-center justify-center rounded-xl border border-plug-border bg-plug-elevated px-4 text-sm font-semibold text-neutral-300 hover:border-white hover:text-white"
+                  >
+                    Scan Another Customer
+                  </button>
+                </div>
+              )
+            ) : preview.rewardKind === 'milestone-reward' ? (
+              preview.canRedeem ? (
+                <div className="space-y-4">
+                  <div className="rounded-xl border border-violet-500/40 bg-violet-950/20 p-4 text-sm text-neutral-200">
+                    <p className="font-semibold text-white">Milestone Reward Confirmation</p>
+                    <p className="mt-1 text-xs leading-relaxed text-neutral-300">
+                      This is a halfway milestone perk. Confirming will grant this reward to the customer.{' '}
+                      <strong className="text-white">Zero stamps will be deducted</strong> from their card.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={handleConfirm}
+                      disabled={loadingConfirm}
+                      aria-busy={loadingConfirm}
+                      className="flex-1 inline-flex min-h-12 items-center justify-center rounded-xl border border-violet-400 bg-violet-500 px-6 py-3.5 text-sm font-bold text-white transition-transform active:scale-[0.99] hover:bg-violet-400 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 focus-visible:ring-offset-plug-black"
+                    >
+                      {loadingConfirm ? 'Granting Milestone Perk...' : 'Grant Milestone Reward (0 Stamps Deducted)'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={resetAll}
+                      disabled={loadingConfirm}
+                      className="inline-flex min-h-12 items-center rounded-xl border border-plug-border bg-plug-elevated px-4 text-sm font-semibold text-neutral-300 transition-colors hover:border-white hover:text-white"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="rounded-xl border border-plug-border bg-plug-black p-4 text-center text-xs text-plug-muted">
+                    This customer has either already claimed their milestone reward for this card cycle, or the milestone is no longer available.
                   </div>
                   <button
                     type="button"
@@ -473,7 +529,7 @@ export function RedeemRewardForm({
                 {confirmResult.result !== 'redeemed'
                   ? 'NOTHING WAS GIVEN'
                   : confirmResult.rewardKind === 'instagram-upsize'
-                    ? 'FREE UPSIZE GRANTED — NO STAMPS USED'
+                    ? `${(socialRewardLabel || 'FREE UPSIZE').toUpperCase()} GRANTED — NO STAMPS USED`
                     : `REWARD REDEEMED — ${rewardThreshold} STAMPS DEDUCTED`}
               </h3>
             </div>

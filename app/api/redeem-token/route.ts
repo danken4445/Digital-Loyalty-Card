@@ -105,6 +105,39 @@ export async function POST(
       );
     }
 
+    const requestKind = parsedBody.data.kind ?? 'free-coffee';
+
+    if (requestKind === 'milestone-reward') {
+      if (!cardState.milestoneReward?.isEligible) {
+        return NextResponse.json<ApiResponse<IssuedRedeemToken>>(
+          {
+            ok: false,
+            error: 'forbidden',
+            message: 'Milestone reward is not available for this card.',
+          },
+          { status: 403 },
+        );
+      }
+
+      const issued = await issueRedeemToken(user.id, tenant.id, {
+        kind: 'milestone-reward',
+        cycleIndex: cardState.milestoneReward.cycleIndex,
+      });
+
+      return NextResponse.json<ApiResponse<IssuedRedeemToken>>(
+        {
+          ok: true,
+          data: issued,
+        },
+        {
+          status: 200,
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+          },
+        },
+      );
+    }
+
     const { rewardThreshold } = tenant.settings;
     if (cardState.availableStamps < rewardThreshold) {
       return NextResponse.json<ApiResponse<IssuedRedeemToken>>(
@@ -117,7 +150,9 @@ export async function POST(
       );
     }
 
-    const issued = await issueRedeemToken(user.id, tenant.id);
+    const issued = await issueRedeemToken(user.id, tenant.id, {
+      kind: 'free-coffee',
+    });
 
     return NextResponse.json<ApiResponse<IssuedRedeemToken>>(
       {

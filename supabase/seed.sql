@@ -166,3 +166,103 @@ on conflict (tenant_id, user_id) do nothing;
 insert into public.tags (id, label, active, tenant_id)
 values ('tcp_tag_demo_roastery01', 'Demo Roastery Counter NTAG215', true, '7c1f0000-0000-4000-8000-0000000000d1')
 on conflict (id) do nothing;
+
+-- 6. Odyssey Demo Café (Live demo account for prospective business owners)
+insert into public.tenants (id, slug, name, status)
+values ('7c1f0000-0000-4000-8000-0000000000d2', 'demo-cafe', 'Odyssey Demo Café', 'active')
+on conflict (id) do nothing;
+
+insert into public.tenant_settings (
+  tenant_id,
+  cooldown_minutes,
+  daily_cap,
+  reward_threshold,
+  tag_throttle_seconds,
+  timezone,
+  currency,
+  reward_label,
+  milestone_step,
+  milestone_reward_label,
+  brand,
+  perks
+) values (
+  '7c1f0000-0000-4000-8000-0000000000d2',
+  30,
+  2,
+  10,
+  5,
+  'Asia/Manila',
+  'PHP',
+  'FREE ARTISAN COFFEE',
+  5,
+  '50% OFF ANY PASTRY',
+  '{"primaryColor": "#152839", "accentColor": "#FF6F07", "stampIcon": "cup", "tagline": "Specialty Coffee & Handcrafted Bakes", "socialReward": "Free Upsize on Any Drink", "socialRewardEnabled": true, "socialLinks": {"instagram": {"url": "https://instagram.com/democafe.ph", "enabled": true}}}'::jsonb,
+  '{"instagram_follow_upsize": {"label": "Free upsize on any drink", "handle": "@democafe.ph"}}'::jsonb
+) on conflict (tenant_id) do nothing;
+
+insert into auth.users (
+  instance_id,
+  id,
+  aud,
+  role,
+  email,
+  encrypted_password,
+  email_confirmed_at,
+  raw_app_meta_data,
+  raw_user_meta_data,
+  created_at,
+  updated_at,
+  confirmation_token,
+  recovery_token
+) values (
+  '00000000-0000-0000-0000-000000000000',
+  '00000000-0000-0000-0000-0000000000d2',
+  'authenticated',
+  'authenticated',
+  'demo@odysseyloyalty.com',
+  extensions.crypt('DemoOwner2026!', extensions.gen_salt('bf')),
+  now(),
+  '{"provider": "email", "providers": ["email"]}'::jsonb,
+  '{"display_name": "Demo Business Owner", "demo": true}'::jsonb,
+  now(),
+  now(),
+  '',
+  ''
+) on conflict (id) do nothing;
+
+insert into auth.identities (
+  id,
+  user_id,
+  identity_data,
+  provider,
+  provider_id,
+  last_sign_in_at,
+  created_at,
+  updated_at
+) values (
+  '00000000-0000-0000-0000-0000000000d2',
+  '00000000-0000-0000-0000-0000000000d2',
+  jsonb_build_object('sub', '00000000-0000-0000-0000-0000000000d2', 'email', 'demo@odysseyloyalty.com'),
+  'email',
+  '00000000-0000-0000-0000-0000000000d2',
+  now(),
+  now(),
+  now()
+) on conflict do nothing;
+
+insert into public.tenant_members (tenant_id, user_id, role, display_name, active)
+values
+  ('7c1f0000-0000-4000-8000-0000000000d2', '00000000-0000-0000-0000-0000000000d2', 'owner', 'Demo Owner', true)
+on conflict (tenant_id, user_id) do nothing;
+
+insert into public.locations (id, tenant_id, name, address, active, card_mode)
+values
+  ('7c1f0000-0000-4000-8000-0000000000e1', '7c1f0000-0000-4000-8000-0000000000d2', 'BGC Flagship — High Street', 'Bonifacio High Street, BGC, Taguig', true, 'shared'),
+  ('7c1f0000-0000-4000-8000-0000000000e2', '7c1f0000-0000-4000-8000-0000000000d2', 'Makati Branch — Salcedo Village', 'L.P. Leviste St, Salcedo Village, Makati', true, 'shared')
+on conflict (id) do nothing;
+
+insert into public.tags (id, label, active, tenant_id, location_id)
+values
+  ('tcp_tag_demo_cafe_bgc', 'BGC Counter Main NTAG215', true, '7c1f0000-0000-4000-8000-0000000000d2', '7c1f0000-0000-4000-8000-0000000000e1'),
+  ('tcp_tag_demo_cafe_makati', 'Makati Counter NTAG215', true, '7c1f0000-0000-4000-8000-0000000000d2', '7c1f0000-0000-4000-8000-0000000000e2')
+on conflict (id) do nothing;

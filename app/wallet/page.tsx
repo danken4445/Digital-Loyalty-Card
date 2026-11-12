@@ -71,12 +71,20 @@ export default async function WalletPage({ searchParams }: WalletPageProps) {
             Tap the shop&apos;s NFC card or scan its QR code to add it here.
           </p>
 
-          <Link
-            href={ROUTES.privacy}
-            className="inline-flex min-h-11 items-center text-sm text-neutral-400 hover:text-white transition-colors underline-offset-4 hover:underline rounded px-2"
-          >
-            Privacy &amp; Data Rights (RA 10173)
-          </Link>
+          <div className="flex flex-col items-center gap-1">
+            <Link
+              href={ROUTES.privacy}
+              className="inline-flex min-h-11 items-center text-sm text-neutral-400 hover:text-white transition-colors underline-offset-4 hover:underline rounded px-2"
+            >
+              Privacy &amp; Data Rights (RA 10173)
+            </Link>
+            <Link
+              href={ROUTES.staff.login}
+              className="inline-flex min-h-9 items-center text-xs font-semibold text-neutral-400 hover:text-white transition-colors rounded px-2"
+            >
+              Business Owner / Merchant Portal &rarr;
+            </Link>
+          </div>
         </section>
       </main>
     );
@@ -131,12 +139,20 @@ export default async function WalletPage({ searchParams }: WalletPageProps) {
           />
         )}
 
-        <Link
-          href={ROUTES.privacy}
-          className="mt-6 inline-flex min-h-11 items-center text-sm text-neutral-400 hover:text-white transition-colors underline-offset-4 hover:underline rounded px-2"
-        >
-          Privacy &amp; Data Rights (RA 10173)
-        </Link>
+        <div className="mt-6 flex flex-col items-center gap-1">
+          <Link
+            href={ROUTES.privacy}
+            className="inline-flex min-h-11 items-center text-sm text-neutral-400 hover:text-white transition-colors underline-offset-4 hover:underline rounded px-2"
+          >
+            Privacy &amp; Data Rights (RA 10173)
+          </Link>
+          <Link
+            href={ROUTES.staff.login}
+            className="inline-flex min-h-9 items-center text-xs font-semibold text-neutral-400 hover:text-white transition-colors rounded px-2"
+          >
+            Business Owner / Merchant Portal &rarr;
+          </Link>
+        </div>
 
         <div className="mt-3 pt-3 border-t border-plug-border/60 w-full flex flex-col items-center">
           <DeleteCardButton variant="compact" scope="wallet" />
