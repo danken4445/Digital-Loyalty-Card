@@ -3,7 +3,10 @@
 import Image from 'next/image';
 import { useId, useState } from 'react';
 import { StampGrid } from '@/components/card/StampGrid';
+import { FacebookGlyph, InstagramGlyph, TikTokGlyph } from '@/components/card/SocialGlyphs';
+import { SocialLinksBar } from '@/components/card/SocialLinksBar';
 import { resolveCardTheme } from '@/lib/brand/contrast';
+import { resolveActiveSocialLinks } from '@/lib/brand/social';
 import { BRAND_THEME, SHOP_CONFIG } from '@/lib/config';
 import { TENANT_ONE_ID, type TenantBrand } from '@/lib/contracts';
 import { calculateStampProgress } from '@/lib/rules/display';
@@ -45,6 +48,10 @@ export function CustomerCardPreview({
   const tagline = theme.tagline ?? (isOriginalShop ? SHOP_CONFIG.tagline : null);
   const label = rewardLabel?.trim() || 'Free Coffee';
   const threshold = Math.max(1, rewardThreshold);
+  const activeSocialLinks = resolveActiveSocialLinks(
+    brand,
+    isOriginalShop ? SHOP_CONFIG.instagramHandle : null,
+  );
 
   const stamps = Math.min(threshold, stampOverride ?? Math.min(4, threshold - 1));
   const progress = calculateStampProgress(stamps, threshold);
@@ -122,6 +129,8 @@ export function CustomerCardPreview({
                   Get my card
                 </span>
               </div>
+
+              <SocialLinksBar links={activeSocialLinks} className="mt-4" />
             </section>
           ) : (
             <section
@@ -206,6 +215,34 @@ export function CustomerCardPreview({
                   <dd className="text-right text-neutral-300">Today</dd>
                 </dl>
               </div>
+
+              {/* Social Follow Perk Preview */}
+              {brand.socialRewardEnabled !== false && activeSocialLinks.length > 0 && (
+                <div className="mt-5 rounded-2xl border border-dashed border-plug-border bg-plug-elevated/40 p-4 text-center">
+                  <span className="rounded-full bg-white px-2.5 py-0.5 font-mono text-[10px] font-black uppercase tracking-widest text-black">
+                    {brand.socialReward?.trim() || 'FREE UPSIZE'} &bull; ONE TIME
+                  </span>
+                  <p className="mt-2 font-display text-sm font-bold uppercase text-white">
+                    Follow us, get {(brand.socialReward?.trim() || 'free upsize').toLowerCase()}
+                  </p>
+                  <div className="mt-2.5 flex flex-wrap justify-center gap-1.5">
+                    {activeSocialLinks.map((item) => (
+                      <span
+                        key={item.platform}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-700 bg-neutral-800/80 px-2 py-0.5 text-[10px] font-medium text-neutral-200"
+                      >
+                        {item.platform === 'instagram' && <InstagramGlyph className="h-3 w-3 text-pink-400" />}
+                        {item.platform === 'facebook' && <FacebookGlyph className="h-3 w-3 text-blue-400" />}
+                        {item.platform === 'tiktok' && <TikTokGlyph className="h-3 w-3 text-cyan-400" />}
+                        <span>{item.displayLabel}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Enabled Social Media Channels Bar */}
+              <SocialLinksBar links={activeSocialLinks} className="mt-4" />
             </section>
           )}
 

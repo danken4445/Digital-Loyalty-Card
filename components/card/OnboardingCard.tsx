@@ -4,7 +4,9 @@ import type { ReactNode } from 'react';
 import { BRAND_THEME, SHOP_CONFIG } from '@/lib/config';
 import { ROUTES } from '@/lib/contracts';
 import type { ResolvedCardTheme } from '@/lib/brand/contrast';
+import { type SocialLinkItem } from '@/lib/brand/social';
 import { BackToWalletButton } from '@/components/card/BackToWalletButton';
+import { SocialLinksBar } from '@/components/card/SocialLinksBar';
 
 export interface OnboardingCardProps {
   /** Accessible name for the page */
@@ -23,6 +25,8 @@ export interface OnboardingCardProps {
   originalShop?: boolean;
   /** Instagram handle shown under the card; null hides it, undefined uses the original shop's. */
   instagramHandle?: string | null;
+  /** Active social channels to display under the card */
+  socialLinks?: readonly SocialLinkItem[];
   /** Dynamic card theme resolved from tenant brand settings */
   theme?: ResolvedCardTheme;
   /** The call to action, usually <GetCardButton /> */
@@ -75,6 +79,7 @@ export function OnboardingCard({
   shopName = SHOP_CONFIG.name,
   originalShop = false,
   instagramHandle = SHOP_CONFIG.instagramHandle,
+  socialLinks,
   theme,
   backHref,
   children,
@@ -167,11 +172,13 @@ export function OnboardingCard({
         </Link>
       </section>
 
-      {instagramHandle && (
+      {socialLinks && socialLinks.length > 0 ? (
+        <SocialLinksBar links={socialLinks} className="mt-5" />
+      ) : instagramHandle ? (
         <p className="mt-5 font-display text-base font-bold tracking-wide text-plug-muted">
           {instagramHandle}
         </p>
-      )}
+      ) : null}
     </main>
   );
 }

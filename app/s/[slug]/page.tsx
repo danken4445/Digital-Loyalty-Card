@@ -33,6 +33,8 @@ import { issueMemberStampToken } from '@/lib/security/memberStampToken';
 import type { OfflineCardSnapshot } from '@/lib/offline/cardCache';
 import { BackupCardPanel } from '@/components/card/BackupCardPanel';
 import { InstagramUpsizePanel } from '@/components/card/InstagramUpsizePanel';
+import { SocialLinksBar } from '@/components/card/SocialLinksBar';
+import { resolveActiveSocialLinks } from '@/lib/brand/social';
 import { DeleteCardButton } from '@/components/card/DeleteCardButton';
 import { BackToWalletButton } from '@/components/card/BackToWalletButton';
 import { PullToRefresh } from '@/components/card/PullToRefresh';
@@ -61,6 +63,11 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
   const rewardThreshold = settings.rewardThreshold;
   const instagramPerk = settings.perks.instagram_follow_upsize;
   const instagramHandle = instagramPerk?.handle;
+  const activeSocialLinks = resolveActiveSocialLinks(settings.brand, instagramHandle);
+  const socialRewardLabel =
+    settings.brand.socialReward?.trim() || instagramPerk?.label || 'Free upsize';
+  const isSocialPerkEnabled =
+    settings.brand.socialRewardEnabled ?? Boolean(instagramPerk);
   // Milestone reward settings
   const milestoneStep =
     settings.milestoneStep ?? (tenant.id === TENANT_ONE_ID ? STAMP_RULES.milestoneStep : null);
@@ -104,6 +111,7 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
           shopName={tenant.name}
           originalShop={tenant.id === TENANT_ONE_ID}
           instagramHandle={instagramHandle ?? null}
+          socialLinks={activeSocialLinks}
           theme={theme}
           backHref={ROUTES.wallets}
           lines={
@@ -145,6 +153,7 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
         shopName={tenant.name}
         originalShop={tenant.id === TENANT_ONE_ID}
         instagramHandle={instagramHandle ?? null}
+        socialLinks={activeSocialLinks}
         theme={theme}
         backHref={ROUTES.wallets}
         lines={[
@@ -183,6 +192,7 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
         shopName={tenant.name}
         originalShop={tenant.id === TENANT_ONE_ID}
         instagramHandle={instagramHandle ?? null}
+        socialLinks={activeSocialLinks}
         theme={theme}
         backHref={ROUTES.wallets}
         lines={
@@ -457,13 +467,14 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
           </div>
         )}
 
-        {/* One-time Instagram follow perk (free upsize), only for shops that offer it */}
-        {instagramPerk && cardState.instagramUpsizeClaimed !== undefined && (
+        {/* One-time Social Media follow perk, only for shops that offer it */}
+        {isSocialPerkEnabled && activeSocialLinks.length > 0 && cardState.instagramUpsizeClaimed !== undefined && (
           <InstagramUpsizePanel
             claimed={cardState.instagramUpsizeClaimed}
             tenantSlug={tenant.slug}
             handle={instagramHandle}
-            perkLabel={instagramPerk.label}
+            perkLabel={socialRewardLabel}
+            socialLinks={activeSocialLinks}
           />
         )}
 
@@ -509,17 +520,8 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
             <dd className="text-right text-neutral-300">{lastVisitedText ?? 'First visit pending'}</dd>
           </dl>
 
-          {instagramHandle && (
-            <a
-              href={`https://instagram.com/${instagramHandle.replace('@', '')}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label={`Visit our Instagram profile ${instagramHandle}`}
-              className="mt-5 flex min-h-11 items-center justify-center font-display text-lg font-bold tracking-wide text-white hover:underline underline-offset-4 rounded-xl"
-            >
-              {instagramHandle}
-            </a>
-          )}
+          {/* Enabled Social Media Channels */}
+          <SocialLinksBar links={activeSocialLinks} />
 
           {/* Privacy & Self-Service Data Deletion Controls */}
           <div className="mt-3 pt-3 border-t border-plug-border/60 w-full flex flex-col items-center gap-2">

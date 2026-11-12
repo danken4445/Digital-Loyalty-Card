@@ -77,12 +77,20 @@ describe('lib/brand/contrast', () => {
         cardArtUrl: null,
         tagline: null,
         stampIcon: 'cup',
+        socialReward: 'Free upsize',
+        socialRewardEnabled: true,
+        socialLinks: {},
         passesAA: true,
       });
     });
 
     it('resolves a chosen stamp icon and falls back to the cup for unknown values', () => {
       expect(resolveCardTheme({ stampIcon: 'scissors' }).stampIcon).toBe('scissors');
+      expect(resolveCardTheme({ stampIcon: 'pickleball' }).stampIcon).toBe('pickleball');
+      expect(resolveCardTheme({ stampIcon: 'shoe' }).stampIcon).toBe('shoe');
+      expect(resolveCardTheme({ stampIcon: 'vape' }).stampIcon).toBe('vape');
+      expect(resolveCardTheme({ stampIcon: 'dumbbell' }).stampIcon).toBe('dumbbell');
+      expect(resolveCardTheme({ stampIcon: 'car' }).stampIcon).toBe('car');
       expect(resolveCardTheme({ stampIcon: 'bogus' as unknown as 'cup' }).stampIcon).toBe('cup');
     });
 
@@ -210,4 +218,3 @@ describe('lib/rules/display - formatDateTimeInZone memoization', () => {
     expect(formatterCache.has(timezones[104]!)).toBe(true);
   });
 });
-

@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { FacebookGlyph, InstagramGlyph, TikTokGlyph } from '@/components/card/SocialGlyphs';
+import { formatSocialDisplayHandle, formatSocialUrl, type SocialLinkItem } from '@/lib/brand/social';
 import { INSTAGRAM_PERK } from '@/lib/config';
 import {
   ROUTES,
@@ -13,33 +15,12 @@ export interface InstagramUpsizePanelProps {
   claimed: boolean;
   /** The shop offering the perk; sent when requesting the claim QR code. */
   tenantSlug: string;
-  /** The shop's Instagram handle (e.g. "@thecaffeineplug8400"); without it there is no follow link. */
+  /** Legacy Instagram handle (e.g. "@thecaffeineplug8400") */
   handle?: string;
-  /** What the follower gets; defaults to the platform wording. */
+  /** What the follower gets; defaults to the platform wording (e.g. "Free upsize" or custom). */
   perkLabel?: string;
-}
-
-function instagramUrl(handle: string): string {
-  return `https://www.instagram.com/${handle.replace(/^@/, '')}/`;
-}
-
-function InstagramGlyph() {
-  return (
-    <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
-      <rect
-        x="3"
-        y="3"
-        width="18"
-        height="18"
-        rx="5"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-      />
-      <circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" strokeWidth="2" />
-      <circle cx="17.5" cy="6.5" r="1.25" fill="currentColor" />
-    </svg>
-  );
+  /** Multi-platform social media links configured by the shop owner. */
+  socialLinks?: readonly SocialLinkItem[];
 }
 
 function storageKey(tenantSlug: string): string {
@@ -63,21 +44,36 @@ function rememberFollowOpened(tenantSlug: string): void {
 }
 
 /**
- * One-time "follow us on Instagram, get a free upsize" perk. Opening the profile and pressing
- * claim only shows a signed QR; the barista checks the follow on the customer's phone and grants
- * the upsize from /staff/redeem.
+ * One-time social media follower perk (e.g. "follow us on IG/FB/TikTok, get a free reward").
+ * Opening a profile and pressing claim shows a signed QR code; staff checks the follow
+ * on the customer's phone before confirming from /staff/redeem.
  */
 export function InstagramUpsizePanel({
   claimed,
   tenantSlug,
   handle,
   perkLabel = INSTAGRAM_PERK.rewardLabel,
+  socialLinks,
 }: InstagramUpsizePanelProps) {
   const [followOpened, setFollowOpened] = useState<boolean>(false);
   const [tokenData, setTokenData] = useState<IssuedRedeemToken | null>(null);
   const [secondsLeft, setSecondsLeft] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Resolve active links to display in this panel
+  const activeFollowLinks: SocialLinkItem[] =
+    socialLinks && socialLinks.length > 0
+      ? [...socialLinks]
+      : handle
+        ? [
+            {
+              platform: 'instagram',
+              url: formatSocialUrl('instagram', handle),
+              displayLabel: formatSocialDisplayHandle('instagram', handle),
+            },
+          ]
+        : [];
 
   useEffect(() => {
     setFollowOpened(readFollowOpened(tenantSlug));
@@ -116,7 +112,7 @@ export function InstagramUpsizePanel({
       const json = (await response.json()) as ApiResponse<IssuedRedeemToken>;
 
       if (!response.ok || !json.ok) {
-        setErrorMessage(!json.ok ? json.message : 'Unable to load your upsize QR code.');
+        setErrorMessage(!json.ok ? json.message : 'Unable to load your perk QR code.');
         return;
       }
 
@@ -128,17 +124,22 @@ export function InstagramUpsizePanel({
     }
   };
 
+  const isOnlyInstagram =
+    activeFollowLinks.length === 1 && activeFollowLinks[0]?.platform === 'instagram';
+
   if (claimed) {
     return (
       <section
-        aria-label="Instagram Upsize Perk"
+        aria-label="Social Follow Perk"
         className="mt-6 pt-4 border-t border-plug-border flex flex-col items-center text-center"
       >
         <span className="bg-white text-black font-mono text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-widest">
-          INSTAGRAM UPSIZE • CLAIMED
+          {isOnlyInstagram ? 'INSTAGRAM UPSIZE • CLAIMED' : 'SOCIAL PERK • CLAIMED'}
         </span>
         <p className="text-[10px] font-mono uppercase tracking-wider text-plug-muted mt-2 max-w-[280px]">
-          {handle ? `Thanks for following ${handle}. Watch our feed for drops.` : 'Thanks for following us.'}
+          {handle
+            ? `Thanks for following ${handle}. Watch our feed for drops.`
+            : 'Thanks for following us. Watch our feeds for drops and announcements.'}
         </p>
       </section>
     );
@@ -148,30 +149,36 @@ export function InstagramUpsizePanel({
 
   return (
     <section
-      aria-label="Instagram Upsize Perk"
+      aria-label="Social Follow Perk"
       className="mt-6 pt-5 border-t border-plug-border flex flex-col items-center text-center"
     >
       <span className="bg-white text-black font-mono text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-widest">
-        FREE UPSIZE • ONE TIME
+        {perkLabel.toUpperCase()} • ONE TIME
       </span>
       <h2 className="font-display text-2xl font-bold uppercase leading-none tracking-wide text-white mt-3">
-        Follow us, size up
+        {perkLabel.toLowerCase().includes('upsize')
+          ? 'Follow us, size up'
+          : `Follow us, get ${perkLabel.toLowerCase()}`}
       </h2>
-      <p className="text-sm text-neutral-300 mt-2 max-w-[300px]">
+      <p className="text-sm text-neutral-300 mt-2 max-w-[320px]">
         Follow{' '}
-        {handle ? <span className="font-semibold text-white">{handle}</span> : 'us'} on Instagram and
-        get a {perkLabel.toLowerCase()}.
+        {isOnlyInstagram && handle ? (
+          <span className="font-semibold text-white">{handle}</span>
+        ) : (
+          'our social channels'
+        )}{' '}
+        and get a {perkLabel.toLowerCase()}.
       </p>
 
       {tokenData ? (
         <div className="w-full flex flex-col items-center mt-4">
           <p className="text-xs font-mono uppercase tracking-wider text-plug-muted">
-            Show this QR and your Instagram follow to the barista
+            Show this QR and your social follow to the staff
           </p>
 
           <div
             role="img"
-            aria-label={`Upsize QR code ${tokenData.displayCode} for staff to scan`}
+            aria-label={`Perk QR code ${tokenData.displayCode} for staff to scan`}
             className="relative bg-white p-3 rounded-xl mt-3 flex items-center justify-center w-48 h-48 max-w-full overflow-hidden"
           >
             <div
@@ -213,9 +220,10 @@ export function InstagramUpsizePanel({
         </div>
       ) : (
         <div className="w-full flex flex-col gap-2.5 mt-4">
-          {handle && (
+          {activeFollowLinks.map((item) => (
             <a
-              href={instagramUrl(handle)}
+              key={item.platform}
+              href={item.url}
               target="_blank"
               rel="noopener noreferrer"
               onClick={handleFollowClick}
@@ -225,12 +233,18 @@ export function InstagramUpsizePanel({
                   : 'bg-white text-black hover:bg-neutral-200'
               }`}
             >
-              <InstagramGlyph />
+              {item.platform === 'instagram' && <InstagramGlyph />}
+              {item.platform === 'facebook' && <FacebookGlyph />}
+              {item.platform === 'tiktok' && <TikTokGlyph />}
               <span>
-                {followOpened ? 'OPEN INSTAGRAM AGAIN' : `FOLLOW ${handle}`}
+                {followOpened
+                  ? `OPEN ${item.platform.toUpperCase()} AGAIN`
+                  : isOnlyInstagram && handle
+                    ? `FOLLOW ${handle}`
+                    : `FOLLOW ON ${item.platform.toUpperCase()}`}
               </span>
             </a>
-          )}
+          ))}
 
           <button
             type="button"
@@ -246,7 +260,7 @@ export function InstagramUpsizePanel({
             {isLoading
               ? 'LOADING...'
               : followOpened
-                ? 'I FOLLOWED — CLAIM UPSIZE'
+                ? `I FOLLOWED — CLAIM ${perkLabel.toUpperCase()}`
                 : 'ALREADY FOLLOWING? CLAIM'}
           </button>
         </div>
@@ -261,4 +275,5 @@ export function InstagramUpsizePanel({
   );
 }
 
+export { InstagramUpsizePanel as SocialFollowPerkPanel };
 export default InstagramUpsizePanel;

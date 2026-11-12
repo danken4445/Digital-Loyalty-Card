@@ -15,6 +15,21 @@ const NO_STORE_HEADERS = {
 
 const HEX_COLOR_REGEX = /^#[0-9A-Fa-f]{6}$/;
 
+const socialPlatformSchema = z
+  .object({
+    enabled: z.boolean(),
+    url: z.string().trim().max(300).default(''),
+  })
+  .strict();
+
+const socialLinksSchema = z
+  .object({
+    instagram: socialPlatformSchema.optional(),
+    facebook: socialPlatformSchema.optional(),
+    tiktok: socialPlatformSchema.optional(),
+  })
+  .strict();
+
 const brandPatchSchema = z
   .object({
     primaryColor: z
@@ -41,6 +56,14 @@ const brandPatchSchema = z
       .enum(STAMP_ICON_IDS, { message: 'Stamp icon is not one of the available icons' })
       .optional()
       .nullable(),
+    socialReward: z
+      .string()
+      .trim()
+      .max(80, 'Social reward must be 80 characters or fewer')
+      .optional()
+      .nullable(),
+    socialRewardEnabled: z.boolean().optional().nullable(),
+    socialLinks: socialLinksSchema.optional().nullable(),
   })
   .strict();
 
@@ -217,6 +240,15 @@ export async function PATCH(
   }
   if (parsed.data.stampIcon !== undefined) {
     cleanBrand.stampIcon = parsed.data.stampIcon ?? undefined;
+  }
+  if (parsed.data.socialReward !== undefined) {
+    cleanBrand.socialReward = parsed.data.socialReward || undefined;
+  }
+  if (parsed.data.socialRewardEnabled !== undefined) {
+    cleanBrand.socialRewardEnabled = parsed.data.socialRewardEnabled ?? undefined;
+  }
+  if (parsed.data.socialLinks !== undefined) {
+    cleanBrand.socialLinks = parsed.data.socialLinks ?? undefined;
   }
 
   if (Object.keys(cleanBrand).length === 0) {

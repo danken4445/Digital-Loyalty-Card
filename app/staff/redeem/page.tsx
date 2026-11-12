@@ -20,7 +20,13 @@ export default async function StaffRedeemPage() {
         <RedeemRewardForm
           rewardThreshold={settings?.rewardThreshold}
           rewardLabel={settings?.rewardLabel}
-          instagramHandle={settings?.perks.instagram_follow_upsize?.handle}
+          instagramHandle={
+            settings?.brand?.socialLinks?.instagram?.url ||
+            settings?.perks.instagram_follow_upsize?.handle
+          }
+          socialRewardLabel={
+            settings?.brand?.socialReward || settings?.perks.instagram_follow_upsize?.label
+          }
         />
       </section>
     </StaffPageShell>

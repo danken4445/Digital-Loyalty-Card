@@ -3,8 +3,15 @@
 import React, { useId, useState } from 'react';
 import Image from 'next/image';
 import { getContrastRatio, resolveCardTheme } from '@/lib/brand/contrast';
+import { FacebookGlyph, InstagramGlyph, TikTokGlyph } from '@/components/card/SocialGlyphs';
 import { StampIcon, STAMP_ICON_LABELS } from '@/components/card/StampIcon';
-import { DEFAULT_STAMP_ICON, STAMP_ICON_IDS, type ApiResponse, type StampIconId, type TenantBrand } from '@/lib/contracts';
+import {
+  DEFAULT_STAMP_ICON,
+  STAMP_ICON_IDS,
+  type ApiResponse,
+  type StampIconId,
+  type TenantBrand,
+} from '@/lib/contracts';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import { CustomerCardPreview } from './CustomerCardPreview';
 
@@ -111,6 +118,32 @@ export function BrandSettingsForm({
   const [cardArtUrl, setCardArtUrl] = useState(initialBrand.cardArtUrl || '');
   const [stampIcon, setStampIcon] = useState<StampIconId>(initialBrand.stampIcon ?? DEFAULT_STAMP_ICON);
 
+  const initialSocial = initialBrand.socialLinks ?? {};
+  const [socialRewardEnabled, setSocialRewardEnabled] = useState<boolean>(
+    initialBrand.socialRewardEnabled ?? true,
+  );
+  const [socialReward, setSocialReward] = useState<string>(
+    initialBrand.socialReward || 'Free upsize',
+  );
+  const [instagramEnabled, setInstagramEnabled] = useState<boolean>(
+    initialSocial.instagram?.enabled ?? true,
+  );
+  const [instagramUrl, setInstagramUrl] = useState<string>(
+    initialSocial.instagram?.url ?? '',
+  );
+  const [facebookEnabled, setFacebookEnabled] = useState<boolean>(
+    initialSocial.facebook?.enabled ?? false,
+  );
+  const [facebookUrl, setFacebookUrl] = useState<string>(
+    initialSocial.facebook?.url ?? '',
+  );
+  const [tiktokEnabled, setTiktokEnabled] = useState<boolean>(
+    initialSocial.tiktok?.enabled ?? false,
+  );
+  const [tiktokUrl, setTiktokUrl] = useState<string>(
+    initialSocial.tiktok?.url ?? '',
+  );
+
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const [isUploadingArt, setIsUploadingArt] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -119,6 +152,11 @@ export function BrandSettingsForm({
   const primaryColorId = useId();
   const accentColorId = useId();
   const taglineId = useId();
+  const socialRewardEnabledId = useId();
+  const socialRewardId = useId();
+  const instagramEnabledId = useId();
+  const facebookEnabledId = useId();
+  const tiktokEnabledId = useId();
 
   // Resolve live theme and contrast ratio
   const currentBrand: TenantBrand = {
@@ -128,6 +166,22 @@ export function BrandSettingsForm({
     logoUrl: logoUrl.trim() || undefined,
     cardArtUrl: cardArtUrl.trim() || undefined,
     stampIcon,
+    socialReward: socialReward.trim() || undefined,
+    socialRewardEnabled,
+    socialLinks: {
+      instagram: {
+        enabled: instagramEnabled,
+        url: instagramUrl.trim(),
+      },
+      facebook: {
+        enabled: facebookEnabled,
+        url: facebookUrl.trim(),
+      },
+      tiktok: {
+        enabled: tiktokEnabled,
+        url: tiktokUrl.trim(),
+      },
+    },
   };
 
   const theme = resolveCardTheme(currentBrand);
@@ -201,6 +255,22 @@ export function BrandSettingsForm({
         logoUrl: logoUrl.trim() || undefined,
         cardArtUrl: cardArtUrl.trim() || undefined,
         stampIcon,
+        socialReward: socialReward.trim() || undefined,
+        socialRewardEnabled,
+        socialLinks: {
+          instagram: {
+            enabled: instagramEnabled,
+            url: instagramUrl.trim(),
+          },
+          facebook: {
+            enabled: facebookEnabled,
+            url: facebookUrl.trim(),
+          },
+          tiktok: {
+            enabled: tiktokEnabled,
+            url: tiktokUrl.trim(),
+          },
+        },
       };
 
       const res = await fetch(`/api/staff/${encodeURIComponent(slug)}/brand`, {
@@ -376,6 +446,177 @@ export function BrandSettingsForm({
               })}
             </div>
           </fieldset>
+
+          {/* Social Media & Follower Reward */}
+          <div className="border border-neutral-800 bg-neutral-900/60 p-4 space-y-4">
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-300">
+                Social Media & Follower Perk
+              </h3>
+              <p className="mt-1 text-xs text-neutral-400">
+                Choose which social media channels to display on your loyalty card, and reward customers who follow you.
+              </p>
+            </div>
+
+            {/* Follower Perk Configuration */}
+            <div className="rounded-lg border border-neutral-800 bg-black/40 p-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <label htmlFor={socialRewardEnabledId} className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    id={socialRewardEnabledId}
+                    type="checkbox"
+                    checked={socialRewardEnabled}
+                    disabled={!canManage}
+                    onChange={(e) => setSocialRewardEnabled(e.target.checked)}
+                    className="h-4 w-4 rounded border-neutral-700 bg-neutral-800 text-amber-500 focus:ring-amber-500"
+                  />
+                  <span className="text-xs font-bold uppercase tracking-wider text-white">
+                    Enable Social Follow Reward
+                  </span>
+                </label>
+                <span className="text-[11px] text-neutral-500">One-time perk</span>
+              </div>
+
+              {socialRewardEnabled && (
+                <div>
+                  <label htmlFor={socialRewardId} className="block text-xs font-medium text-neutral-300">
+                    What reward does the customer get for following?
+                  </label>
+                  <input
+                    id={socialRewardId}
+                    type="text"
+                    value={socialReward}
+                    disabled={!canManage}
+                    onChange={(e) => setSocialReward(e.target.value)}
+                    placeholder="e.g. Free upsize, 10% off your next purchase, Free cookie"
+                    maxLength={80}
+                    className="mt-1.5 w-full border border-neutral-700 bg-black px-3 py-2 text-xs text-white placeholder-neutral-600 focus:border-amber-500 focus:outline-none"
+                  />
+                  <p className="mt-1 text-[11px] text-neutral-500">
+                    Displayed on customer card as &ldquo;Follow us, get {socialReward.toLowerCase() || 'your reward'}&rdquo;. Staff verifies the follow before confirming.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Social Media Channels Toggles & Link Inputs */}
+            <div className="space-y-3 pt-1">
+              <span className="block text-xs font-bold uppercase tracking-wider text-neutral-300">
+                Social Channels to Display
+              </span>
+
+              {/* Instagram */}
+              <div className="rounded-lg border border-neutral-800 bg-black/40 p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label htmlFor={instagramEnabledId} className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      id={instagramEnabledId}
+                      type="checkbox"
+                      checked={instagramEnabled}
+                      disabled={!canManage}
+                      onChange={(e) => setInstagramEnabled(e.target.checked)}
+                      className="h-4 w-4 rounded border-neutral-700 bg-neutral-800 text-amber-500 focus:ring-amber-500"
+                    />
+                    <div className="flex items-center gap-1.5">
+                      <InstagramGlyph className="h-4 w-4 text-pink-400" />
+                      <span className="text-xs font-semibold text-white">Instagram</span>
+                    </div>
+                  </label>
+                  <span className={`text-[10px] font-mono ${instagramEnabled ? 'text-emerald-400' : 'text-neutral-500'}`}>
+                    {instagramEnabled ? 'SHOW ON CARD' : 'HIDDEN'}
+                  </span>
+                </div>
+                {instagramEnabled && (
+                  <div className="pt-1">
+                    <label className="block text-[11px] text-neutral-400">Instagram Link or Handle</label>
+                    <input
+                      type="text"
+                      value={instagramUrl}
+                      disabled={!canManage}
+                      onChange={(e) => setInstagramUrl(e.target.value)}
+                      placeholder="e.g. @yourshop or https://instagram.com/yourshop"
+                      maxLength={255}
+                      className="mt-1 w-full border border-neutral-700 bg-black px-3 py-1.5 text-xs font-mono text-white placeholder-neutral-600 focus:border-amber-500 focus:outline-none"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Facebook */}
+              <div className="rounded-lg border border-neutral-800 bg-black/40 p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label htmlFor={facebookEnabledId} className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      id={facebookEnabledId}
+                      type="checkbox"
+                      checked={facebookEnabled}
+                      disabled={!canManage}
+                      onChange={(e) => setFacebookEnabled(e.target.checked)}
+                      className="h-4 w-4 rounded border-neutral-700 bg-neutral-800 text-amber-500 focus:ring-amber-500"
+                    />
+                    <div className="flex items-center gap-1.5">
+                      <FacebookGlyph className="h-4 w-4 text-blue-400" />
+                      <span className="text-xs font-semibold text-white">Facebook</span>
+                    </div>
+                  </label>
+                  <span className={`text-[10px] font-mono ${facebookEnabled ? 'text-emerald-400' : 'text-neutral-500'}`}>
+                    {facebookEnabled ? 'SHOW ON CARD' : 'HIDDEN'}
+                  </span>
+                </div>
+                {facebookEnabled && (
+                  <div className="pt-1">
+                    <label className="block text-[11px] text-neutral-400">Facebook Page Link</label>
+                    <input
+                      type="text"
+                      value={facebookUrl}
+                      disabled={!canManage}
+                      onChange={(e) => setFacebookUrl(e.target.value)}
+                      placeholder="e.g. https://facebook.com/yourshop"
+                      maxLength={255}
+                      className="mt-1 w-full border border-neutral-700 bg-black px-3 py-1.5 text-xs font-mono text-white placeholder-neutral-600 focus:border-amber-500 focus:outline-none"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* TikTok */}
+              <div className="rounded-lg border border-neutral-800 bg-black/40 p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label htmlFor={tiktokEnabledId} className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      id={tiktokEnabledId}
+                      type="checkbox"
+                      checked={tiktokEnabled}
+                      disabled={!canManage}
+                      onChange={(e) => setTiktokEnabled(e.target.checked)}
+                      className="h-4 w-4 rounded border-neutral-700 bg-neutral-800 text-amber-500 focus:ring-amber-500"
+                    />
+                    <div className="flex items-center gap-1.5">
+                      <TikTokGlyph className="h-4 w-4 text-cyan-400" />
+                      <span className="text-xs font-semibold text-white">TikTok</span>
+                    </div>
+                  </label>
+                  <span className={`text-[10px] font-mono ${tiktokEnabled ? 'text-emerald-400' : 'text-neutral-500'}`}>
+                    {tiktokEnabled ? 'SHOW ON CARD' : 'HIDDEN'}
+                  </span>
+                </div>
+                {tiktokEnabled && (
+                  <div className="pt-1">
+                    <label className="block text-[11px] text-neutral-400">TikTok Link or Handle</label>
+                    <input
+                      type="text"
+                      value={tiktokUrl}
+                      disabled={!canManage}
+                      onChange={(e) => setTiktokUrl(e.target.value)}
+                      placeholder="e.g. @yourshop or https://tiktok.com/@yourshop"
+                      maxLength={255}
+                      className="mt-1 w-full border border-neutral-700 bg-black px-3 py-1.5 text-xs font-mono text-white placeholder-neutral-600 focus:border-amber-500 focus:outline-none"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
 
           {/* Logo Upload */}
           <div className="border border-neutral-800 bg-neutral-900/60 p-4 space-y-3">

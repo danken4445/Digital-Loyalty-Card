@@ -12,15 +12,24 @@ export const STAMP_ICON_LABELS: Record<StampIconId, string> = {
   bag: 'Shopping bag',
   sparkles: 'Sparkles',
   gift: 'Gift',
+  pickleball: 'Pickleball',
+  shoe: 'Shoe',
+  vape: 'Vape',
+  dumbbell: 'Dumbbell',
+  car: 'Car wash',
 };
 
 /** Line glyphs on a 24x24 grid, drawn with currentColor strokes. */
 function Glyph({ icon }: { icon: StampIconId }) {
   switch (icon) {
     case 'star':
-      return <path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9L12 3Z" />;
+      return (
+        <path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9L12 3Z" />
+      );
     case 'heart':
-      return <path d="M12 20.5S3.5 15 3.5 9.2A4.7 4.7 0 0 1 12 6.6a4.7 4.7 0 0 1 8.5 2.6C20.5 15 12 20.5 12 20.5Z" />;
+      return (
+        <path d="M12 20.5S3.5 15 3.5 9.2A4.7 4.7 0 0 1 12 6.6a4.7 4.7 0 0 1 8.5 2.6C20.5 15 12 20.5 12 20.5Z" />
+      );
     case 'scissors':
       return (
         <>
@@ -73,6 +82,54 @@ function Glyph({ icon }: { icon: StampIconId }) {
           <rect x="3.5" y="8" width="17" height="4" rx="1" />
           <path d="M5 12v8h14v-8M12 8v12" />
           <path d="M12 8c-1-3.5-5-4.5-5-2.2C7 7.2 9 8 12 8Zm0 0c1-3.5 5-4.5 5-2.2C17 7.2 15 8 12 8Z" />
+        </>
+      );
+    case 'pickleball':
+      return (
+        <>
+          <rect x="3" y="3" width="10" height="11.5" rx="3.5" />
+          <path d="M6.5 14.5v5.5a1 1 0 0 0 1 1h1a1 1 0 0 0 1-1v-5.5M6.5 18.5h3" />
+          <circle cx="17.5" cy="8.5" r="3.5" />
+          <path d="M16.3 7.5h.01M18.7 7.5h.01M16.3 9.5h.01M18.7 9.5h.01" />
+        </>
+      );
+    case 'shoe':
+      return (
+        <>
+          <path d="M2.5 17.5h16c1.5 0 2.5-.5 3-1.5l-.2-2c-.5-1-1.5-1.5-3.3-1.5H16L12 7.5a1 1 0 0 0-1-.5H9.5l-.5 2.5C7.5 10 6 10 4 9.5L3 12c-.5 1.5-.5 3.5-.5 5.5Z" />
+          <path d="M2.5 15.5h18.5" />
+          <path d="M10 9.5l2 1M11.5 11.5l2 1" />
+          <path d="M5.5 14c2.5 0 4.5-.8 7.5-.8" />
+        </>
+      );
+    case 'vape':
+      return (
+        <>
+          <rect x="8.5" y="8" width="7" height="13" rx="1.8" />
+          <path d="M10 8V5.5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1V8" />
+          <path d="M8.5 11h7" />
+          <circle cx="12" cy="15.5" r="0.9" />
+          <path d="M9.5 4.5c-.6-.7.6-1.5 0-2.2M12 4c-.6-.7.6-1.6 0-2.4M14.5 4.5c.6-.7-.6-1.5 0-2.2" />
+        </>
+      );
+    case 'dumbbell':
+      return (
+        <>
+          <path d="M6.5 12h11" />
+          <rect x="4.5" y="6.5" width="2" height="11" rx="0.8" />
+          <rect x="17.5" y="6.5" width="2" height="11" rx="0.8" />
+          <rect x="2" y="8" width="2.5" height="8" rx="0.8" />
+          <rect x="19.5" y="8" width="2.5" height="8" rx="0.8" />
+        </>
+      );
+    case 'car':
+      return (
+        <>
+          <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H7.5c-.8 0-1.5.4-1.9 1.1L3.3 12.3c-.2.4-.3.9-.3 1.4v2.3c0 .6.4 1 1 1h2" />
+          <circle cx="7" cy="17" r="2" />
+          <path d="M9 17h6" />
+          <circle cx="17" cy="17" r="2" />
+          <path d="M5 12h14M11 7v5" />
         </>
       );
     case 'cup':

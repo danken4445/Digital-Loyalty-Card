@@ -19,6 +19,8 @@ export interface RedeemRewardFormProps {
   rewardLabel?: string;
   /** The active shop's Instagram handle for the follow perk. */
   instagramHandle?: string;
+  /** Custom label for the social follower perk, e.g. "Free upsize" or "10% off" */
+  socialRewardLabel?: string;
 }
 
 /** Shown on the redeem preview when the customer cannot redeem yet. */
@@ -34,6 +36,7 @@ export function RedeemRewardForm({
   rewardThreshold = STAMP_RULES.rewardThreshold,
   rewardLabel = 'FREE COFFEE',
   instagramHandle = SHOP_CONFIG.instagramHandle,
+  socialRewardLabel,
 }: RedeemRewardFormProps = {}) {
   const [tokenInput, setTokenInput] = useState('');
   const [activeToken, setActiveToken] = useState('');
@@ -324,11 +327,11 @@ export function RedeemRewardForm({
             {preview.rewardKind === 'instagram-upsize' ? (
               preview.canRedeem ? (
                 <span className="rounded-full bg-white px-3 py-1 text-sm font-bold text-plug-black">
-                  INSTAGRAM PERK • FREE UPSIZE
+                  SOCIAL PERK • {(socialRewardLabel || 'FREE UPSIZE').toUpperCase()}
                 </span>
               ) : (
                 <span className="rounded-full border border-red-500/50 bg-red-950/50 px-3 py-1 text-xs font-semibold text-red-300">
-                  UPSIZE ALREADY USED
+                  REWARD ALREADY CLAIMED
                 </span>
               )
             ) : preview.rewardKind === 'milestone-reward' ? (
@@ -385,9 +388,8 @@ export function RedeemRewardForm({
                   <div className="rounded-xl border border-white/40 bg-plug-black p-4 text-sm text-neutral-200">
                     <p className="font-semibold text-white">Before you confirm</p>
                     <p className="mt-1 text-xs leading-relaxed text-neutral-300">
-                      Ask the customer to open Instagram on their phone and show that they follow{' '}
-                      <span className="font-semibold text-white">{instagramHandle}</span> (the
-                      profile button should say &ldquo;Following&rdquo;). No stamps are used.
+                      Ask the customer to open their social media app on their phone and show that they follow{' '}
+                      <span className="font-semibold text-white">{instagramHandle || 'your shop'}</span>. No stamps are used.
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-3">
@@ -527,7 +529,7 @@ export function RedeemRewardForm({
                 {confirmResult.result !== 'redeemed'
                   ? 'NOTHING WAS GIVEN'
                   : confirmResult.rewardKind === 'instagram-upsize'
-                    ? 'FREE UPSIZE GRANTED — NO STAMPS USED'
+                    ? `${(socialRewardLabel || 'FREE UPSIZE').toUpperCase()} GRANTED — NO STAMPS USED`
                     : `REWARD REDEEMED — ${rewardThreshold} STAMPS DEDUCTED`}
               </h3>
             </div>

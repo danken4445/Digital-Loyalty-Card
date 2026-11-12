@@ -1,4 +1,10 @@
-import { DEFAULT_STAMP_ICON, isStampIconId, type StampIconId, type TenantBrand } from '@/lib/contracts';
+import {
+  DEFAULT_STAMP_ICON,
+  isStampIconId,
+  type StampIconId,
+  type TenantBrand,
+  type TenantSocialLinks,
+} from '@/lib/contracts';
 
 /**
  * WCAG AA Contrast and Dynamic Card Branding Engine.
@@ -34,6 +40,9 @@ export interface ResolvedCardTheme {
   cardArtUrl: string | null;
   tagline: string | null;
   stampIcon: StampIconId;
+  socialReward: string;
+  socialRewardEnabled: boolean;
+  socialLinks: TenantSocialLinks;
   passesAA: boolean;
 }
 
@@ -179,6 +188,10 @@ export function resolveCardTheme(brand?: TenantBrand | null): ResolvedCardTheme 
       ? safeBrand.tagline.trim()
       : null;
 
+  const socialReward = safeBrand.socialReward?.trim() || 'Free upsize';
+  const socialRewardEnabled = safeBrand.socialRewardEnabled ?? true;
+  const socialLinks: TenantSocialLinks = safeBrand.socialLinks ?? {};
+
   return {
     primaryColor,
     accentColor,
@@ -190,6 +203,9 @@ export function resolveCardTheme(brand?: TenantBrand | null): ResolvedCardTheme 
     cardArtUrl,
     tagline,
     stampIcon: isStampIconId(safeBrand.stampIcon) ? safeBrand.stampIcon : DEFAULT_STAMP_ICON,
+    socialReward,
+    socialRewardEnabled,
+    socialLinks,
     passesAA,
   };
 }

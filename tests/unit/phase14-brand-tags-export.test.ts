@@ -103,10 +103,17 @@ import { toCsv } from '@/lib/ops/csv';
 import { resolveCardTheme, getContrastRatio } from '@/lib/brand/contrast';
 import { PATCH as brandPatch } from '@/app/api/staff/[slug]/brand/route';
 import { GET as exportGet } from '@/app/api/staff/[slug]/export/route';
-import { POST as locationsPost, PATCH as locationsPatch } from '@/app/api/staff/[slug]/locations/route';
+import {
+  POST as locationsPost,
+  PATCH as locationsPatch,
+} from '@/app/api/staff/[slug]/locations/route';
 import { POST as separatePost } from '@/app/api/staff/[slug]/locations/separate/route';
 import { POST as tagsPost } from '@/app/api/staff/[slug]/tags/route';
-import { SEPARATION_WARNINGS, isSeparationConfirmDisabled, DEFAULT_FOCUS_ELEMENT } from '@/components/console/SeparationModal';
+import {
+  SEPARATION_WARNINGS,
+  isSeparationConfirmDisabled,
+  DEFAULT_FOCUS_ELEMENT,
+} from '@/components/console/SeparationModal';
 import { groupTagsByBranch } from '@/lib/tags/grouping';
 
 const SHOP_A = {
@@ -187,7 +194,7 @@ describe('Phase 14 Task 7: Branding, Tags Tab, CSV Export, Locations', () => {
 
     // Formula injection characters at the start of cells must have a leading single quote
     expect(csv).toContain("'=SUM(A1:B1)");
-    expect(csv).toContain("'+CMD|\"\"/C calc\"\"!A0");
+    expect(csv).toContain('\'+CMD|""/C calc""!A0');
     expect(csv).toContain("'-12345");
     expect(csv).toContain("'@admin");
     expect(csv).toContain("'\tunsafe");
@@ -207,12 +214,21 @@ describe('Phase 14 Task 7: Branding, Tags Tab, CSV Export, Locations', () => {
 
     // User is NOT a member of 'shop-c'
     const nonMemberReq = new Request('http://localhost:3000/api/staff/shop-c/export?kind=cards');
-    const nonMemberRes = await exportGet(nonMemberReq, { params: Promise.resolve({ slug: 'shop-c' }) });
+    const nonMemberRes = await exportGet(nonMemberReq, {
+      params: Promise.resolve({ slug: 'shop-c' }),
+    });
     expect(nonMemberRes.status).toBe(404);
 
     // User is manager in shop-b -> export authorized
     queryResults['customer_cards'] = {
-      data: [{ customer_id: 'cust-1', added_at: '2026-11-01T00:00:00Z', total_stamps: 5, available_stamps: 3 }],
+      data: [
+        {
+          customer_id: 'cust-1',
+          added_at: '2026-11-01T00:00:00Z',
+          total_stamps: 5,
+          available_stamps: 3,
+        },
+      ],
       error: null,
     };
     queryResults['locations'] = {
@@ -225,7 +241,9 @@ describe('Phase 14 Task 7: Branding, Tags Tab, CSV Export, Locations', () => {
     const memberRes = await exportGet(memberReq, { params: Promise.resolve({ slug: 'shop-b' }) });
     expect(memberRes.status).toBe(200);
     expect(memberRes.headers.get('Content-Type')).toContain('text/csv');
-    expect(memberRes.headers.get('Content-Disposition')).toContain('attachment; filename="shop-b-cards-');
+    expect(memberRes.headers.get('Content-Disposition')).toContain(
+      'attachment; filename="shop-b-cards-',
+    );
     expect(memberRes.headers.get('Cache-Control')).toContain('no-store');
   });
 
@@ -295,7 +313,8 @@ describe('Phase 14 Task 7: Branding, Tags Tab, CSV Export, Locations', () => {
       method: 'PATCH',
       headers: { 'content-type': 'application/json', origin: 'http://localhost:3000' },
       body: JSON.stringify({
-        logoUrl: 'https://example.com/storage/v1/object/public/tenant-brand/11111111-1111-1111-1111-111111111111/logo.svg',
+        logoUrl:
+          'https://example.com/storage/v1/object/public/tenant-brand/11111111-1111-1111-1111-111111111111/logo.svg',
       }),
     });
     const svgRes = await brandPatch(svgReq, { params: Promise.resolve({ slug: 'shop-a' }) });
@@ -312,7 +331,9 @@ describe('Phase 14 Task 7: Branding, Tags Tab, CSV Export, Locations', () => {
         tagline: 'This tagline is way too long and exceeds the sixty character limit set by bounds',
       }),
     });
-    const taglineRes = await brandPatch(taglineReq, { params: Promise.resolve({ slug: 'shop-a' }) });
+    const taglineRes = await brandPatch(taglineReq, {
+      params: Promise.resolve({ slug: 'shop-a' }),
+    });
     expect(taglineRes.status).toBe(400);
 
     // Reject foreign host
@@ -323,7 +344,9 @@ describe('Phase 14 Task 7: Branding, Tags Tab, CSV Export, Locations', () => {
         logoUrl: 'https://evil-hacker.com/image.png',
       }),
     });
-    const foreignRes = await brandPatch(foreignReq, { params: Promise.resolve({ slug: 'shop-a' }) });
+    const foreignRes = await brandPatch(foreignReq, {
+      params: Promise.resolve({ slug: 'shop-a' }),
+    });
     expect(foreignRes.status).toBe(400);
 
     // Reject data: or javascript: URLs
@@ -374,7 +397,9 @@ describe('Phase 14 Task 7: Branding, Tags Tab, CSV Export, Locations', () => {
         primaryColor: '#123456',
       }),
     });
-    const partialRes = await brandPatch(partialReq, { params: Promise.resolve({ slug: 'shop-a' }) });
+    const partialRes = await brandPatch(partialReq, {
+      params: Promise.resolve({ slug: 'shop-a' }),
+    });
     expect(partialRes.status).toBe(200);
     expect(mockAdminClient.rpc).toHaveBeenLastCalledWith('update_tenant_brand', {
       p_actor: expect.any(String),
@@ -390,7 +415,9 @@ describe('Phase 14 Task 7: Branding, Tags Tab, CSV Export, Locations', () => {
       headers: { 'content-type': 'application/json', origin: 'http://localhost:3000' },
       body: JSON.stringify({ stampIcon: 'rocket-launcher' }),
     });
-    const badIconRes = await brandPatch(badIconReq, { params: Promise.resolve({ slug: 'shop-a' }) });
+    const badIconRes = await brandPatch(badIconReq, {
+      params: Promise.resolve({ slug: 'shop-a' }),
+    });
     expect(badIconRes.status).toBe(400);
 
     mockAdminClient.rpc.mockResolvedValueOnce({ data: 'updated', error: null });
@@ -406,6 +433,69 @@ describe('Phase 14 Task 7: Branding, Tags Tab, CSV Export, Locations', () => {
       p_tenant: expect.any(String),
       p_brand: { stampIcon: 'scissors' },
     });
+
+    // Verify new icons (pickleball, shoe, vape) pass Zod and RPC dispatch
+    for (const newIcon of ['pickleball', 'shoe', 'vape'] as const) {
+      mockAdminClient.rpc.mockResolvedValueOnce({ data: 'updated', error: null });
+      const newIconReq = new Request('http://localhost:3000/api/staff/shop-a/brand', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json', origin: 'http://localhost:3000' },
+        body: JSON.stringify({ stampIcon: newIcon }),
+      });
+      const newIconRes = await brandPatch(newIconReq, {
+        params: Promise.resolve({ slug: 'shop-a' }),
+      });
+      expect(newIconRes.status).toBe(200);
+      expect(mockAdminClient.rpc).toHaveBeenLastCalledWith('update_tenant_brand', {
+        p_actor: expect.any(String),
+        p_tenant: expect.any(String),
+        p_brand: { stampIcon: newIcon },
+      });
+    }
+
+    // Social follow perks & links patch
+    mockAdminClient.rpc.mockResolvedValueOnce({ data: 'updated', error: null });
+    const socialPatchReq = new Request('http://localhost:3000/api/staff/shop-a/brand', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json', origin: 'http://localhost:3000' },
+      body: JSON.stringify({
+        socialReward: 'Free pastry with drink',
+        socialRewardEnabled: true,
+        socialLinks: {
+          instagram: { enabled: true, url: '@artisancoffee' },
+          facebook: { enabled: true, url: 'artisancoffee' },
+          tiktok: { enabled: false, url: '' },
+        },
+      }),
+    });
+    const socialPatchRes = await brandPatch(socialPatchReq, {
+      params: Promise.resolve({ slug: 'shop-a' }),
+    });
+    expect(socialPatchRes.status).toBe(200);
+    expect(mockAdminClient.rpc).toHaveBeenLastCalledWith('update_tenant_brand', {
+      p_actor: expect.any(String),
+      p_tenant: expect.any(String),
+      p_brand: {
+        socialReward: 'Free pastry with drink',
+        socialRewardEnabled: true,
+        socialLinks: {
+          instagram: { enabled: true, url: '@artisancoffee' },
+          facebook: { enabled: true, url: 'artisancoffee' },
+          tiktok: { enabled: false, url: '' },
+        },
+      },
+    });
+
+    // Reject excessively long socialReward (> 80 chars)
+    const longRewardReq = new Request('http://localhost:3000/api/staff/shop-a/brand', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json', origin: 'http://localhost:3000' },
+      body: JSON.stringify({ socialReward: 'x'.repeat(100) }),
+    });
+    const longRewardRes = await brandPatch(longRewardReq, {
+      params: Promise.resolve({ slug: 'shop-a' }),
+    });
+    expect(longRewardRes.status).toBe(400);
 
     // Reject empty brand patch
     const emptyReq = new Request('http://localhost:3000/api/staff/shop-a/brand', {
@@ -433,7 +523,9 @@ describe('Phase 14 Task 7: Branding, Tags Tab, CSV Export, Locations', () => {
       accentColor: '#FFFFFF',
     });
     expect(highContrast.passesAA).toBe(true);
-    expect(getContrastRatio(highContrast.accentColor, highContrast.primaryColor)).toBeGreaterThanOrEqual(4.5);
+    expect(
+      getContrastRatio(highContrast.accentColor, highContrast.primaryColor),
+    ).toBeGreaterThanOrEqual(4.5);
   });
 
   // 6. tags_tab_rotate_uses_generated_id
@@ -506,7 +598,9 @@ describe('Phase 14 Task 7: Branding, Tags Tab, CSV Export, Locations', () => {
         }),
       });
 
-    const createRes = await tagsPost(makeCreateReq(), { params: Promise.resolve({ slug: 'shop-a' }) });
+    const createRes = await tagsPost(makeCreateReq(), {
+      params: Promise.resolve({ slug: 'shop-a' }),
+    });
     expect(createRes.status).toBe(200);
     expect(mockAdminClient.rpc).toHaveBeenCalledWith(
       'create_tag_at',
@@ -518,20 +612,52 @@ describe('Phase 14 Task 7: Branding, Tags Tab, CSV Export, Locations', () => {
 
     // Duplicate creation returns 409 Conflict
     mockAdminClient.rpc.mockResolvedValueOnce({ data: 'duplicate', error: null });
-    const dupCreateRes = await tagsPost(makeCreateReq(), { params: Promise.resolve({ slug: 'shop-a' }) });
+    const dupCreateRes = await tagsPost(makeCreateReq(), {
+      params: Promise.resolve({ slug: 'shop-a' }),
+    });
     expect(dupCreateRes.status).toBe(409);
 
     // Invalid location returns 400 Bad Request
     mockAdminClient.rpc.mockResolvedValueOnce({ data: 'invalid-location', error: null });
-    const invalidLocRes = await tagsPost(makeCreateReq(), { params: Promise.resolve({ slug: 'shop-a' }) });
+    const invalidLocRes = await tagsPost(makeCreateReq(), {
+      params: Promise.resolve({ slug: 'shop-a' }),
+    });
     expect(invalidLocRes.status).toBe(400);
 
     // Test grouping helper
     const testTags = [
-      { id: 'tag-1', label: 'Counter 1', active: true, created_at: '2026-11-01', deactivated_at: null, location_id: 'loc-1' },
-      { id: 'tag-2', label: 'Drive-Thru', active: true, created_at: '2026-11-02', deactivated_at: null, location_id: 'loc-2' },
-      { id: 'tag-3', label: 'Counter 2', active: true, created_at: '2026-11-03', deactivated_at: null, location_id: 'loc-1' },
-      { id: 'tag-4', label: 'Unassigned', active: true, created_at: '2026-11-04', deactivated_at: null, location_id: null },
+      {
+        id: 'tag-1',
+        label: 'Counter 1',
+        active: true,
+        created_at: '2026-11-01',
+        deactivated_at: null,
+        location_id: 'loc-1',
+      },
+      {
+        id: 'tag-2',
+        label: 'Drive-Thru',
+        active: true,
+        created_at: '2026-11-02',
+        deactivated_at: null,
+        location_id: 'loc-2',
+      },
+      {
+        id: 'tag-3',
+        label: 'Counter 2',
+        active: true,
+        created_at: '2026-11-03',
+        deactivated_at: null,
+        location_id: 'loc-1',
+      },
+      {
+        id: 'tag-4',
+        label: 'Unassigned',
+        active: true,
+        created_at: '2026-11-04',
+        deactivated_at: null,
+        location_id: null,
+      },
     ];
     const testLocations = [
       { id: 'loc-1', name: 'Downtown Branch' },
@@ -554,7 +680,9 @@ describe('Phase 14 Task 7: Branding, Tags Tab, CSV Export, Locations', () => {
       headers: { 'content-type': 'application/json', origin: 'http://localhost:3000' },
       body: JSON.stringify({ name: 'Mall Branch' }),
     });
-    const managerPostRes = await locationsPost(managerPostReq, { params: Promise.resolve({ slug: 'shop-b' }) });
+    const managerPostRes = await locationsPost(managerPostReq, {
+      params: Promise.resolve({ slug: 'shop-b' }),
+    });
     expect(managerPostRes.status).toBe(403);
 
     // User is manager in shop-b -> PATCH location forbidden
@@ -563,18 +691,25 @@ describe('Phase 14 Task 7: Branding, Tags Tab, CSV Export, Locations', () => {
       headers: { 'content-type': 'application/json', origin: 'http://localhost:3000' },
       body: JSON.stringify({ locationId: 'loc-1', name: 'Mall Branch Renamed' }),
     });
-    const managerPatchRes = await locationsPatch(managerPatchReq, { params: Promise.resolve({ slug: 'shop-b' }) });
+    const managerPatchRes = await locationsPatch(managerPatchReq, {
+      params: Promise.resolve({ slug: 'shop-b' }),
+    });
     expect(managerPatchRes.status).toBe(403);
 
     const validLocUuid = '11111111-2222-3333-4444-555555555555';
     // User is owner in shop-a -> POST location succeeds
-    mockAdminClient.rpc.mockResolvedValueOnce({ data: { result: 'created', locationId: validLocUuid }, error: null });
+    mockAdminClient.rpc.mockResolvedValueOnce({
+      data: { result: 'created', locationId: validLocUuid },
+      error: null,
+    });
     const ownerPostReq = new Request('http://localhost:3000/api/staff/shop-a/locations', {
       method: 'POST',
       headers: { 'content-type': 'application/json', origin: 'http://localhost:3000' },
       body: JSON.stringify({ name: 'New Uptown Branch', address: '123 Main St' }),
     });
-    const ownerPostRes = await locationsPost(ownerPostReq, { params: Promise.resolve({ slug: 'shop-a' }) });
+    const ownerPostRes = await locationsPost(ownerPostReq, {
+      params: Promise.resolve({ slug: 'shop-a' }),
+    });
     expect(ownerPostRes.status).toBe(200);
     const ownerPostBody = await ownerPostRes.json();
     expect(ownerPostBody.ok).toBe(true);
@@ -586,7 +721,9 @@ describe('Phase 14 Task 7: Branding, Tags Tab, CSV Export, Locations', () => {
       headers: { 'content-type': 'application/json', origin: 'http://localhost:3000' },
       body: JSON.stringify({ locationId: validLocUuid, name: 'Updated Branch Name', active: true }),
     });
-    const ownerPatchRes = await locationsPatch(ownerPatchReq, { params: Promise.resolve({ slug: 'shop-a' }) });
+    const ownerPatchRes = await locationsPatch(ownerPatchReq, {
+      params: Promise.resolve({ slug: 'shop-a' }),
+    });
     expect(ownerPatchRes.status).toBe(200);
   });
 
@@ -595,40 +732,55 @@ describe('Phase 14 Task 7: Branding, Tags Tab, CSV Export, Locations', () => {
     setupStandardUserMemberships();
 
     // Missing confirmation name
-    const missingNameReq = new Request('http://localhost:3000/api/staff/shop-a/locations/separate', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', origin: 'http://localhost:3000' },
-      body: JSON.stringify({
-        locationId: 'loc-1',
-        childSlug: 'shop-a-mall',
-      }),
+    const missingNameReq = new Request(
+      'http://localhost:3000/api/staff/shop-a/locations/separate',
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', origin: 'http://localhost:3000' },
+        body: JSON.stringify({
+          locationId: 'loc-1',
+          childSlug: 'shop-a-mall',
+        }),
+      },
+    );
+    const missingNameRes = await separatePost(missingNameReq, {
+      params: Promise.resolve({ slug: 'shop-a' }),
     });
-    const missingNameRes = await separatePost(missingNameReq, { params: Promise.resolve({ slug: 'shop-a' }) });
     expect(missingNameRes.status).toBe(400);
 
     // Missing slug
-    const missingSlugReq = new Request('http://localhost:3000/api/staff/shop-a/locations/separate', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', origin: 'http://localhost:3000' },
-      body: JSON.stringify({
-        locationId: 'loc-1',
-        confirmName: 'Mall Branch',
-      }),
+    const missingSlugReq = new Request(
+      'http://localhost:3000/api/staff/shop-a/locations/separate',
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', origin: 'http://localhost:3000' },
+        body: JSON.stringify({
+          locationId: 'loc-1',
+          confirmName: 'Mall Branch',
+        }),
+      },
+    );
+    const missingSlugRes = await separatePost(missingSlugReq, {
+      params: Promise.resolve({ slug: 'shop-a' }),
     });
-    const missingSlugRes = await separatePost(missingSlugReq, { params: Promise.resolve({ slug: 'shop-a' }) });
     expect(missingSlugRes.status).toBe(400);
 
     // Invalid slug format (uppercase, spaces)
-    const invalidSlugReq = new Request('http://localhost:3000/api/staff/shop-a/locations/separate', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', origin: 'http://localhost:3000' },
-      body: JSON.stringify({
-        locationId: 'loc-1',
-        confirmName: 'Mall Branch',
-        childSlug: 'Shop A Mall!',
-      }),
+    const invalidSlugReq = new Request(
+      'http://localhost:3000/api/staff/shop-a/locations/separate',
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', origin: 'http://localhost:3000' },
+        body: JSON.stringify({
+          locationId: 'loc-1',
+          confirmName: 'Mall Branch',
+          childSlug: 'Shop A Mall!',
+        }),
+      },
+    );
+    const invalidSlugRes = await separatePost(invalidSlugReq, {
+      params: Promise.resolve({ slug: 'shop-a' }),
     });
-    const invalidSlugRes = await separatePost(invalidSlugReq, { params: Promise.resolve({ slug: 'shop-a' }) });
     expect(invalidSlugRes.status).toBe(400);
   });
 
@@ -767,7 +919,9 @@ describe('Phase 14 Task 7: Branding, Tags Tab, CSV Export, Locations', () => {
       }),
     });
 
-    const mismatchRes = await separatePost(mismatchReq, { params: Promise.resolve({ slug: 'shop-a' }) });
+    const mismatchRes = await separatePost(mismatchReq, {
+      params: Promise.resolve({ slug: 'shop-a' }),
+    });
     expect(mismatchRes.status).toBe(400);
     const body = await mismatchRes.json();
     expect(body.ok).toBe(false);

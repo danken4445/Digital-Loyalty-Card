@@ -109,12 +109,21 @@ export async function POST(
       );
     }
 
-    if (!tenant.settings.perks.instagram_follow_upsize) {
+    const hasFollowPerk = Boolean(
+      tenant.settings.perks.instagram_follow_upsize ||
+        (tenant.settings.brand.socialRewardEnabled !== false &&
+          (tenant.settings.brand.socialReward ||
+            tenant.settings.brand.socialLinks?.instagram?.enabled ||
+            tenant.settings.brand.socialLinks?.facebook?.enabled ||
+            tenant.settings.brand.socialLinks?.tiktok?.enabled)),
+    );
+
+    if (!hasFollowPerk) {
       return NextResponse.json<ApiResponse<IssuedRedeemToken>>(
         {
           ok: false,
           error: 'forbidden',
-          message: 'This shop does not offer the Instagram upsize.',
+          message: 'This shop does not offer a social follow reward.',
         },
         { status: 403 },
       );
