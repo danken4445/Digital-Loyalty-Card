@@ -10,9 +10,9 @@ export default async function StaffManualStampPage() {
     <StaffPageShell
       staff={staff}
       currentPath={ROUTES.staff.manualStamp}
-      title="Manual Stamp"
+      title="Add a stamp by hand"
       headerLabel="Manual Stamp Header"
-      description="Add a stamp by hand when a customer's phone can't read the NFC card. Every manual stamp needs a reason and is saved to the audit log."
+      description="Use this when a customer's phone won't read the tap card. You'll be asked for a short reason so the owner can see why."
     >
       <section aria-label="Manual Stamp Form Section">
         <ManualStampForm />

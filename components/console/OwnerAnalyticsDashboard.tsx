@@ -1,9 +1,12 @@
-import type { OwnerAnalyticsData } from '@/lib/contracts';
+import Link from 'next/link';
+import { ROUTES, type OwnerAnalyticsData } from '@/lib/contracts';
 import { formatDateTimeInZone } from '@/lib/rules/display';
 
 export interface OwnerAnalyticsDashboardProps {
   data: OwnerAnalyticsData;
   shopName: string;
+  /** Enables links to related screens (tap cards, reward). */
+  slug?: string;
 }
 
 function formatPct(val: number): string {
@@ -15,7 +18,7 @@ function formatDays(val: number | null): string {
   return `${val.toFixed(1)} days`;
 }
 
-export function OwnerAnalyticsDashboard({ data, shopName }: OwnerAnalyticsDashboardProps) {
+export function OwnerAnalyticsDashboard({ data, shopName, slug }: OwnerAnalyticsDashboardProps) {
   const { pulse, retentionHealth, cardFunnel, cohorts, topCustomers, timezone } = data;
 
   const totalCards = Math.max(pulse.totalCards, 1);
@@ -30,19 +33,76 @@ export function OwnerAnalyticsDashboard({ data, shopName }: OwnerAnalyticsDashbo
     <div className="space-y-6 sm:space-y-8">
       {/* Header */}
       <div>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h1 className="font-display text-2xl font-bold uppercase tracking-wider text-white">
-            Owner Analytics
-          </h1>
-          <span className="rounded-full border border-neutral-700 bg-neutral-800/80 px-3 py-1 text-xs font-mono text-neutral-300">
-            Timezone: {timezone}
-          </span>
-        </div>
-        <p className="mt-1 text-sm text-neutral-400">
-          Customer retention, loyalty card funnel health, and top loyal customer leaderboard for{' '}
-          <span className="text-white font-medium">{shopName}</span>.
+        <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">Insights</h1>
+        <p className="mt-1.5 text-base text-neutral-300">
+          How often customers come back to <span className="font-medium text-white">{shopName}</span>. Times are in{' '}
+          {timezone}.
         </p>
       </div>
+
+      {pulse.totalCards === 0 ? (
+        <section
+          aria-label="No customers yet"
+          className="rounded-2xl border border-dashed border-plug-border p-8 text-center"
+        >
+          <p className="text-base font-semibold text-white">No customers yet</p>
+          <p className="mx-auto mt-1 max-w-sm text-sm text-plug-muted">
+            Once customers start tapping your card, you&apos;ll see here how often they come back.
+          </p>
+          {slug && (
+            <Link
+              href={ROUTES.staff.tapCards(slug)}
+              className="mt-4 inline-flex min-h-11 items-center rounded-full bg-white px-5 text-sm font-semibold text-plug-black hover:bg-neutral-200"
+            >
+              Set up a tap card
+            </Link>
+          )}
+        </section>
+      ) : (
+        <section aria-label="In short" className="rounded-2xl border border-emerald-700/40 bg-emerald-950/20 p-5 sm:p-6">
+          <h2 className="text-lg font-semibold text-white">In short</h2>
+          <ul className="mt-3 space-y-2 text-base leading-relaxed text-neutral-200">
+            <li>
+              <strong className="text-white">{pulse.activeMembers30d}</strong> customer
+              {pulse.activeMembers30d === 1 ? '' : 's'} visited in the last 30 days
+              {pulse.newCards30d > 0 && (
+                <>
+                  , including <strong className="text-white">{pulse.newCards30d}</strong> new
+                </>
+              )}
+              .
+            </li>
+            <li>
+              <strong className="text-white">{formatPct(pulse.repeatRate30dPct)}</strong> came back for another visit
+              within 30 days.
+            </li>
+            {pulse.rewardsReadyCount > 0 && (
+              <li>
+                <strong className="text-white">{pulse.rewardsReadyCount}</strong> customer
+                {pulse.rewardsReadyCount === 1 ? ' has' : 's have'} a reward waiting to be claimed.
+              </li>
+            )}
+            {retentionHealth.atRisk > 0 && (
+              <li>
+                <strong className="text-white">{retentionHealth.atRisk}</strong> regular
+                {retentionHealth.atRisk === 1 ? " hasn't" : "s haven't"} been back for a while. A good moment for a
+                promo or a friendly post.
+              </li>
+            )}
+          </ul>
+          {slug && pulse.repeatRate30dPct < 20 && (
+            <p className="mt-4 text-sm text-emerald-200">
+              Tip: a{' '}
+              <Link href={ROUTES.staff.settings(slug)} className="font-semibold underline underline-offset-4">
+                halfway bonus
+              </Link>{' '}
+              gives customers a reason to come back sooner.
+            </p>
+          )}
+        </section>
+      )}
+
+      <h2 className="pt-2 text-sm font-semibold text-plug-muted">The details</h2>
 
       {/* Section 1: 2x2 Headline Pulse Grid */}
       <section aria-label="Pulse Overview" className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">

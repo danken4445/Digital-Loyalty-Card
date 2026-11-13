@@ -1022,6 +1022,14 @@ export const ROUTES = Object.freeze({
     billing: '/staff/billing',
     settings: (slug: string) => `/staff/${encodeURIComponent(slug)}/settings`,
     analytics: (slug: string) => `/staff/${encodeURIComponent(slug)}/settings/analytics`,
+    /** "My Card → Look": colours, logo, stamp icon, social perk */
+    cardLook: (slug: string) => `/staff/${encodeURIComponent(slug)}/settings/brand`,
+    tapCards: (slug: string) => `/staff/${encodeURIComponent(slug)}/settings/tags`,
+    team: (slug: string) => `/staff/${encodeURIComponent(slug)}/settings/staff`,
+    exportData: (slug: string) => `/staff/${encodeURIComponent(slug)}/settings/export`,
+    branches: (slug: string) => `/staff/${encodeURIComponent(slug)}/settings/locations`,
+    more: (slug: string) => `/staff/${encodeURIComponent(slug)}/settings/more`,
+    setup: (slug: string) => `/staff/${encodeURIComponent(slug)}/setup`,
   },
   platform: {
     root: '/platform',

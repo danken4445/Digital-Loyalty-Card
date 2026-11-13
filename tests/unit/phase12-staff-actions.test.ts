@@ -107,7 +107,7 @@ import {
   requireStaffSession,
 } from '@/lib/auth/staff';
 import { ineligibleRedeemMessage } from '@/components/staff/RedeemRewardForm';
-import { TagManagerClient } from '@/components/staff/TagManagerClient';
+import { ConsoleTagsManager } from '@/components/console/ConsoleTagsManager';
 import { issueRedeemToken } from '@/lib/security/redeemToken';
 import { getTenantById } from '@/lib/tenants/context';
 
@@ -616,25 +616,30 @@ describe('Phase 12: tag manager UI by role', () => {
     },
   ];
 
-  it('hides create, rotate and deactivate when canManage is false', () => {
-    const html = renderToStaticMarkup(
-      React.createElement(TagManagerClient, { initialTags: tags, canManage: false }),
+  const render = (canManage: boolean) =>
+    renderToStaticMarkup(
+      React.createElement(ConsoleTagsManager, {
+        slug: 'shop-a',
+        initialTags: tags,
+        locations: [],
+        canManage,
+      }),
     );
-    expect(html).not.toContain('Provision NTAG215 Hardware Tag');
-    expect(html).not.toContain('Rotate Tag');
-    expect(html).not.toContain('Deactivate Tag');
-    expect(html).toContain('Only owners and managers can create, rotate or deactivate tags.');
-    // Staff can still copy the URLs to write onto a card
-    expect(html).toContain('Copy Production URL');
+
+  it('hides add, replace and turn-off controls when canManage is false', () => {
+    const html = render(false);
+    expect(html).not.toContain('>Add tap card<');
+    expect(html).not.toContain('Replace link');
+    expect(html).not.toContain('Turn off');
+    // Anyone who can open the page can still copy the link to write onto a card
+    expect(html).toContain('Copy link');
   });
 
   it('shows the management controls for owners and managers', () => {
-    const html = renderToStaticMarkup(
-      React.createElement(TagManagerClient, { initialTags: tags, canManage: true }),
-    );
-    expect(html).toContain('Provision NTAG215 Hardware Tag');
-    expect(html).toContain('Rotate Tag');
-    expect(html).toContain('Deactivate Tag');
+    const html = render(true);
+    expect(html).toContain('>Add tap card<');
+    expect(html).toContain('Replace link');
+    expect(html).toContain('Turn off');
   });
 });
 

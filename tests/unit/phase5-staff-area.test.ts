@@ -25,6 +25,7 @@ vi.mock('next/navigation', () => ({
     push: vi.fn(),
     refresh: vi.fn(),
   }),
+  usePathname: () => null,
   redirect: vi.fn((url: string) => {
     const error = new Error(`NEXT_REDIRECT: ${url}`);
     (error as any).digest = `NEXT_REDIRECT;replace;${url};307;`;
@@ -156,7 +157,6 @@ import { StaffNav } from '@/components/staff/StaffNav';
 import { StaffLoginForm } from '@/components/staff/StaffLoginForm';
 import { RedeemRewardForm } from '@/components/staff/RedeemRewardForm';
 import { ManualStampForm } from '@/components/staff/ManualStampForm';
-import { TagManagerClient } from '@/components/staff/TagManagerClient';
 import StaffOverviewPage from '@/app/staff/page';
 import StaffRedeemPage from '@/app/staff/redeem/page';
 import StaffManualStampPage from '@/app/staff/stamp/page';
@@ -1737,9 +1737,8 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
         );
 
         expect(html).toContain(testStaffSession.tenantName);
-        expect(html).toContain('STAFF OPS');
         expect(html).toContain('Maria Santos');
-        expect(html).toContain('STAFF');
+        expect(html).toContain('Staff');
         expect(html).toContain('aria-label="Logged in as Maria Santos, staff"');
         expect(html).toContain('aria-label="Staff Portal Navigation"');
         expect(html).toContain('Sign Out');
@@ -1819,69 +1818,26 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
       });
     });
 
-    describe('TagManagerClient (components/staff/TagManagerClient.tsx)', () => {
-      const sampleTagsWithUrls: TagWithUrls[] = [
-        {
-          id: 'tcp_tag_counter_1',
-          label: 'Front Counter Station 1',
-          active: true,
-          created_at: '2026-11-01T10:00:00Z',
-          deactivated_at: null,
-          productionTapUrl: 'https://card.thecaffeineplug.ph/t/tcp_tag_counter_1',
-          localTapUrl: 'http://localhost:3000/t/tcp_tag_counter_1',
-        },
-        {
-          id: 'tcp_tag_drive_thru',
-          label: 'Drive Thru Window',
-          active: false,
-          created_at: '2026-10-15T08:00:00Z',
-          deactivated_at: '2026-10-20T12:00:00Z',
-          productionTapUrl: 'https://card.thecaffeineplug.ph/t/tcp_tag_drive_thru',
-          localTapUrl: 'http://localhost:3000/t/tcp_tag_drive_thru',
-        },
-      ];
-
-      it('renders provisioned tags with active status, production URL, and local dev URL', () => {
-        const html = renderToStaticMarkup(
-          React.createElement(TagManagerClient, { initialTags: sampleTagsWithUrls }),
-        );
-
-        expect(html).toContain('Provision NTAG215 Hardware Tag');
-        expect(html).toContain('for="new-tag-label"');
-        expect(html).toContain('aria-label="NFC Tag Inventory"');
-        expect(html).toContain('tcp_tag_counter_1');
-        expect(html).toContain('ACTIVE');
-        expect(html).toContain('Front Counter Station 1');
-        expect(html).toContain('https://card.thecaffeineplug.ph/t/tcp_tag_counter_1');
-        expect(html).toContain('http://localhost:3000/t/tcp_tag_counter_1');
-
-        expect(html).toContain('tcp_tag_drive_thru');
-        expect(html).toContain('DEACTIVATED');
-        expect(html).toContain('Rotate Tag');
-        expect(html).toContain('Deactivate Tag');
-        expect(html).toContain('Copy Production URL');
-        expect(html).toContain('Copy Local URL');
-      });
-
-      it('renders empty inventory note when initialTags is empty array', () => {
-        const html = renderToStaticMarkup(
-          React.createElement(TagManagerClient, { initialTags: [] }),
-        );
-        expect(html).toContain('No NFC tags provisioned yet.');
-      });
-    });
-
     describe('Server Component Pages Rendering', () => {
-      it('StaffOverviewPage renders Operations Console with all 4 module action cards', async () => {
+      it('StaffOverviewPage renders Home with the counter jobs first', async () => {
         mockActiveStaff('owner');
         const pageElement = await StaffOverviewPage();
         const html = renderToStaticMarkup(pageElement);
 
-        expect(html).toContain('Operations Console');
+        expect(html).toContain('Hi, Maria');
         expect(html).toContain('Redeem Reward');
-        expect(html).toContain('Manual Stamp');
-        expect(html).toContain('NFC Tag Manager');
-        expect(html).toContain('Activity &amp; Audit Log');
+        expect(html).toContain('Add a stamp by hand');
+        expect(html).toContain('Activity');
+        expect(html).toContain('Running your shop');
+        expect(html).toContain('Tap Cards');
+      });
+
+      it('StaffOverviewPage hides shop management from staff-role users', async () => {
+        mockActiveStaff('staff');
+        const html = renderToStaticMarkup(await StaffOverviewPage());
+        expect(html).toContain('Redeem Reward');
+        expect(html).not.toContain('Running your shop');
+        expect(html).not.toContain('Tap Cards');
       });
 
       it('StaffRedeemPage renders Redeem Reward module and form', async () => {
@@ -1904,28 +1860,14 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
         expect(html).toContain('Issue Manual Stamp');
       });
 
-      it('StaffTagsPage renders NFC Tag Manager module and TagManagerClient', async () => {
+      it('StaffTagsPage sends managers to Tap Cards and staff Home', async () => {
         mockActiveStaff('owner');
-        tableQueryHandlers['tags'] = () =>
-          createMockSupabaseQuery(
-            [
-              {
-                id: 'tcp_tag_station_1',
-                label: 'Station 1',
-                active: true,
-                created_at: '2026-11-01T10:00:00Z',
-                deactivated_at: null,
-              },
-            ],
-            null,
-          );
+        await expect(StaffTagsPage()).rejects.toThrow(
+          `NEXT_REDIRECT: ${ROUTES.staff.tapCards(TENANT_ONE_SLUG)}`,
+        );
 
-        const pageElement = await StaffTagsPage();
-        const html = renderToStaticMarkup(pageElement);
-
-        expect(html).toContain('aria-label="NFC Tag Manager Header"');
-        expect(html).toContain('NFC Tag Manager');
-        expect(html).toContain('tcp_tag_station_1');
+        mockActiveStaff('staff');
+        await expect(StaffTagsPage()).rejects.toThrow(`NEXT_REDIRECT: ${ROUTES.staff.root}`);
       });
 
       it('StaffActivityPage renders anomaly flags, recent stamps, redemptions, and audit logs', async () => {
@@ -1976,7 +1918,8 @@ describe('Phase 5 Staff Area Unit & Authorization Test Suite', () => {
         const pageElement = await StaffActivityPage();
         const html = renderToStaticMarkup(pageElement);
 
-        expect(html).toContain('Activity &amp; Audit Log');
+        expect(html).toContain('Anything unusual');
+        expect(html).toContain('Full staff record');
         expect(html).toContain('Anomaly Flags');
         expect(html).toContain('Recent Stamps');
         expect(html).toContain('Recent Redemptions');

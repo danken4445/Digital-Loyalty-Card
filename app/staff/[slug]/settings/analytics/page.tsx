@@ -23,5 +23,5 @@ export default async function OwnerAnalyticsPage({ params }: OwnerAnalyticsPageP
     notFound();
   }
 
-  return <OwnerAnalyticsDashboard data={data} shopName={staff.tenantName} />;
+  return <OwnerAnalyticsDashboard data={data} shopName={staff.tenantName} slug={slug} />;
 }

@@ -4,6 +4,7 @@ import React, { useId, useState } from 'react';
 import type { ApiResponse, TagLeakSignal } from '@/lib/contracts';
 import { groupTagsByBranch } from '@/lib/tags/grouping';
 import type { TagWithBranch } from '@/app/api/staff/[slug]/tags/route';
+import { AdvancedSection, Notice, Panel, inputClass, primaryButtonClass } from './ui';
 
 export interface LocationOption {
   id: string;
@@ -16,6 +17,43 @@ export interface ConsoleTagsManagerProps {
   locations: LocationOption[];
   canManage: boolean;
   leakSignals?: TagLeakSignal[];
+  /** Called after a tap card is added (the setup wizard uses it to move on). */
+  onCreated?: () => void;
+  /** Hide the "how to" steps and advanced guide (wizard shows its own). */
+  compact?: boolean;
+}
+
+const SHOW_DEV_LINKS = process.env.NODE_ENV !== 'production';
+
+/** The three things an owner actually does with a blank NFC card. */
+export function TapCardSteps() {
+  const steps = [
+    {
+      title: 'Add a tap card here',
+      body: 'Give it a name like "Front counter". We create a special link for it.',
+    },
+    {
+      title: 'Put the link on the card',
+      body: 'Install the free NFC Tools app, choose Write → Add a record → URL, paste the link, then hold the card to your phone.',
+    },
+    {
+      title: 'Test it',
+      body: 'Tap the card with your phone. Your loyalty card should open with a new stamp.',
+    },
+  ];
+  return (
+    <ol className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      {steps.map((s, i) => (
+        <li key={s.title} className="rounded-xl border border-plug-border bg-black/30 p-4">
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-sm font-bold text-plug-black">
+            {i + 1}
+          </span>
+          <p className="mt-3 font-semibold text-white">{s.title}</p>
+          <p className="mt-1 text-sm leading-relaxed text-plug-muted">{s.body}</p>
+        </li>
+      ))}
+    </ol>
+  );
 }
 
 export function ConsoleTagsManager({
@@ -24,6 +62,8 @@ export function ConsoleTagsManager({
   locations,
   canManage,
   leakSignals,
+  onCreated,
+  compact = false,
 }: ConsoleTagsManagerProps) {
   const [tags, setTags] = useState<TagWithBranch[]>(initialTags);
   const [activeLeakSignals, setActiveLeakSignals] = useState<TagLeakSignal[]>(leakSignals ?? []);
@@ -33,23 +73,34 @@ export function ConsoleTagsManager({
   const [inFlightTagId, setInFlightTagId] = useState<string | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-  const [showSecurityGuide, setShowSecurityGuide] = useState(false);
+  const [showOff, setShowOff] = useState(false);
 
   const newTagLabelId = useId();
   const newTagLocationId = useId();
 
-  const groupedTags = groupTagsByBranch(tags, locations);
+  const activeTags = tags.filter((t) => t.active);
+  const offTags = tags.filter((t) => !t.active);
+  const hasBranches = locations.length > 1;
+  const groupedActive = groupTagsByBranch(activeTags, locations);
 
   async function handleCopy(url: string, key: string) {
     try {
       await navigator.clipboard.writeText(url);
       setCopiedKey(key);
-      setTimeout(() => {
-        setCopiedKey((prev) => (prev === key ? null : prev));
-      }, 2000);
+      setTimeout(() => setCopiedKey((prev) => (prev === key ? null : prev)), 2000);
     } catch {
-      setFeedback({ type: 'error', message: 'Failed to copy to clipboard.' });
+      setFeedback({ type: 'error', message: "Couldn't copy. Press and hold the link to copy it instead." });
     }
+  }
+
+  async function postTagAction(body: Record<string, unknown>) {
+    const res = await fetch(`/api/staff/${encodeURIComponent(slug)}/tags`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const json = (await res.json()) as ApiResponse<{ action: string; tag?: TagWithBranch; deactivatedTagId?: string }>;
+    return { ok: res.ok && json.ok, json };
   }
 
   async function handleCreateTag(e: React.FormEvent) {
@@ -58,486 +109,337 @@ export function ConsoleTagsManager({
 
     setIsCreating(true);
     setFeedback(null);
-
     try {
-      const res = await fetch(`/api/staff/${encodeURIComponent(slug)}/tags`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'create',
-          label: label.trim() || undefined,
-          locationId: locationId || undefined,
-        }),
+      const { ok, json } = await postTagAction({
+        action: 'create',
+        label: label.trim() || undefined,
+        locationId: locationId || undefined,
       });
-
-      const body: ApiResponse<{ action: string; tag: TagWithBranch }> = await res.json();
-      if (!res.ok || !body.ok) {
-        setFeedback({
-          type: 'error',
-          message: !body.ok ? body.message : 'Failed to provision tag.',
-        });
+      if (!ok || !json.ok || !json.data.tag) {
+        setFeedback({ type: 'error', message: !json.ok ? json.message : "The tap card wasn't added. Please try again." });
         return;
       }
-
-      setTags((prev) => [body.data.tag, ...prev]);
+      const created = json.data.tag;
+      setTags((prev) => [created, ...prev]);
       setLabel('');
       setFeedback({
         type: 'success',
-        message: `Tag "${body.data.tag.id}" created and assigned to ${locations.find((l) => l.id === locationId)?.name || 'branch'
-          }.`,
+        message: `"${created.label || 'Tap card'}" is ready. Copy its link and write it onto the card (step 2).`,
       });
+      onCreated?.();
     } catch {
-      setFeedback({ type: 'error', message: 'Network error creating tag.' });
+      setFeedback({ type: 'error', message: 'No connection. Check your internet and try again.' });
     } finally {
       setIsCreating(false);
     }
   }
 
-  async function handleRotateTag(tag: TagWithBranch) {
+  async function handleReplaceLink(tag: TagWithBranch, fromWarning = false) {
     if (!canManage) return;
+    const ok = window.confirm(
+      `Replace the link for "${tag.label || 'this tap card'}"?\n\nThe old link stops working straight away. ` +
+        'You will need to write the new link onto the card again with NFC Tools.',
+    );
+    if (!ok) return;
+
     setInFlightTagId(tag.id);
     setFeedback(null);
-
     try {
-      const res = await fetch(`/api/staff/${encodeURIComponent(slug)}/tags`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'rotate',
-          oldTagId: tag.id,
-          newLabel: tag.label || undefined,
-          locationId: tag.location_id || undefined,
-        }),
+      const { ok: done, json } = await postTagAction({
+        action: 'rotate',
+        oldTagId: tag.id,
+        newLabel: tag.label || undefined,
+        locationId: tag.location_id || undefined,
+        ...(fromWarning ? { reason: 'operator_rotated_leak_signal' } : {}),
       });
-
-      const body: ApiResponse<{ action: string; tag: TagWithBranch; deactivatedTagId: string }> =
-        await res.json();
-
-      if (!res.ok || !body.ok) {
-        setFeedback({
-          type: 'error',
-          message: !body.ok ? body.message : 'Failed to rotate tag.',
-        });
+      if (!done || !json.ok || !json.data.tag) {
+        setFeedback({ type: 'error', message: !json.ok ? json.message : "The link wasn't replaced. Please try again." });
         return;
       }
-
+      const replacement = json.data.tag;
       setTags((prev) =>
         prev
           .map((t) => (t.id === tag.id ? { ...t, active: false, deactivated_at: new Date().toISOString() } : t))
-          .concat(body.data.tag),
+          .concat(replacement),
       );
-
       setActiveLeakSignals((prev) => prev.filter((s) => s.tagId !== tag.id));
-
       setFeedback({
         type: 'success',
-        message: `Tag "${tag.id}" rotated to new tag "${body.data.tag.id}".`,
+        message: 'New link ready. Copy it and write it onto the card again so customers can keep tapping.',
       });
     } catch {
-      setFeedback({ type: 'error', message: 'Network error rotating tag.' });
+      setFeedback({ type: 'error', message: 'No connection. Check your internet and try again.' });
     } finally {
       setInFlightTagId(null);
     }
   }
 
-  async function handleRotateFlaggedTag(tagId: string, tag?: TagWithBranch) {
+  async function handleTurnOff(tag: TagWithBranch) {
     if (!canManage) return;
-    setInFlightTagId(tagId);
+    const ok = window.confirm(
+      `Turn off "${tag.label || 'this tap card'}"?\n\nCustomers won't get stamps from it any more. This can't be undone, but you can add a new card at any time.`,
+    );
+    if (!ok) return;
+
+    setInFlightTagId(tag.id);
     setFeedback(null);
-
     try {
-      const res = await fetch(`/api/staff/${encodeURIComponent(slug)}/tags`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'rotate',
-          oldTagId: tagId,
-          newLabel: tag?.label || undefined,
-          locationId: tag?.location_id || undefined,
-          reason: 'operator_rotated_leak_signal',
-        }),
-      });
-
-      const body: ApiResponse<{ action: string; tag: TagWithBranch; deactivatedTagId: string }> =
-        await res.json();
-
-      if (!res.ok || !body.ok) {
-        setFeedback({
-          type: 'error',
-          message: !body.ok ? body.message : 'Failed to rotate leaking tag.',
-        });
+      const { ok: done, json } = await postTagAction({ action: 'deactivate', tagId: tag.id });
+      if (!done || !json.ok) {
+        setFeedback({ type: 'error', message: !json.ok ? json.message : "The card wasn't turned off. Please try again." });
         return;
       }
-
       setTags((prev) =>
-        prev
-          .map((t) => (t.id === tagId ? { ...t, active: false, deactivated_at: new Date().toISOString() } : t))
-          .concat(body.data.tag),
+        prev.map((t) => (t.id === tag.id ? { ...t, active: false, deactivated_at: new Date().toISOString() } : t)),
       );
-
-      setActiveLeakSignals((prev) => prev.filter((s) => s.tagId !== tagId));
-
-      setFeedback({
-        type: 'success',
-        message: `Leaked tag "${tagId}" rotated to new tag "${body.data.tag.id}".`,
-      });
+      setFeedback({ type: 'success', message: `"${tag.label || 'Tap card'}" is turned off.` });
     } catch {
-      setFeedback({ type: 'error', message: 'Network error rotating tag.' });
+      setFeedback({ type: 'error', message: 'No connection. Check your internet and try again.' });
     } finally {
       setInFlightTagId(null);
     }
   }
 
-  async function handleDeactivateTag(tagId: string) {
-    if (!canManage) return;
-    setInFlightTagId(tagId);
-    setFeedback(null);
+  function renderTag(tag: TagWithBranch) {
+    const busy = inFlightTagId === tag.id;
+    return (
+      <li key={tag.id} className={`p-4 ${tag.active ? '' : 'opacity-60'}`}>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0">
+            <p className="flex items-center gap-2 font-semibold text-white">
+              <span
+                className={`h-2.5 w-2.5 shrink-0 rounded-full ${tag.active ? 'bg-emerald-400' : 'bg-neutral-600'}`}
+                aria-hidden="true"
+              />
+              {tag.label || 'Tap card'}
+              <span className="text-xs font-normal text-plug-muted">{tag.active ? 'Working' : 'Turned off'}</span>
+            </p>
+            <p className="mt-1 text-xs text-plug-muted">
+              Added {new Date(tag.created_at).toLocaleDateString()}
+              {tag.last_tap_counter != null && ' · Extra copy protection on'}
+            </p>
+          </div>
 
-    try {
-      const res = await fetch(`/api/staff/${encodeURIComponent(slug)}/tags`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'deactivate',
-          tagId,
-        }),
-      });
-
-      const body: ApiResponse<{ action: string; deactivatedTagId: string }> = await res.json();
-      if (!res.ok || !body.ok) {
-        setFeedback({
-          type: 'error',
-          message: !body.ok ? body.message : 'Failed to deactivate tag.',
-        });
-        return;
-      }
-
-      setTags((prev) =>
-        prev.map((t) => (t.id === tagId ? { ...t, active: false, deactivated_at: new Date().toISOString() } : t)),
-      );
-
-      setFeedback({ type: 'success', message: `Tag "${tagId}" deactivated.` });
-    } catch {
-      setFeedback({ type: 'error', message: 'Network error deactivating tag.' });
-    } finally {
-      setInFlightTagId(null);
-    }
+          {tag.active && (
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => handleCopy(tag.productionTapUrl, `${tag.id}-prod`)}
+                className="inline-flex min-h-10 items-center rounded-full bg-white px-4 text-sm font-semibold text-plug-black hover:bg-neutral-200"
+              >
+                {copiedKey === `${tag.id}-prod` ? 'Copied ✓' : 'Copy link'}
+              </button>
+              {SHOW_DEV_LINKS && (
+                <button
+                  type="button"
+                  onClick={() => handleCopy(tag.localTapUrl, `${tag.id}-local`)}
+                  className="inline-flex min-h-10 items-center rounded-full border border-neutral-700 px-3 text-xs text-neutral-400 hover:text-white"
+                >
+                  {copiedKey === `${tag.id}-local` ? 'Copied ✓' : 'Copy local (dev)'}
+                </button>
+              )}
+              {canManage && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => handleReplaceLink(tag)}
+                    disabled={busy}
+                    title="Use this if the card was lost or the link was shared"
+                    className="inline-flex min-h-10 items-center rounded-full border border-neutral-600 px-4 text-sm font-medium text-white hover:border-white disabled:opacity-50"
+                  >
+                    {busy ? 'Working…' : 'Replace link'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleTurnOff(tag)}
+                    disabled={busy}
+                    className="inline-flex min-h-10 items-center rounded-full px-3 text-sm font-medium text-rose-300 hover:text-rose-200 disabled:opacity-50"
+                  >
+                    Turn off
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      </li>
+    );
   }
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h2 className="font-display text-xl font-bold uppercase tracking-wider text-white">
-          NFC Tags Management
-        </h2>
-        <p className="mt-1 text-xs text-neutral-400">
-          Provision, burn, and rotate physical NFC tags grouped by branch location.
-        </p>
-      </div>
+    <div className="space-y-6">
+      {feedback && <Notice tone={feedback.type}>{feedback.message}</Notice>}
 
-      {feedback && (
-        <div
-          className={`border p-4 text-xs ${feedback.type === 'success'
-              ? 'border-emerald-800/80 bg-emerald-950/40 text-emerald-300'
-              : 'border-rose-800/80 bg-rose-950/40 text-rose-300'
-            }`}
-        >
-          {feedback.message}
-        </div>
-      )}
-
-      {/* Leak Signals Warning Banner */}
       {activeLeakSignals.length > 0 && (
-        <div
-          role="alert"
-          className="border border-amber-600 bg-amber-950/30 p-4 text-xs text-amber-200 space-y-3"
-        >
-          <div className="flex items-start justify-between">
-            <div>
-              <h3 className="font-bold uppercase tracking-wider text-amber-400">
-                ⚠️ NFC Tag Leak Warning
-              </h3>
-              <p className="mt-1 text-neutral-300">
-                Abnormal activity detected on the tag(s) below. Multiple distinct customers or high rate-limit blocks within a short window indicate this tag URL may have been shared publicly. Rotate immediately.
-              </p>
-            </div>
-          </div>
-          <div className="divide-y divide-amber-900/40 border border-amber-900/60 bg-black/40">
+        <Notice tone="warning" title="A tap card may have been copied">
+          <p>
+            One of your cards is being used by more people, or more often, than usual. Someone may have shared its link
+            online. Replace the link, then write the new link onto the card.
+          </p>
+          <ul className="mt-3 space-y-2">
             {activeLeakSignals.map((sig) => {
               const matchingTag = tags.find((t) => t.id === sig.tagId);
               return (
-                <div key={sig.tagId} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 gap-2">
-                  <div>
-                    <div className="font-mono font-bold text-white">{sig.tagId}</div>
-                    <div className="text-2xs text-amber-300/80 mt-0.5">
-                      {sig.distinctCustomers > 0 && (
-                        <span>{sig.distinctCustomers} distinct customers in 15m</span>
-                      )}
-                      {sig.distinctCustomers > 0 && sig.throttleRejections > 0 && <span> • </span>}
-                      {sig.throttleRejections > 0 && (
-                        <span>{sig.throttleRejections} rapid-tap rejections in 1h</span>
-                      )}
-                      {matchingTag?.label && (
-                        <span className="ml-2 text-neutral-400">({matchingTag.label})</span>
-                      )}
-                    </div>
-                  </div>
-                  {canManage && (
+                <li
+                  key={sig.tagId}
+                  className="flex flex-col gap-2 rounded-lg bg-black/30 p-3 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <span>
+                    <strong>{matchingTag?.label || 'Tap card'}</strong>
+                    <span className="block text-xs opacity-80">
+                      {sig.distinctCustomers > 0 && `${sig.distinctCustomers} different customers in 15 minutes`}
+                      {sig.distinctCustomers > 0 && sig.throttleRejections > 0 && ' · '}
+                      {sig.throttleRejections > 0 && `${sig.throttleRejections} blocked repeat taps in the last hour`}
+                    </span>
+                  </span>
+                  {canManage && matchingTag && (
                     <button
                       type="button"
-                      onClick={() => handleRotateFlaggedTag(sig.tagId, matchingTag)}
+                      onClick={() => handleReplaceLink(matchingTag, true)}
                       disabled={inFlightTagId === sig.tagId}
-                      className="border border-amber-500 bg-amber-500 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-black hover:bg-amber-400 disabled:opacity-50 transition-colors self-start sm:self-auto"
+                      className="inline-flex min-h-10 items-center self-start rounded-full bg-amber-400 px-4 text-sm font-semibold text-plug-black hover:bg-amber-300 disabled:opacity-50 sm:self-auto"
                     >
-                      {inFlightTagId === sig.tagId ? 'Rotating...' : 'Rotate'}
+                      {inFlightTagId === sig.tagId ? 'Working…' : 'Replace link now'}
                     </button>
                   )}
-                </div>
+                </li>
               );
             })}
-          </div>
-        </div>
+          </ul>
+        </Notice>
       )}
 
-      {/* Provision new tag form */}
+      {!compact && (
+        <Panel title="How to set up a tap card" description="You need a blank NFC card or sticker (NTAG215 works best).">
+          <TapCardSteps />
+        </Panel>
+      )}
+
       {canManage && (
-        <div className="border border-neutral-800 bg-neutral-900/60 p-5">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-300 mb-4">
-            Provision New NFC Tag
-          </h3>
-          <form onSubmit={handleCreateTag} className="grid grid-cols-1 gap-4 sm:grid-cols-3 items-end">
-            <div>
-              <label htmlFor={newTagLabelId} className="block text-xs font-medium text-neutral-300 mb-1">
-                Tag Label (Optional)
+        <Panel title="Add a tap card">
+          <form onSubmit={handleCreateTag} className="flex flex-col gap-4 sm:flex-row sm:items-end">
+            <div className="flex-1">
+              <label htmlFor={newTagLabelId} className="block text-sm text-neutral-300">
+                Name (where will it sit?)
               </label>
               <input
                 id={newTagLabelId}
                 type="text"
                 value={label}
                 onChange={(e) => setLabel(e.target.value)}
-                placeholder="e.g. Counter Register #1"
-                className="w-full border border-neutral-700 bg-black px-3 py-2 text-xs text-white placeholder-neutral-600 focus:border-amber-500 focus:outline-none"
+                placeholder="Front counter"
+                className={`${inputClass} mt-1.5`}
                 maxLength={80}
               />
             </div>
-
-            <div>
-              <label htmlFor={newTagLocationId} className="block text-xs font-medium text-neutral-300 mb-1">
-                Assign Branch Location
-              </label>
-              <select
-                id={newTagLocationId}
-                value={locationId}
-                onChange={(e) => setLocationId(e.target.value)}
-                className="w-full border border-neutral-700 bg-black px-3 py-2 text-xs text-white focus:border-amber-500 focus:outline-none"
-              >
-                {locations.map((loc) => (
-                  <option key={loc.id} value={loc.id}>
-                    {loc.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <button
-                type="submit"
-                disabled={isCreating}
-                className="w-full border border-amber-500 bg-amber-500 px-4 py-2 text-xs font-bold uppercase tracking-wider text-black transition-colors hover:bg-amber-400 disabled:opacity-50"
-              >
-                {isCreating ? 'Provisioning...' : 'Provision NFC Tag'}
-              </button>
-            </div>
+            {hasBranches && (
+              <div className="sm:w-56">
+                <label htmlFor={newTagLocationId} className="block text-sm text-neutral-300">
+                  Branch
+                </label>
+                <select
+                  id={newTagLocationId}
+                  value={locationId}
+                  onChange={(e) => setLocationId(e.target.value)}
+                  className={`${inputClass} mt-1.5`}
+                >
+                  {locations.map((loc) => (
+                    <option key={loc.id} value={loc.id}>
+                      {loc.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <button type="submit" disabled={isCreating} className={primaryButtonClass}>
+              {isCreating ? 'Adding…' : 'Add tap card'}
+            </button>
           </form>
-        </div>
+        </Panel>
       )}
 
-      {/* NTAG215 Security & Setup Guide */}
-      <div className="border border-neutral-800 bg-neutral-900/60 p-5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-amber-400 font-mono text-xs sm:text-sm font-bold">NTAG215 Security &amp; Setup Guide</span>
-            <span className="rounded border border-amber-500/30 bg-amber-950/30 px-2 py-0.5 text-[10px] font-mono text-amber-300 uppercase">
-              Recommended Practices
-            </span>
+      <section aria-label="Your tap cards" className="space-y-3">
+        <h2 className="text-lg font-semibold text-white">Your tap cards</h2>
+        {activeTags.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-plug-border p-8 text-center">
+            <p className="font-semibold text-white">No tap cards yet</p>
+            <p className="mx-auto mt-1 max-w-sm text-sm text-plug-muted">
+              Add your first one above. Most shops start with one card at the counter.
+            </p>
           </div>
-          <button
-            type="button"
-            onClick={() => setShowSecurityGuide((prev) => !prev)}
-            className="text-xs font-mono text-neutral-400 hover:text-white underline underline-offset-4 cursor-pointer"
-          >
-            {showSecurityGuide ? 'Hide Guide ▲' : 'Show Setup Guide ▼'}
-          </button>
-        </div>
-
-        {showSecurityGuide && (
-          <div className="mt-4 pt-4 border-t border-neutral-800 space-y-4 text-xs text-neutral-300 leading-relaxed">
-            <div className="space-y-1.5">
-              <h4 className="font-bold text-white uppercase text-[11px] tracking-wider flex items-center gap-1.5">
-                <span className="text-amber-400 font-mono">1.</span> Password Write-Protection (Fixes Writable: Yes)
-              </h4>
-              <p>
-                By default, blank NTAG215 cards are writable by anyone using phone apps like NFC Tools.
-                To protect against customers or malicious actors overwriting your card URL:
-              </p>
-              <ol className="list-decimal list-inside space-y-1 pl-2 text-neutral-400 font-mono text-[11px]">
-                <li>Open <strong>NFC Tools</strong> on your mobile phone and tap <strong>Other &gt; Set password</strong>.</li>
-                <li>Set a 4-byte password (e.g. <code>A1B2C3D4</code>) and PACK (e.g. <code>0000</code>). Store this safely.</li>
-                <li>Set protection mode to <strong>Write-only</strong> (read access remains open for seamless customer tapping).</li>
-                <li className="text-amber-300">
-                  <strong>CRITICAL WARNING:</strong> Never use permanent &ldquo;Lock Card&rdquo;! Permanent locking is irreversible and prevents you from ever updating or rotating the tag in the future.
-                </li>
-              </ol>
-            </div>
-
-            <div className="space-y-1.5">
-              <h4 className="font-bold text-white uppercase text-[11px] tracking-wider flex items-center gap-1.5">
-                <span className="text-amber-400 font-mono">2.</span> Staff Attribution (Anti-Sweethearting)
-              </h4>
-              <p>
-                Provision one distinct physical tag per barista station or staff member (e.g. <code>Barista - Mark</code>, <code>Cashier - Front</code>).
-                When baristas have dedicated cards, the Activity &amp; Audit log immediately flags suspicious &ldquo;buddy-tag concentration&rdquo; or cooldown-hugging patterns.
-              </p>
-            </div>
-
-            <div className="space-y-1.5">
-              <h4 className="font-bold text-white uppercase text-[11px] tracking-wider flex items-center gap-1.5">
-                <span className="text-amber-400 font-mono">3.</span> Optional Hardware Counter Mirror URL
-              </h4>
-              <p>
-                If your NTAG215 card supports NXP ASCII Counter Mirroring (via <strong>NXP TagWriter</strong>), you can mirror the 24-bit tap counter into the URL query.
-                Once tapped once, our backend automatically latches onto the card&apos;s current counter number and rejects any replayed URLs.
-              </p>
-              <div className="p-3 bg-black border border-neutral-800 rounded font-mono text-[11px] text-neutral-400 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span>TagWriter Mirror URL Template:</span>
-                  <button
-                    type="button"
-                    onClick={() => handleCopy(`https://plug.coffee/t/{TAG_ID}?c=000000`, 'template-copy')}
-                    className="border border-neutral-700 bg-neutral-800 px-2 py-0.5 text-[10px] text-neutral-200 hover:text-white"
-                  >
-                    {copiedKey === 'template-copy' ? 'Copied Template!' : 'Copy Template'}
-                  </button>
-                </div>
-                <code className="text-amber-300 block">https://plug.coffee/t/[tagId]?c=000000</code>
-                <p className="text-[10px] text-neutral-500">
-                  Tip: If your card clone does not mirror the counter, no problem: our software-level anti-replay (history scrubbing, short cooldowns, daily limits, and IP/session gating) protects the card automatically.
+        ) : (
+          Object.entries(groupedActive).map(([branchName, branchTags]) => (
+            <div key={branchName} className="overflow-hidden rounded-2xl border border-plug-border bg-plug-surface">
+              {hasBranches && (
+                <p className="border-b border-plug-border px-4 py-2 text-sm font-semibold text-neutral-300">
+                  {branchName === 'Unassigned / Brand' ? 'No branch' : branchName}
                 </p>
-              </div>
+              )}
+              <ul className="divide-y divide-plug-border">{branchTags.map(renderTag)}</ul>
             </div>
+          ))
+        )}
+
+        {offTags.length > 0 && (
+          <div>
+            <button
+              type="button"
+              onClick={() => setShowOff((v) => !v)}
+              className="text-sm text-plug-muted underline underline-offset-4 hover:text-white"
+            >
+              {showOff ? 'Hide' : 'Show'} {offTags.length} turned-off card{offTags.length === 1 ? '' : 's'}
+            </button>
+            {showOff && (
+              <ul className="mt-3 divide-y divide-plug-border overflow-hidden rounded-2xl border border-plug-border bg-plug-surface">
+                {offTags.map(renderTag)}
+              </ul>
+            )}
           </div>
         )}
-      </div>
+      </section>
 
-      {/* Grouped Tags by Branch */}
-      <div className="space-y-6">
-        {Object.entries(groupedTags).map(([branchName, branchTags]) => (
-          <div key={branchName} className="border border-neutral-800 bg-neutral-900/40">
-            <div className="flex items-center justify-between border-b border-neutral-800 bg-neutral-900/80 px-4 py-3">
-              <div className="flex items-center gap-2">
-                <span className="font-display text-sm font-bold uppercase tracking-wider text-white">
-                  {branchName}
-                </span>
-                <span className="rounded border border-neutral-700 bg-neutral-800 px-2 py-0.5 text-[10px] font-mono text-neutral-400">
-                  {branchTags.filter((t) => t.active).length} active
-                </span>
-              </div>
+      {!compact && (
+        <AdvancedSection
+          summary="Extra security (advanced)"
+          hint="Lock your cards so nobody can overwrite them. Optional, but recommended."
+        >
+          <div className="space-y-5 text-sm leading-relaxed text-neutral-300">
+            <div>
+              <h3 className="font-semibold text-white">1. Stop others rewriting your card</h3>
+              <p className="mt-1">
+                Blank cards can be rewritten by anyone with a phone. In NFC Tools go to <strong>Other → Set password</strong>,
+                choose a 4-byte password (like <code>A1B2C3D4</code>) and PACK (like <code>0000</code>), and set protection
+                to <strong>Write-only</strong>. Keep the password somewhere safe.
+              </p>
+              <p className="mt-2 text-amber-300">
+                Never use &ldquo;Lock card&rdquo;. It is permanent and you could never update the card again.
+              </p>
             </div>
-
-            <div className="divide-y divide-neutral-800">
-              {branchTags.map((tag) => {
-                const isOperating = inFlightTagId === tag.id;
-                return (
-                  <div
-                    key={tag.id}
-                    className={`p-4 transition-colors ${tag.active ? '' : 'opacity-60 bg-neutral-950/40'}`}
-                  >
-                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-xs font-bold text-amber-400">{tag.id}</span>
-                          {tag.label && (
-                            <span className="text-xs text-neutral-300 font-medium">({tag.label})</span>
-                          )}
-                          <span
-                            className={`rounded px-1.5 py-0.5 text-[10px] font-mono uppercase ${tag.active
-                                ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/60'
-                                : 'bg-neutral-800 text-neutral-400 border border-neutral-700'
-                              }`}
-                          >
-                            {tag.active ? 'Active' : 'Deactivated'}
-                          </span>
-                          {tag.last_tap_counter !== null && tag.last_tap_counter !== undefined ? (
-                            <span className="rounded px-1.5 py-0.5 text-[10px] font-mono uppercase bg-cyan-950/60 text-cyan-300 border border-cyan-800/60">
-                              Counter Latch Active (#{tag.last_tap_counter})
-                            </span>
-                          ) : (
-                            <span className="rounded px-1.5 py-0.5 text-[10px] font-mono uppercase bg-neutral-900 text-neutral-400 border border-neutral-700">
-                              Static URL
-                            </span>
-                          )}
-                        </div>
-                        <div className="mt-1.5 flex flex-wrap gap-4 text-[11px] text-neutral-500">
-                          <span>Created: {new Date(tag.created_at).toLocaleDateString()}</span>
-                          {tag.deactivated_at && (
-                            <span>Deactivated: {new Date(tag.deactivated_at).toLocaleDateString()}</span>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Printable URLs and action buttons */}
-                      <div className="flex flex-wrap items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleCopy(tag.productionTapUrl, `${tag.id}-prod`)}
-                          className="border border-neutral-700 bg-neutral-800 px-2.5 py-1 text-[11px] font-medium text-neutral-300 hover:bg-neutral-700 hover:text-white transition-colors"
-                        >
-                          {copiedKey === `${tag.id}-prod` ? 'Copied URL!' : 'Copy Tap URL'}
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => handleCopy(tag.localTapUrl, `${tag.id}-local`)}
-                          className="border border-neutral-800 bg-black px-2.5 py-1 text-[11px] font-mono text-neutral-400 hover:text-neutral-200 transition-colors"
-                        >
-                          {copiedKey === `${tag.id}-local` ? 'Copied!' : 'Copy Local'}
-                        </button>
-
-                        {canManage && tag.active && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => handleRotateTag(tag)}
-                              disabled={isOperating}
-                              className="border border-amber-600/70 bg-amber-950/30 px-2.5 py-1 text-[11px] font-semibold text-amber-400 hover:bg-amber-900/50 transition-colors disabled:opacity-50"
-                            >
-                              {isOperating ? 'Rotating...' : 'Rotate'}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeactivateTag(tag.id)}
-                              disabled={isOperating}
-                              className="border border-rose-800/70 bg-rose-950/30 px-2.5 py-1 text-[11px] font-semibold text-rose-400 hover:bg-rose-900/50 transition-colors disabled:opacity-50"
-                            >
-                              Deactivate
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+            <div>
+              <h3 className="font-semibold text-white">2. One card per staff member or station</h3>
+              <p className="mt-1">
+                Name cards like &ldquo;Barista – Mark&rdquo; or &ldquo;Cashier – Front&rdquo;. Activity can then spot
+                if one person is giving out suspicious stamps.
+              </p>
+            </div>
+            <div>
+              <h3 className="font-semibold text-white">3. Tap counter (NXP TagWriter only)</h3>
+              <p className="mt-1">
+                If your card supports NXP counter mirroring, add <code>?c=000000</code> to the link in NXP TagWriter and turn
+                on the counter mirror. Copied links then stop working. If your card can&apos;t do this, don&apos;t worry:
+                stamps are still protected by the time limits in My Card.
+              </p>
+              <button
+                type="button"
+                onClick={() => handleCopy('https://plug.coffee/t/{TAG_ID}?c=000000', 'template-copy')}
+                className="mt-2 inline-flex min-h-10 items-center rounded-full border border-neutral-600 px-4 text-sm text-white hover:border-white"
+              >
+                {copiedKey === 'template-copy' ? 'Copied ✓' : 'Copy link template'}
+              </button>
             </div>
           </div>
-        ))}
-
-        {tags.length === 0 && (
-          <div className="border border-dashed border-neutral-800 p-8 text-center text-xs text-neutral-500">
-            No NFC tags provisioned for this shop yet. Use the form above to provision your first tag.
-          </div>
-        )}
-      </div>
+        </AdvancedSection>
+      )}
     </div>
   );
 }

@@ -146,11 +146,10 @@ export function BranchLocationsClient({
     <div className="space-y-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="font-display text-xl font-bold uppercase tracking-wider text-white">
-            Branch Locations
-          </h2>
-          <p className="mt-1 text-xs text-neutral-400">
-            Manage your stores, physical locations, and card sharing settings.
+          <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">Branches</h1>
+          <p className="mt-1.5 max-w-prose text-base text-neutral-300">
+            Have more than one shop? Add each location. By default every branch uses the same loyalty card, so
+            customers can collect stamps anywhere.
           </p>
         </div>
 
@@ -160,7 +159,7 @@ export function BranchLocationsClient({
             onClick={() => setIsAdding(true)}
             className="border border-amber-500 bg-amber-500 px-4 py-2 text-xs font-bold uppercase tracking-wider text-black transition-colors hover:bg-amber-400 self-start"
           >
-            + Add New Branch
+            + Add a branch
           </button>
         )}
       </div>
@@ -182,7 +181,7 @@ export function BranchLocationsClient({
         <div className="border border-neutral-800 bg-neutral-900/60 p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-300">
-              Add New Branch Location
+              Add a branch
             </h3>
             <button
               type="button"
@@ -339,7 +338,7 @@ export function BranchLocationsClient({
                             : 'bg-neutral-800 text-neutral-300 border border-neutral-700'
                         }`}
                       >
-                        {loc.card_mode === 'separate' ? 'Separate Card' : 'Shared Card'}
+                        {loc.card_mode === 'separate' ? 'Own card' : 'Main card'}
                       </span>
                     </div>
 
@@ -348,11 +347,11 @@ export function BranchLocationsClient({
                     {/* Explainer for shared branch */}
                     {loc.card_mode === 'shared' ? (
                       <p className="text-[11px] text-neutral-500 italic">
-                        Shares the brand&apos;s card, rules and cooldown
+                        Uses your main loyalty card. Stamps count at every branch.
                       </p>
                     ) : (
                       <p className="text-[11px] text-purple-300/80">
-                        Promoted to child shop with independent card, rules, and privacy notice.
+                        Has its own loyalty card and reward. Stamps here don’t count at other branches.
                       </p>
                     )}
                   </div>
@@ -363,7 +362,7 @@ export function BranchLocationsClient({
                       onClick={() => startEdit(loc)}
                       className="border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-neutral-300 hover:bg-neutral-700 hover:text-white"
                     >
-                      Edit Details
+                      Edit
                     </button>
 
                     {loc.card_mode === 'shared' ? (
@@ -377,7 +376,7 @@ export function BranchLocationsClient({
                     ) : (
                       loc.child_tenant_id && (
                         <span className="text-xs font-mono text-purple-400">
-                          Separate Card Active
+                          Has its own card
                         </span>
                       )
                     )}
@@ -390,7 +389,7 @@ export function BranchLocationsClient({
 
         {locations.length === 0 && (
           <div className="p-8 text-center text-xs text-neutral-500">
-            No branch locations configured. Add your first branch location above.
+            Just one shop? You don’t need to add anything here. Add a branch only when you open another location.
           </div>
         )}
       </div>

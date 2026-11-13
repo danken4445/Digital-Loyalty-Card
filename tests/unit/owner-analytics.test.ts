@@ -15,6 +15,7 @@ const mockNotFound = vi.fn(() => {
 
 vi.mock('next/navigation', () => ({
   usePathname: () => '/staff/shop-a/settings/analytics',
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
   redirect: (url: string) => mockRedirect(url),
   notFound: () => mockNotFound(),
 }));
@@ -25,7 +26,7 @@ vi.mock('@/lib/console/guard', () => ({
 
 import { loadOwnerAnalytics, normalizeOwnerAnalytics } from '@/lib/analytics/owner';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
-import { ConsoleTabNav } from '@/components/console/ConsoleTabNav';
+import { StaffNav } from '@/components/staff/StaffNav';
 import { OwnerAnalyticsDashboard } from '@/components/console/OwnerAnalyticsDashboard';
 import OwnerAnalyticsPage from '@/app/staff/[slug]/settings/analytics/page';
 import { enforceConsolePageAccess } from '@/lib/console/guard';
@@ -332,7 +333,8 @@ describe('Owner Retention & Loyalty Card Analytics Loader', () => {
       });
       const html = renderToStaticMarkup(pageElement);
 
-      expect(html).toContain('Owner Analytics');
+      expect(html).toContain('Insights');
+      expect(html).toContain('In short');
       expect(html).toContain('Marco Santos');
       expect(html).toContain('35.5%');
     });
@@ -376,42 +378,31 @@ describe('Owner Retention & Loyalty Card Analytics Loader', () => {
       expect(html).toContain('Backed Up');
     });
 
-    it('console_tab_nav_shows_analytics_tab_for_owner_only', () => {
-      // 1. Owner sees Analytics tab first
-      const ownerHtml = renderToStaticMarkup(
-        React.createElement(ConsoleTabNav, {
-          slug: 'shop-a',
-          role: 'owner',
-        }),
-      );
+    it('staff_nav_shows_insights_for_owner_only', () => {
+      const session = (role: 'owner' | 'manager' | 'staff') => ({
+        userId: 'u1',
+        email: null,
+        displayName: 'Marco Santos',
+        role,
+        tenantId: 't1',
+        tenantSlug: 'shop-a',
+        tenantName: 'Shop A',
+        memberships: [],
+      });
+      const render = (role: 'owner' | 'manager' | 'staff') =>
+        renderToStaticMarkup(
+          React.createElement(StaffNav, {
+            staff: session(role) as unknown as Parameters<typeof StaffNav>[0]['staff'],
+            currentPath: '/staff',
+          }),
+        );
+
+      const ownerHtml = render('owner');
       expect(ownerHtml).toContain('/staff/shop-a/settings/analytics');
-      expect(ownerHtml).toContain('Analytics');
+      expect(ownerHtml).toContain('Insights');
 
-      // 2. Manager does not see Analytics tab
-      const managerHtml = renderToStaticMarkup(
-        React.createElement(ConsoleTabNav, {
-          slug: 'shop-a',
-          role: 'manager',
-        }),
-      );
-      expect(managerHtml).not.toContain('/staff/shop-a/settings/analytics');
-
-      // 3. Staff does not see Analytics tab
-      const staffHtml = renderToStaticMarkup(
-        React.createElement(ConsoleTabNav, {
-          slug: 'shop-a',
-          role: 'staff',
-        }),
-      );
-      expect(staffHtml).not.toContain('/staff/shop-a/settings/analytics');
-
-      // 4. Default without role does not see Analytics tab
-      const defaultHtml = renderToStaticMarkup(
-        React.createElement(ConsoleTabNav, {
-          slug: 'shop-a',
-        }),
-      );
-      expect(defaultHtml).not.toContain('/staff/shop-a/settings/analytics');
+      expect(render('manager')).not.toContain('/staff/shop-a/settings/analytics');
+      expect(render('staff')).not.toContain('/staff/shop-a/settings/analytics');
     });
   });
 });

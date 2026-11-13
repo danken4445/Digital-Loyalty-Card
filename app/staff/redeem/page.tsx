@@ -14,7 +14,7 @@ export default async function StaffRedeemPage() {
       currentPath={ROUTES.staff.redeem}
       title="Redeem Reward"
       headerLabel="Redeem Module Header"
-      description="Scan the customer's QR code and check the 8-character code matches their phone. A reward QR uses the stamps your shop requires; an Instagram upsize QR is a one-time perk that uses none — check they follow us first."
+      description="Scan the QR code on the customer's phone, check the short code matches, and hand over their reward."
     >
       <section aria-label="Customer Redemption Action">
         <RedeemRewardForm

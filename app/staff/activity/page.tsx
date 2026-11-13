@@ -21,25 +21,23 @@ export default async function StaffActivityPage() {
     <StaffPageShell
       staff={staff}
       currentPath={ROUTES.staff.activity}
-      title="Activity & Audit Log"
+      title="Activity"
       headerLabel="Activity & Audit Header"
-      description="Recent stamps and rewards, anything that looks unusual, and the full record of staff actions. Times are shown in your shop's timezone."
+      description="Who got stamps and rewards today, plus anything that looks unusual. Times are in your shop's timezone."
     >
       <div className="space-y-12">
         {/* Section 1: Anomaly Flags */}
         <section aria-label="Anomaly Flags" className="space-y-4">
           <div className="flex items-center justify-between border-b border-plug-border pb-2">
-            <h2 className="font-display text-2xl font-bold uppercase tracking-wide text-white">
-              Anomaly Flags
-            </h2>
-            <span className="font-mono text-xs text-plug-muted">
-              {activity.anomalies.length} Flag{activity.anomalies.length === 1 ? '' : 's'} Detected
+            <h2 className="text-xl font-semibold text-white">Anything unusual</h2>
+            <span className="text-sm text-plug-muted">
+              {activity.anomalies.length === 0 ? 'All clear' : `${activity.anomalies.length} to look at`}
             </span>
           </div>
 
           {activity.anomalies.length === 0 ? (
             <div className="rounded-2xl border border-plug-border bg-plug-surface p-6 text-sm text-plug-muted">
-              No anomalies detected in recent activity.
+              ✓ Nothing unusual. We watch for things like too many stamps in a short time and will flag them here.
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -78,25 +76,23 @@ export default async function StaffActivityPage() {
         {/* Section 2: Recent Stamps */}
         <section aria-label="Recent Stamps" className="space-y-4">
           <div className="flex items-center justify-between border-b border-plug-border pb-2">
-            <h2 className="font-display text-2xl font-bold uppercase tracking-wide text-white">
-              Recent Stamps ({activity.stamps.length})
-            </h2>
-            <span className="font-mono text-xs text-plug-muted">Last 50 Entries</span>
+            <h2 className="text-xl font-semibold text-white">Latest stamps</h2>
+            <span className="text-sm text-plug-muted">Last 50</span>
           </div>
 
           {activity.stamps.length === 0 ? (
             <div className="rounded-2xl border border-plug-border bg-plug-surface p-6 text-sm text-plug-muted">
-              No stamps recorded yet.
+              No stamps yet. They appear here as soon as a customer taps your card.
             </div>
           ) : (
             <div className="overflow-x-auto rounded-2xl border border-plug-border bg-plug-surface">
               <table className="w-full text-left text-xs">
                 <thead className="border-b border-plug-border bg-plug-black text-xs font-medium text-plug-muted">
                   <tr>
-                    <th className="px-4 py-3">Customer ID</th>
-                    <th className="px-4 py-3">Source</th>
-                    <th className="px-4 py-3">Tag / Audit Detail</th>
-                    <th className="px-4 py-3">Timestamp</th>
+                    <th className="px-4 py-3">Customer</th>
+                    <th className="px-4 py-3">How</th>
+                    <th className="px-4 py-3">Details</th>
+                    <th className="px-4 py-3">When</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-plug-border">
@@ -160,25 +156,23 @@ export default async function StaffActivityPage() {
         {/* Section 3: Recent Redemptions */}
         <section aria-label="Recent Redemptions" className="space-y-4">
           <div className="flex items-center justify-between border-b border-plug-border pb-2">
-            <h2 className="font-display text-2xl font-bold uppercase tracking-wide text-white">
-              Recent Redemptions ({activity.redemptions.length})
-            </h2>
-            <span className="font-mono text-xs text-plug-muted">Last 50 Entries</span>
+            <h2 className="text-xl font-semibold text-white">Latest rewards given</h2>
+            <span className="text-sm text-plug-muted">Last 50</span>
           </div>
 
           {activity.redemptions.length === 0 ? (
             <div className="rounded-2xl border border-plug-border bg-plug-surface p-6 text-sm text-plug-muted">
-              No redemptions recorded yet.
+              No rewards given yet. When staff redeem a reward it shows up here.
             </div>
           ) : (
             <div className="overflow-x-auto rounded-2xl border border-plug-border bg-plug-surface">
               <table className="w-full text-left text-xs">
                 <thead className="border-b border-plug-border bg-plug-black text-xs font-medium text-plug-muted">
                   <tr>
-                    <th className="px-4 py-3">Stamps Deducted</th>
-                    <th className="px-4 py-3">Customer ID</th>
-                    <th className="px-4 py-3">Staff Barista ID</th>
-                    <th className="px-4 py-3">Timestamp</th>
+                    <th className="px-4 py-3">Stamps used</th>
+                    <th className="px-4 py-3">Customer</th>
+                    <th className="px-4 py-3">Given by</th>
+                    <th className="px-4 py-3">When</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-plug-border">
@@ -212,17 +206,20 @@ export default async function StaffActivityPage() {
         </section>
 
         {/* Section 4: Audit Log Viewer */}
-        <section aria-label="Audit Log Viewer" className="space-y-4">
-          <div className="flex items-center justify-between border-b border-plug-border pb-2">
-            <h2 className="font-display text-2xl font-bold uppercase tracking-wide text-white">
-              Audit Log Viewer ({activity.auditLogs.length})
-            </h2>
-            <span className="font-mono text-xs text-plug-muted">Immutable Security Trail</span>
-          </div>
+        <section aria-label="Audit Log Viewer">
+          <details className="group space-y-4">
+            <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between border-b border-plug-border pb-2 [&::-webkit-details-marker]:hidden">
+              <span>
+                <span className="block text-xl font-semibold text-white">Full staff record</span>
+                <span className="block text-sm text-plug-muted">Every change, for your records. Most owners rarely need this.</span>
+              </span>
+              <span className="text-sm text-plug-muted group-open:hidden">Show</span>
+              <span className="hidden text-sm text-plug-muted group-open:inline">Hide</span>
+            </summary>
 
           {activity.auditLogs.length === 0 ? (
             <div className="rounded-2xl border border-plug-border bg-plug-surface p-6 text-sm text-plug-muted">
-              No audit events recorded yet.
+              Nothing recorded yet.
             </div>
           ) : (
             <div className="overflow-x-auto rounded-2xl border border-plug-border bg-plug-surface">
@@ -233,7 +230,7 @@ export default async function StaffActivityPage() {
                     <th className="px-4 py-3">Actor</th>
                     <th className="px-4 py-3">Target</th>
                     <th className="px-4 py-3">Detail (JSON)</th>
-                    <th className="px-4 py-3">Timestamp</th>
+                    <th className="px-4 py-3">When</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-plug-border">
@@ -266,6 +263,7 @@ export default async function StaffActivityPage() {
               </table>
             </div>
           )}
+          </details>
         </section>
       </div>
     </StaffPageShell>
