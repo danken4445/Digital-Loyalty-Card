@@ -43,3 +43,5 @@ supabase/.temp
 .open-next/
 .wrangler/
 .dev.vars
+
+marketing
